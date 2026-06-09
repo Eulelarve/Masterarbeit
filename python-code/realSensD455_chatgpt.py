@@ -9,7 +9,7 @@ pipeline = rs.pipeline()
 config = rs.config()
 
 # RGB Stream
-config.enable_stream(rs.stream.color, 640, 480, rs.format.bgr8, 30)
+config.enable_stream(rs.stream.color, 1920, 1080, rs.format.bgr8, 30)
 
 # Tiefen-Stream
 config.enable_stream(rs.stream.depth, 640, 480, rs.format.z16, 30)
@@ -29,7 +29,7 @@ try:
         color_frame = frames.get_color_frame()
 
         if not depth_frame or not color_frame:
-            continue
+            continue 
 
         # In numpy konvertieren
         color_image = np.asanyarray(color_frame.get_data())
