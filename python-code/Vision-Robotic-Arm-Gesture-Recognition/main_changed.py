@@ -4,7 +4,7 @@ import cv2
 import time
 import math
 
-from Detector_Modules.HandDetectorModule import HandDetector as hdm
+from Detector_Modules.HandDetectorModule_changed import HandDetector as hdm
 from Detector_Modules.PoseDetectorModule import poseDetector as pdm
 
 
@@ -26,21 +26,6 @@ def main(fps_cap=30, show_fps=True, source=0):
     """
     window_name = "Hand and Pose Detection"
 
-    hand_detector = hdm()
-    pose_detector = pdm()
-
-    time.sleep(0.5)
-
-    cv2.setUseOptimized(True)
-
-    video_capture = cv2.VideoCapture(source)
-
-    if not video_capture.isOpened():
-        print(f"Cannot open source: {source}")
-        return
-
-    is_video_file = isinstance(source, str)
-
     first_loop = True
     paused = False
     frame = None
@@ -51,6 +36,37 @@ def main(fps_cap=30, show_fps=True, source=0):
     fps_limit = fps_cap
     frame_interval = 1.0 / fps_limit
 
+    hand_detector = hdm()
+    pose_detector = pdm()
+
+    time.sleep(0.5)
+
+    cv2.setUseOptimized(True)
+
+    video_capture = cv2.VideoCapture(source)
+    success, frame = video_capture.read()
+
+    if not video_capture.isOpened():
+        print(f"Cannot open source: {source}")
+        return
+
+    is_video_file = isinstance(source, str)
+
+    # -------------------------------------------------------
+    # Define region of interest for video files
+    # -------------------------------------------------------
+    if is_video_file:
+        print(f"Processing video file: {source}")
+        y_start_pixel, y_end_pixel = int(0.1 * frame.shape[0]), int(0.75 * frame.shape[0])
+        x_start_pixel, x_end_pixel = int(0.3 * frame.shape[1]), int(0.7 * frame.shape[1])
+    else:
+        print(f"Processing webcam source: {source}")
+        video_capture.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+        video_capture.set(cv2.CAP_PROP_FRAME_HEIGHT, 360)
+
+    # -------------------------------------------------------
+    # Main processing loop
+    # -------------------------------------------------------
 
     while True:
 
@@ -70,14 +86,33 @@ def main(fps_cap=30, show_fps=True, source=0):
         # Video frame navigation
         # --------------------------------------------------
 
-        elif paused and is_video_file:
+        elif is_video_file:
 
             current_frame = int(
                 video_capture.get(cv2.CAP_PROP_POS_FRAMES)
             )
 
-            # A/← = step back 1 frame
-            if key in (ord('a'), 81):  # 81 is the left arrow key code
+            # A = step back 200 frame
+            if key == ord('a'):
+
+                video_capture.set(
+                    cv2.CAP_PROP_POS_FRAMES,
+                    max(0, current_frame - 200)
+                )
+
+                success, frame = video_capture.read()
+
+            # D = step forward 200 frame
+            elif key == ord('d'):
+                video_capture.set(
+                    cv2.CAP_PROP_POS_FRAMES,
+                    current_frame + 200
+                )
+
+                success, frame = video_capture.read()
+
+            # S = step back 1 frames
+            elif key == ord('s'):
 
                 video_capture.set(
                     cv2.CAP_PROP_POS_FRAMES,
@@ -86,32 +121,12 @@ def main(fps_cap=30, show_fps=True, source=0):
 
                 success, frame = video_capture.read()
 
-            # D/→ = step forward 1 frame
-            elif key in (ord('d'), 83):  # 83 is the right arrow key code
+            # W = step forward 1 frames
+            elif key == ord('w'):
 
                 video_capture.set(
                     cv2.CAP_PROP_POS_FRAMES,
                     current_frame + 1
-                )
-
-                success, frame = video_capture.read()
-
-            # S/↓ = step back 10 frames
-            elif key in (ord('s'), 82):  # 82 is the down arrow key code
-
-                video_capture.set(
-                    cv2.CAP_PROP_POS_FRAMES,
-                    max(0, current_frame - 10)
-                )
-
-                success, frame = video_capture.read()
-
-            # W/↑ = step forward 10 frames
-            elif key in (ord('w'), 80):  # 80 is the up arrow key code
-
-                video_capture.set(
-                    cv2.CAP_PROP_POS_FRAMES,
-                    current_frame + 10
                 )
 
                 success, frame = video_capture.read()
@@ -134,6 +149,13 @@ def main(fps_cap=30, show_fps=True, source=0):
             if not success:
                 print("End of video stream reached.")
                 break
+
+            if not is_video_file:
+                frame = cv2.flip(frame, 1) # mirror the frame for better user interaction, in livestream
+            else:
+                frame = frame[
+                    y_start_pixel: y_end_pixel,
+                    x_start_pixel: x_end_pixel]
 
         if frame is None:
             continue
@@ -160,9 +182,11 @@ def main(fps_cap=30, show_fps=True, source=0):
                 draw=True
             )
 
+            _, index = hand_detector.choose_hand("top")
+
             hand_landmarks, frame = hand_detector.findHandPosition(
                     frame=frame, 
-                    hand_num=0, 
+                    hand_num=index, 
                     draw=False
                 )
             
@@ -215,14 +239,15 @@ def main(fps_cap=30, show_fps=True, source=0):
         # --------------------------------------------------
 
         if show_fps:
-
+            x = frame.shape[1] - 170
+            y = 40
             cv2.putText(
                 frame,
                 f"FPS: {round(fps, 1)}",
-                (10, 40),
+                (x, y),
                 cv2.FONT_HERSHEY_PLAIN,
                 2,
-                (255, 255, 255),
+                (0, 255, 0),
                 2
             )
 
@@ -268,15 +293,15 @@ def main(fps_cap=30, show_fps=True, source=0):
                 (255, 255, 255),
                 2
             )
-
+            x, y = 10, frame.shape[0] - 20
             cv2.putText(
                 frame,
-                "SPACE=Pause | A/D=±1 frame | W/S=±10 frames",
-                (10, 160),
+                "SPACE=Pause | W/S=+/-1 frame | A/D=+/-200 frames",
+                (x, y),
                 cv2.FONT_HERSHEY_PLAIN,
                 1.5,
-                (255, 255, 255),
-                1
+                (0, 255, 0),
+                2
             )
 
         # --------------------------------------------------
@@ -311,5 +336,5 @@ if __name__ == "__main__":
     main(
         fps_cap=30,
         show_fps=True,
-        source=v1
+        source=v2
     )
