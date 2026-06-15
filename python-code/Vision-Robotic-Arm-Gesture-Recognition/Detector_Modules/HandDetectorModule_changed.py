@@ -5,6 +5,7 @@ import cv2
 
 import time
 
+from own_funktions import fit_frameregion_landmoars_to_frame
 
 class HandDetector():
     def __init__(self, mode=False, maxHands=1, modCompl=1, detCon=0.5, trackCon=0.5):
@@ -129,7 +130,7 @@ class HandDetector():
     
     ### added methods
 
-    def findHands(self,frame, roi=None, draw=True, draw_roi=True, return_handedness=False):
+    def findHands(self,frame, roi=None, draw_landmarks=True, draw_roi=True, return_handedness=False):
         """ Detects the hands in the input image.
 
         Args:
@@ -164,16 +165,28 @@ class HandDetector():
         imgRGB = cv2.cvtColor(search_region, cv2.COLOR_BGR2RGB)
         self.results = self.hands.process(imgRGB)
 
-        # draw the hand keypoints and connections if hands are detected
-        offset = (x, y) if roi else (0, 0)
+        # if hands are detected
         if self.results.multi_hand_landmarks:
+
+            # for each hand
             for handLMs in self.results.multi_hand_landmarks:
-                if draw:
+                
+                # applies the offset to fit reagion landmarks in the original frame
+                if roi:
+                    width_hight = frame.shape[1], frame.shape[0]
+
+                    fit_frameregion_landmoars_to_frame(
+                        landmarks=handLMs.landmark, 
+                        pixel_frame_size=width_hight, 
+                        pixel_region_x_y_w_h=roi
+                        )
+                # draw the hand keypoints and connections
+                if draw_landmarks:
                     self.mpDraw.draw_landmarks(frame, handLMs,
-                                               self.mpHands.HAND_CONNECTIONS,
-                                               self.mpDraw.DrawingSpec(color=(0, 0, 255), thickness=2, circle_radius=4),
-                                               self.mpDraw.DrawingSpec(color=(0, 255, 0), thickness=2, circle_radius=2))
-        
+                                            self.mpHands.HAND_CONNECTIONS,)
+                                            # self.mpDraw.DrawingSpec(color=(0, 0, 255), thickness=2, circle_radius=4),
+                                            # self.mpDraw.DrawingSpec(color=(0, 255, 0), thickness=2, circle_radius=2))
+    
         if return_handedness:
             return frame, self.results.multi_handedness
         else:

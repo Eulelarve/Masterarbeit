@@ -6,7 +6,7 @@ import math
 
 from Detector_Modules.HandDetectorModule_changed import HandDetector as hdm
 from Detector_Modules.PoseDetectorModule import poseDetector as pdm
-from own_funktions import choose_wrist
+from own_funktions import get_hand_center
 
 
 def main(fps_cap=30, show_fps=True, source=0):
@@ -227,19 +227,20 @@ def main(fps_cap=30, show_fps=True, source=0):
 
             if len(pose_landmarks) > 0:
 
-                width = 200
-                height = 200
+                width = 100
+                height = 100
 
                 min_width = width // 2
                 min_height = height // 2
 
-                choosen_wrist = choose_wrist(
+                hand_center = get_hand_center(
                     pose_landmarks=pose_landmarks,
                     left_right_top="top",
                     mirrored=not is_video_file
                 )
-                start_x = pose_landmarks[choosen_wrist][1] - width // 2
-                start_y = pose_landmarks[choosen_wrist][2] - height // 2
+
+                start_x = hand_center[0] - width // 2
+                start_y = hand_center[1] - height // 2
                 end_x = start_x + width
                 end_y = start_y + height
                 # ensure the ROI is within the frame boundaries
@@ -262,7 +263,6 @@ def main(fps_cap=30, show_fps=True, source=0):
             frame = hand_detector.findHands(
                 frame=frame,
                 roi=roi_hand,
-                draw=True
             )
 
             # _, index = hand_detector.choose_hand("top")
@@ -383,5 +383,5 @@ if __name__ == "__main__":
     main(
         fps_cap=30,
         show_fps=True,
-        source=v2
+        source=v1
     )
