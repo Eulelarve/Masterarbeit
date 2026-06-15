@@ -6,6 +6,7 @@ import math
 
 from Detector_Modules.HandDetectorModule_changed import HandDetector as hdm
 from Detector_Modules.PoseDetectorModule import poseDetector as pdm
+from own_funktions import choose_wrist
 
 
 def main(fps_cap=30, show_fps=True, source=0):
@@ -55,14 +56,14 @@ def main(fps_cap=30, show_fps=True, source=0):
     # -------------------------------------------------------
     # Define region of interest for video files
     # -------------------------------------------------------
-    if is_video_file:
-        print(f"Processing video file: {source}")
-        y_start_pixel, y_end_pixel = int(0.1 * frame.shape[0]), int(0.75 * frame.shape[0])
-        x_start_pixel, x_end_pixel = int(0.3 * frame.shape[1]), int(0.7 * frame.shape[1])
-    else:
-        print(f"Processing webcam source: {source}")
-        video_capture.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
-        video_capture.set(cv2.CAP_PROP_FRAME_HEIGHT, 360)
+    # if is_video_file:
+    #     print(f"Processing video file: {source}")
+    #     y_start_pixel, y_end_pixel = int(0.1 * frame.shape[0]), int(0.75 * frame.shape[0])
+    #     x_start_pixel, x_end_pixel = int(0.3 * frame.shape[1]), int(0.7 * frame.shape[1])
+    # else:
+    #     print(f"Processing webcam source: {source}")
+    #     video_capture.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+    #     video_capture.set(cv2.CAP_PROP_FRAME_HEIGHT, 360)
 
     # -------------------------------------------------------
     # Main processing loop
@@ -150,12 +151,12 @@ def main(fps_cap=30, show_fps=True, source=0):
                 print("End of video stream reached.")
                 break
 
-            if not is_video_file:
-                frame = cv2.flip(frame, 1) # mirror the frame for better user interaction, in livestream
-            else:
-                frame = frame[
-                    y_start_pixel: y_end_pixel,
-                    x_start_pixel: x_end_pixel]
+            # if not is_video_file:
+            #     frame = cv2.flip(frame, 1) # mirror the frame for better user interaction, in livestream
+            # else:
+            #     frame = frame[
+            #         y_start_pixel: y_end_pixel,
+            #         x_start_pixel: x_end_pixel]
 
         if frame is None:
             continue
@@ -174,52 +175,36 @@ def main(fps_cap=30, show_fps=True, source=0):
             previous_time = current_time
 
         # --------------------------------------------------
-        # Hand detection
-        # --------------------------------------------------
-        if not paused:
-            frame = hand_detector.findHands(
-                frame=frame,
-                draw=True
-            )
-
-            _, index = hand_detector.choose_hand("top")
-
-            hand_landmarks, frame = hand_detector.findHandPosition(
-                    frame=frame, 
-                    hand_num=index, 
-                    draw=False
-                )
-            
-            if len(hand_landmarks) > 0:
-                frame, aperture = hand_detector.findHandAperture(
-                        frame=frame, 
-                        verbose=True, 
-                        show_aperture=True
-                    )
-    
-
-        # --------------------------------------------------
         # Pose detection
         # --------------------------------------------------
         if not paused:
+
+            # choose between 2D and 3D pose estimation
+            _3D = True 
+
             frame = pose_detector.findPose(
                 frame=frame,
                 draw=False
             )
-
+   
             pose_landmarks = pose_detector.findPosePosition(
                     frame=frame,
                     draw=False
                 )
-
+                    
             if len(pose_landmarks) > 0:
+
+                if _3D:
+                    pose_detector.find3DPosePosition(
+                        draw=False
+                    )
 
                 elbow_angle = pose_detector.findAngle(
                     frame,
                     12,
                     14,
                     16,
-                    angle3d=False,
+                    angle3d=_3D,
                     draw=True
                 )
 
@@ -230,9 +215,71 @@ def main(fps_cap=30, show_fps=True, source=0):
                     24,
                     12,
                     14,
-                    angle3d=False,
+                    angle3d=_3D,
                     draw=True
                 )
+        # --------------------------------------------------
+        # chose ROI for hand detection
+        # --------------------------------------------------
+        if not paused:
+            
+            roi_hand = None
+
+            if len(pose_landmarks) > 0:
+
+                width = 200
+                height = 200
+
+                min_width = width // 2
+                min_height = height // 2
+
+                choosen_wrist = choose_wrist(
+                    pose_landmarks=pose_landmarks,
+                    left_right_top="top",
+                    mirrored=not is_video_file
+                )
+                start_x = pose_landmarks[choosen_wrist][1] - width // 2
+                start_y = pose_landmarks[choosen_wrist][2] - height // 2
+                end_x = start_x + width
+                end_y = start_y + height
+                # ensure the ROI is within the frame boundaries
+                start_x = max(0, start_x)
+                start_y = max(0, start_y)
+                end_x = min(frame.shape[1], end_x)
+                end_y = min(frame.shape[0], end_y)
+                # update width and height based on the adjusted ROI
+                width = end_x - start_x
+                height = end_y - start_y
+                # only use the ROI if it is large enough
+                if width >= min_width and height >= min_height:
+                    roi_hand = (start_x, start_y, width, height)
+
+        # --------------------------------------------------
+        # Hand detection
+        # --------------------------------------------------
+        if not paused:
+
+            frame = hand_detector.findHands(
+                frame=frame,
+                roi=roi_hand,
+                draw=True
+            )
+
+            # _, index = hand_detector.choose_hand("top")
+
+            hand_landmarks, frame = hand_detector.findHandPosition(
+                    frame=frame, 
+                    # hand_num=index, 
+                    draw=False
+                )
+            
+            if len(hand_landmarks) > 0:
+                frame, aperture = hand_detector.findHandAperture(
+                        frame=frame, 
+                        verbose=True, 
+                        show_aperture=True
+                    )
+    
 
         # --------------------------------------------------
         # Status overlay
