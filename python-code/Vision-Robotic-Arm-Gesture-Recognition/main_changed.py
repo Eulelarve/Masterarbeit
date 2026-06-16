@@ -6,7 +6,7 @@ import math
 
 from Detector_Modules.HandDetectorModule_changed import HandDetector as hdm
 from Detector_Modules.PoseDetectorModule_changed import poseDetector as pdm
-from own_funktions import get_hand_center
+from own_funktions import get_hand_center, ValueBuffer
 
 
 def main(fps_cap=30, show_fps=True, source=0, pause_frame:int=None):
@@ -30,6 +30,7 @@ def main(fps_cap=30, show_fps=True, source=0, pause_frame:int=None):
     first_loop = True
     paused = False
     frame = None
+    hand_status_buffer = ValueBuffer(buffer_size=20)
 
     previous_time = time.perf_counter()
     last_frame_time = time.perf_counter()
@@ -267,6 +268,9 @@ def main(fps_cap=30, show_fps=True, source=0, pause_frame:int=None):
         # Hand detection
         # --------------------------------------------------
         if not paused:
+            
+            aperture_threshold = 50
+            aperture = None
 
             frame = hand_detector.findHands(
                 frame=frame,
@@ -288,7 +292,32 @@ def main(fps_cap=30, show_fps=True, source=0, pause_frame:int=None):
                         verbose=True, 
                         show_aperture=True
                     )
-    
+
+            # determine hand status based on aperture
+            if aperture is None:
+                text = "Hand startus"
+                color = (0, 255, 255)
+            else:
+                if aperture < aperture_threshold:
+                    text = "Hand Closed"
+                    color = (0, 0, 255)
+                else:
+                    text = "Hand Open"
+                    color = (0, 255, 0)
+            
+            hand_status_buffer.add({'text':text,'color': color})
+            major = hand_status_buffer.last_majority
+            
+            # show hand status
+            cv2.putText(
+                frame,
+                major['text'],
+                (10, 200),
+                cv2.FONT_HERSHEY_PLAIN,
+                2,
+                major['color'],
+                2
+            )
 
         # --------------------------------------------------
         # Status overlay

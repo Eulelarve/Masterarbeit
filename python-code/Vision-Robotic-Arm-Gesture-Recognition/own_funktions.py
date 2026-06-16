@@ -144,3 +144,58 @@ def get_hand_center(pose_landmarks, left_right_top='top', mirrored=False):
         print(f"Invalid hand selection mode: {left_right_top}. Please choose 'top', 'left' or 'right'.")
     
     return hand_center
+
+
+from collections import deque
+
+class ValueBuffer:
+    """_summary_ 
+        A class to store a buffer of elements and calculate the average, most frequently, majority and atleast x of the values in the buffer.
+    """
+
+    def __init__(self, buffer_size):
+        self.values = deque(maxlen=buffer_size)
+        self.last_majority = None
+
+    def add(self, value, update_majority=True):
+        self.values.append(value)
+        if update_majority:
+            self.majority
+
+    @property
+    def average(self):
+        if not self.values:
+            return None
+
+        return sum(self.values) / len(self.values)
+    
+    @property
+    def most_frequently(self):
+        if not self.values:
+            return None
+        
+        return max(set(self.values), key=self.values.count)
+
+    def atleast(self, min_nr_of_same_elements):
+        if not self.values:
+            return None
+
+        for value in set(self.values):
+            if self.values.count(value) >= min_nr_of_same_elements:
+                return value
+        
+        # if no element nomber exceeds the min_nr_of_same_elements,
+        return None
+        
+    @property
+    def majority(self):
+        if not self.values:
+            return None
+
+        for value in self.values:
+            if self.values.count(value) > len(self.values) / 2:
+                self.last_majority = value
+                return value
+            
+        # if no element nomber exceeds the half of the buffer size, return the last majority element, if there is one
+        return None
