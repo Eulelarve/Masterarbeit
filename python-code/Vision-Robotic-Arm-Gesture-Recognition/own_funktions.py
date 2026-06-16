@@ -90,23 +90,26 @@ def get_upper_hand_center(pose_landmarks):
         hand_center: the hand center as a tuple (x, y)
     """
     y_left_hand_center = (
-        pose_landmarks[15][2] +
+        # pose_landmarks[15][2] +
         pose_landmarks[17][2] +
-        pose_landmarks[19][2] +
-        pose_landmarks[21][2]
-        )/4
+        pose_landmarks[19][2] 
+        # + pose_landmarks[21][2]
+        )
+
     y_right_hand_center = (
-        pose_landmarks[16][2] +
+        # pose_landmarks[16][2] +
         pose_landmarks[18][2] +
-        pose_landmarks[20][2] +
-        pose_landmarks[22][2]
-        )/4
+        pose_landmarks[20][2] 
+        # + pose_landmarks[22][2]
+    )
     
     # smaller y value means higher position in the image
     if y_left_hand_center < y_right_hand_center: 
-        hand_points = [15, 17, 19, 21] # left hand landmarks from mediapipe pose
+        # hand_points = [15, 17, 19, 21] # left hand landmarks from mediapipe pose
+        hand_points = [ 17, 19] # landmarks ID of pinky start and index finger start
     else:
-        hand_points = [16, 18, 20, 22] # right hand landmarks from mediapipe pose
+        # hand_points = [16, 18, 20, 22] # right hand landmarks from mediapipe pose
+        hand_points = [18, 20] # landmarks ID of pinky start and index finger start
 
     return get_center_of_landmarks(pose_landmarks, hand_points)
 

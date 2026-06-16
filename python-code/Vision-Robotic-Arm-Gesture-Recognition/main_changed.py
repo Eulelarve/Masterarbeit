@@ -5,11 +5,11 @@ import time
 import math
 
 from Detector_Modules.HandDetectorModule_changed import HandDetector as hdm
-from Detector_Modules.PoseDetectorModule import poseDetector as pdm
+from Detector_Modules.PoseDetectorModule_changed import poseDetector as pdm
 from own_funktions import get_hand_center
 
 
-def main(fps_cap=30, show_fps=True, source=0):
+def main(fps_cap=30, show_fps=True, source=0, pause_frame:int=None):
     """
     Video processing entry point.
 
@@ -54,7 +54,7 @@ def main(fps_cap=30, show_fps=True, source=0):
     is_video_file = isinstance(source, str)
 
     # -------------------------------------------------------
-    # Define region of interest for video files
+    # ROI - Define region of interest for video files
     # -------------------------------------------------------
     # if is_video_file:
     #     print(f"Processing video file: {source}")
@@ -133,7 +133,7 @@ def main(fps_cap=30, show_fps=True, source=0):
                 success, frame = video_capture.read()
 
         # --------------------------------------------------
-        # Live processing
+        # Live / Video Live processing
         # --------------------------------------------------
 
         if not paused:
@@ -151,12 +151,13 @@ def main(fps_cap=30, show_fps=True, source=0):
                 print("End of video stream reached.")
                 break
 
-            # if not is_video_file:
-            #     frame = cv2.flip(frame, 1) # mirror the frame for better user interaction, in livestream
-            # else:
-            #     frame = frame[
-            #         y_start_pixel: y_end_pixel,
-            #         x_start_pixel: x_end_pixel]
+            if not is_video_file:
+                frame = cv2.flip(frame, 1) # mirror the frame for better user interaction, in livestream
+            else:                          # define region of intrest (ROI)
+                # frame = frame[
+                #     y_start_pixel: y_end_pixel,
+                #     x_start_pixel: x_end_pixel]
+                pass
 
         if frame is None:
             continue
@@ -218,6 +219,13 @@ def main(fps_cap=30, show_fps=True, source=0):
                     angle3d=_3D,
                     draw=True
                 )
+                
+                # # draw hand points from mediapipe pose landmarks
+                # hands = [15, 21,19,17, 16, 22, 20, 18]
+                # pose_detector.draw_landmarks(
+                #     frame=frame,
+                #     landmark_ids=hands,
+                # )
         # --------------------------------------------------
         # chose ROI for hand detection
         # --------------------------------------------------
@@ -263,6 +271,7 @@ def main(fps_cap=30, show_fps=True, source=0):
             frame = hand_detector.findHands(
                 frame=frame,
                 roi=roi_hand,
+                draw_landmarks=True
             )
 
             # _, index = hand_detector.choose_hand("top")
@@ -352,6 +361,15 @@ def main(fps_cap=30, show_fps=True, source=0):
             )
 
         # --------------------------------------------------
+        # pause at frame
+        # --------------------------------------------------
+        if pause_frame is not None and is_video_file:
+            if current_frame_index == pause_frame:
+                if not paused:
+                    print(f"Reached pause frame: {pause_frame}")
+                    paused = True
+
+        # --------------------------------------------------
         # Display output
         # --------------------------------------------------
         # stop if the window is closed
@@ -383,5 +401,6 @@ if __name__ == "__main__":
     main(
         fps_cap=30,
         show_fps=True,
-        source=v1
+        source=v2,
+        pause_frame=None
     )
