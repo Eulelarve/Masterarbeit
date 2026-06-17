@@ -161,9 +161,20 @@ class ValueBuffer:
         self.values.append(value)
         if update_majority:
             self.majority
+    
+    def add_and_get_average(self, value):
+        self.add(value, update_majority=False)
+        return self.average
+    
+    def add_and_get_mojority(self, value):
+        self.add(value)
+        return self.majority
 
     @property
     def average(self):
+        """ calculate the average of the values in the buffer
+            only for boffered numerical values, otherwise it will crash
+        """
         if not self.values:
             return None
 
@@ -175,17 +186,6 @@ class ValueBuffer:
             return None
         
         return max(set(self.values), key=self.values.count)
-
-    def atleast(self, min_nr_of_same_elements):
-        if not self.values:
-            return None
-
-        for value in set(self.values):
-            if self.values.count(value) >= min_nr_of_same_elements:
-                return value
-        
-        # if no element nomber exceeds the min_nr_of_same_elements,
-        return None
         
     @property
     def majority(self):
@@ -199,3 +199,65 @@ class ValueBuffer:
             
         # if no element nomber exceeds the half of the buffer size, return the last majority element, if there is one
         return None
+    
+    def atleast(self, min_nr_of_same_elements):
+        if not self.values:
+            return None
+
+        for value in set(self.values):
+            if self.values.count(value) >= min_nr_of_same_elements:
+                return value
+        
+        # if no element nomber exceeds the min_nr_of_same_elements,
+        return None
+
+
+class ProcessHandStatus():
+    """_summary_
+        A class to process the hand status based on the aperture values and a buffer of the hand status. 
+        It can be used to smooth the hand status and to detect if the hand is lost.
+    """
+
+    def __init__(self, smoothing_len=5, buffer_size=10, lost_hand_counter=40, 
+                 open_threshold = 70, 
+                 close_threshold = 60 ):
+        self.smoothed_aperture = ValueBuffer(smoothing_len)
+        self.hand_status_buffer = ValueBuffer(buffer_size)
+        self.lost_hand_by = lost_hand_counter
+        self.open_threshold = open_threshold
+        self.close_threshold = close_threshold
+
+        self.open_status = {'text':"open", 'color':(0,0,255)}
+        self.close_status = {'text':"closed", 'color':(255,0,0)}
+        self.no_hand_status = {'text':"no hand", 'color':(255,255,0)}
+        
+        self.lost_hand_counter = 0
+        self.status_now = self.no_hand_status
+
+    def add(self, aperture):
+        if aperture is not None:
+            self.lost_hand_counter = 0
+            self.smoothed_aperture.add(aperture)
+            self._status_decision()
+        else:
+            self.lost_hand_counter += 1
+
+    def _status_decision(self):
+        if self.smoothed_aperture.average >= self.open_threshold:
+                self.status_now = self.open_status
+        elif self.smoothed_aperture.average <= self.close_threshold:
+            self.status_now = self.close_status
+
+        # buffer to get majority   
+        if self.status_now is not None: 
+            self.hand_status_buffer.add(self.status_now)
+
+    def get_major(self):
+        if self.lost_hand_counter >= self.lost_hand_by:
+            return self.no_hand_status
+        else:
+            major = self.hand_status_buffer.majority
+            if major is None:
+                return self.status_now
+            else:
+                return major
