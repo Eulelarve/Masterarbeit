@@ -27,9 +27,10 @@ def main(fps_cap=30, show_fps=True, source=0, pause_frame:int=None):
     """
     window_name = "Hand and Pose Detection"
 
-    first_loop = True
+    frame_counter = 0
     paused = False
     frame = None
+    process_ones = False
     hand_status_smoother = ProcessHandStatus()
 
     previous_time = time.perf_counter()
@@ -71,67 +72,59 @@ def main(fps_cap=30, show_fps=True, source=0, pause_frame:int=None):
     # -------------------------------------------------------
 
     while True:
+        # --------------------------------------------------
+        # frame counter
+        # --------------------------------------------------
 
-        key = cv2.waitKey(1) & 0xFF
+        if is_video_file:
+            frame_counter = int(video_capture.get(cv2.CAP_PROP_POS_FRAMES))
+        elif not paused:
+            frame_counter += 1
 
         # --------------------------------------------------
         # Keyboard controls
         # --------------------------------------------------
+        key = cv2.waitKey(1) & 0xFF
 
-        if key == 27:
+        if key == 27: # esc
             break
 
-        elif key == ord(' '):
+        elif key == ord(' '): # space
             paused = not paused
 
         # --------------------------------------------------
         # Video frame navigation
         # --------------------------------------------------
 
-        elif is_video_file:
+        if is_video_file:
 
-            current_frame = int(
-                video_capture.get(cv2.CAP_PROP_POS_FRAMES)
-            )
+            if chr(key) in "wasd":
+                if paused:
+                    process_ones = True
+                
+                # each loop goes one frame forward, by its self so add 0, -2, 199, -201
 
-            # A = step back 200 frame
-            if key == ord('a'):
+                # A = step back 200 frame
+                if key == ord('a'):
+                    frame_counter = max(0, frame_counter -201)
 
+                # D = step forward 200 frame
+                elif key == ord('d'):
+                    frame_counter += 199 
+
+                # S = step back 1 frames
+                elif key == ord('s'):
+                    frame_counter = max(0, frame_counter - 2) 
+
+                # W = step forward 1 frames
+                elif key == ord('w'):
+                    frame_counter += 0 
+                
+                # set frame in video
                 video_capture.set(
-                    cv2.CAP_PROP_POS_FRAMES,
-                    max(0, current_frame - 200)
-                )
-
-                success, frame = video_capture.read()
-
-            # D = step forward 200 frame
-            elif key == ord('d'):
-                video_capture.set(
-                    cv2.CAP_PROP_POS_FRAMES,
-                    current_frame + 200
-                )
-
-                success, frame = video_capture.read()
-
-            # S = step back 1 frames
-            elif key == ord('s'):
-
-                video_capture.set(
-                    cv2.CAP_PROP_POS_FRAMES,
-                    max(0, current_frame - 1)
-                )
-
-                success, frame = video_capture.read()
-
-            # W = step forward 1 frames
-            elif key == ord('w'):
-
-                video_capture.set(
-                    cv2.CAP_PROP_POS_FRAMES,
-                    current_frame + 1
-                )
-
-                success, frame = video_capture.read()
+                        cv2.CAP_PROP_POS_FRAMES,
+                        frame_counter 
+                    )
 
         # --------------------------------------------------
         # Live / Video Live processing
@@ -162,19 +155,6 @@ def main(fps_cap=30, show_fps=True, source=0, pause_frame:int=None):
 
         if frame is None:
             continue
-
-        # --------------------------------------------------
-        # FPS calculation
-        # --------------------------------------------------
-        if not paused:
-            current_time = time.perf_counter()
-
-            fps = 1.0 / max(
-                (current_time - previous_time),
-                1e-6
-            )
-
-            previous_time = current_time
 
         # --------------------------------------------------
         # Pose detection
@@ -306,9 +286,45 @@ def main(fps_cap=30, show_fps=True, source=0, pause_frame:int=None):
             )
 
         # --------------------------------------------------
+        # FPS calculation
+        # --------------------------------------------------
+        if not paused:
+            current_time = time.perf_counter()
+
+            fps = 1.0 / max(
+                (current_time - previous_time),
+                1e-6
+            )
+
+            previous_time = current_time
+
+
+        # --------------------------------------------------
+        # pause functionalities
+        # --------------------------------------------------
+        # pause at frame
+
+        if pause_frame is not None and is_video_file:
+            if frame_counter == pause_frame:
+                if not paused:
+                    print(f"Reached pause frame: {pause_frame}")
+                    paused = True
+
+        # --------------------------------------------------
+        # process one frame - unpausing for one frame when paused
+
+        if process_ones:
+            if paused:
+                paused = False
+            else:
+                paused = True
+                process_ones = False
+
+
+        # --------------------------------------------------
         # Status overlay
         # --------------------------------------------------
-
+        # FPS overlay
         if show_fps:
             x = frame.shape[1] - 170
             y = 40
@@ -322,10 +338,12 @@ def main(fps_cap=30, show_fps=True, source=0, pause_frame:int=None):
                 2
             )
 
-        status = "LIVE"
-
+        # --------------------------------------------------
+        #  video status overlay
         if paused:
-            status = "PAUSED"
+            status = "PAUSED" if not is_video_file else "VIDEO PAUSED"
+        else:
+            status = "LIVE" if not is_video_file else "VIDEO LIVE"
 
         cv2.putText(
             frame,
@@ -338,61 +356,52 @@ def main(fps_cap=30, show_fps=True, source=0, pause_frame:int=None):
         )
 
         # --------------------------------------------------
-        # Video information overlay
-        # --------------------------------------------------
+        # frame counter overlay
+
+        text = f"Frame: {frame_counter}"
 
         if is_video_file:
+            text += '/'
+            text += str(video_capture.get(cv2.CAP_PROP_FRAME_COUNT))
 
-            current_frame_index = int(
-                video_capture.get(
-                    cv2.CAP_PROP_POS_FRAMES
-                )
-            )
-
-            total_frames = int(
-                video_capture.get(
-                    cv2.CAP_PROP_FRAME_COUNT
-                )
-            )
-
-            cv2.putText(
-                frame,
-                f"Frame: {current_frame_index}/{total_frames}",
-                (10, 120),
-                cv2.FONT_HERSHEY_PLAIN,
-                2,
-                (255, 255, 255),
-                2
-            )
-            x, y = 10, frame.shape[0] - 20
-            cv2.putText(
-                frame,
-                "SPACE=Pause | W/S=+/-1 frame | A/D=+/-200 frames",
-                (x, y),
-                cv2.FONT_HERSHEY_PLAIN,
-                1.5,
-                (0, 255, 0),
-                2
-            )
+        cv2.putText(
+            frame,
+            text,
+            (10, 120),
+            cv2.FONT_HERSHEY_PLAIN,
+            2,
+            (255, 255, 255),
+            2
+        )
 
         # --------------------------------------------------
-        # pause at frame
-        # --------------------------------------------------
-        if pause_frame is not None and is_video_file:
-            if current_frame_index == pause_frame:
-                if not paused:
-                    print(f"Reached pause frame: {pause_frame}")
-                    paused = True
+        # controls overlay
 
-        # --------------------------------------------------
-        # Display output
+        text = "SPACE=Pause"
+
+        if is_video_file:
+            text += " | W/S=+/-1 frame | A/D=+/-200 frames"
+
+        cv2.putText(
+            frame,
+            text,
+            (10, frame.shape[0] - 20),
+            cv2.FONT_HERSHEY_PLAIN,
+            1.5,
+            (0, 255, 0),
+            2
+        )
+
         # --------------------------------------------------
         # stop if the window is closed
-        if first_loop:
-            first_loop = False
-        elif cv2.getWindowProperty(window_name, cv2.WND_PROP_VISIBLE) < 1:
+        # --------------------------------------------------
+        open_windows = cv2.getWindowProperty(window_name, cv2.WND_PROP_VISIBLE)
+        if open_windows < 1 and frame_counter > 1:
             break
 
+        # --------------------------------------------------
+        # Display the processed frame - opens a window 
+        # --------------------------------------------------
         cv2.imshow(
             window_name,
             frame
