@@ -216,8 +216,8 @@ def main(fps_cap=30, show_fps=True, source=0, pause_frame:int=None):
 
             if len(pose_landmarks) > 0:
 
-                width = 100
-                height = 100
+                width = 120
+                height = 120
 
                 min_width = width // 2
                 min_height = height // 2
@@ -288,7 +288,7 @@ def main(fps_cap=30, show_fps=True, source=0, pause_frame:int=None):
         # --------------------------------------------------
         # FPS calculation
         # --------------------------------------------------
-        if not paused:
+        if not paused and not process_ones:
             current_time = time.perf_counter()
 
             fps = 1.0 / max(
@@ -340,10 +340,8 @@ def main(fps_cap=30, show_fps=True, source=0, pause_frame:int=None):
 
         # --------------------------------------------------
         #  video status overlay
-        if paused:
-            status = "PAUSED" if not is_video_file else "VIDEO PAUSED"
-        else:
-            status = "LIVE" if not is_video_file else "VIDEO LIVE"
+        
+        status = "LIVE" if not is_video_file else "VIDEO"
 
         cv2.putText(
             frame,
@@ -354,25 +352,40 @@ def main(fps_cap=30, show_fps=True, source=0, pause_frame:int=None):
             (0, 255, 0),
             2
         )
+        
+        # --------------------------------------------------
+        # pause status
+        
+        if paused:
+            cv2.putText(
+                frame,
+                "PAUSED",
+                (120, 80),
+                cv2.FONT_HERSHEY_PLAIN,
+                2,
+                (0, 0, 255),
+                2
+            )
 
         # --------------------------------------------------
         # frame counter overlay
 
-        text = f"Frame: {frame_counter}"
+        if not paused:
+            text = f"Frame: {frame_counter}"
 
-        if is_video_file:
-            text += '/'
-            text += str(video_capture.get(cv2.CAP_PROP_FRAME_COUNT))
+            if is_video_file:
+                text += '/'
+                text += str(int(video_capture.get(cv2.CAP_PROP_FRAME_COUNT)))
 
-        cv2.putText(
-            frame,
-            text,
-            (10, 120),
-            cv2.FONT_HERSHEY_PLAIN,
-            2,
-            (255, 255, 255),
-            2
-        )
+            cv2.putText(
+                frame,
+                text,
+                (10, 120),
+                cv2.FONT_HERSHEY_PLAIN,
+                2,
+                (255, 255, 255),
+                2
+            )
 
         # --------------------------------------------------
         # controls overlay
@@ -425,6 +438,6 @@ if __name__ == "__main__":
     main(
         fps_cap=30,
         show_fps=True,
-        source=v2,
+        source=v1,
         pause_frame=None
     )
