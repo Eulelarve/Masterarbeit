@@ -243,6 +243,100 @@ class HandDetector():
                     hand3d, self.mpHands.HAND_CONNECTIONS, azimuth=5)
         return self.lm3d_list
 
+    # def get_biggest_distance_in_one_hand(self, frame=None,  draw=True):
+    #     '''
+    #     Computes the biggest distance between two hand keypoints in the detected hand.
+    #     This can be used as a simple measure of the hand size or to estimate the distance of the hand to the camera.
+
+    #     :returns: biggest distance in pixels between two hand keypoints
+    #     '''
+    #     p0 = 0,0
+    #     p1 = 0,0
+    #     biggest_distance = 0
+    #     if self.results.multi_hand_landmarks:
+    #         hand = self.results.multi_hand_landmarks[0]
+    #         for i in range(len(hand.landmark)):
+    #             for j in range(i + 1, len(hand.landmark)):
+    #                 lm1 = hand.landmark[i]
+    #                 lm2 = hand.landmark[j]
+    #                 distance = ((lm1.x - lm2.x) ** 2 + (lm1.y - lm2.y) ** 2) ** 0.5
+    #                 if distance > biggest_distance:
+    #                     biggest_distance = distance
+    #                     p0 = (int(lm1.x * frame.shape[1]), int(lm1.y * frame.shape[0]))
+    #                     p1 = (int(lm2.x * frame.shape[1]), int(lm2.y * frame.shape[0]))
+    #     if draw and frame is not None:
+    #         cv2.line(frame, p0, p1, (255, 0, 0), 3)
+    #         # cv2.putText(frame, f"Biggest distance: {biggest_distance:.2f}", (10, 70), cv2.FONT_HERSHEY_PLAIN, 2,
+    #                     # (255, 255, 255), 1)
+    #     return biggest_distance
+    
+    def get_distance(self, landmark_id1, landmark_id2, frame=None, draw=False, color=(255, 0, 0)):
+        '''
+        Computes the distance between two hand keypoints in the detected hand.
+
+        :param: landmark_id1 (int): id of the first landmark (0-20)
+        :param: landmark_id2 (int): id of the second landmark (0-20)
+        :param: frame (opencv image in BGR, optional): if provided, draws a line between the two landmarks and shows the distance value on the frame
+        :param: draw (bool, optional): if set to true and frame is provided, draws a line between the two landmarks and shows the distance value on the frame
+
+        :returns: distance in pixels between the two specified hand keypoints
+        '''
+        distance = None
+        p0 = 0,0
+        p1 = 0,0
+        if self.results.multi_hand_landmarks:
+            hand = self.results.multi_hand_landmarks[0]
+            lm1 = hand.landmark[landmark_id1]
+            lm2 = hand.landmark[landmark_id2]
+            if frame is not None:
+                p0 = (int(lm1.x * frame.shape[1]), int(lm1.y * frame.shape[0]))
+                p1 = (int(lm2.x * frame.shape[1]), int(lm2.y * frame.shape[0]))
+                distance_in_pixels = ((p0[0] - p1[0]) ** 2 + (p0[1] - p1[1]) ** 2) ** 0.5
+                distance = distance_in_pixels
+            else:
+                distance = ((lm1.x - lm2.x) ** 2 + (lm1.y - lm2.y) ** 2) ** 0.5
+        
+        if draw and frame is not None and distance is not None:
+            cv2.line(frame, p0, p1, color, 3)
+            # cv2.putText(frame, f"Distance: {distance:.2f}", (10, 70), cv2.FONT_HERSHEY_PLAIN, 2,
+            #             (255, 255, 255), 1)
+        
+        return distance
+    
+    def open_or_close(self, frame=None, draw=True):
+        """ returns: 1: open hand: blue or 0: closed hand: red
+        """
+        red = (0, 0, 255)
+        blue = (255, 0, 0)
+        hand_len = self.get_distance(0, 5)
+        hand_width = self.get_distance(5, 17 )
+        distance_wrist_index = self.get_distance(0, 8)
+        distance_thump_pinky = self.get_distance(4, 20)
+        color = blue
+        show_distance = (0, 8)
+
+        if hand_len > hand_width:   # hand from the side, check length
+            if distance_wrist_index > 1.2 * hand_len: # open hand
+                state = 1
+            else: # closed hand
+                state = 0
+                show_distance = (0, 5)
+                color = red
+        else:   # hand from the fromt, check width
+            if distance_thump_pinky > 1.2 * hand_width: # open hand
+                state = 1
+                show_distance = (4, 20)
+            else: # closed hand
+                state = 0
+                show_distance = (5, 17)
+                color = red
+
+        if draw and frame is not None:
+            self.get_distance(show_distance[0], show_distance[1], frame=frame, draw=True, color=color)
+        
+        return state
+
+    
     def findHandAperture(self, frame, verbose=False, show_aperture=True, aperture_range: list = [0.4, 1.7]):
         '''
         Finds the normalized hand aperture as distance between the mean point of the hand tips and the mean wrist and thumb base point divided by the palm lenght.
@@ -266,38 +360,48 @@ class HandDetector():
         '''
         aperture = None
 
-        thumb_cmc_lm_array = np.array([self.lm_list[1][1:]])[0]
-        wrist_lm_array = np.array([self.lm_list[0][1:]])[0]
+        thumb_cmc_lm_array = np.array(self.lm_list[1][1:])
+        wrist_lm_array = np.array(self.lm_list[0][1:])
         lower_palm_midpoint_array = (thumb_cmc_lm_array + wrist_lm_array) / 2
 
-        index_mcp_lm_array = np.array([self.lm_list[5][1:]])[0]
-        pinky_mcp_lm_array = np.array([self.lm_list[5][1:]])[0]
+        index_mcp_lm_array = np.array(self.lm_list[5][1:])
+        pinky_mcp_lm_array = np.array(self.lm_list[17][1:])
         upper_palm_midpoint_array = (
             index_mcp_lm_array + pinky_mcp_lm_array) / 2
 
-        # compute palm size as l2 norm between the upper palm midpoint and lower palm midpoint
-        palm_size = np.linalg.norm(
+        # compute palm lenght as L2 norm between the upper palm midpoint and lower palm midpoint
+        palm_len = np.linalg.norm(
             upper_palm_midpoint_array - lower_palm_midpoint_array, ord=2)
-        # print(f"palm size:{palm_size}")
+        # compute palm width as L2 norm between the index mcp and pinky mcp
+        palm_width = np.linalg.norm(
+            index_mcp_lm_array - pinky_mcp_lm_array, ord=2)
 
-        index_tip_array = np.array([self.lm_list[8][1:]])[0]
-        middle_tip_array = np.array([self.lm_list[12][1:]])[0]
-        ring_tip_array = np.array([self.lm_list[16][1:]])[0]
-        pinky_tip_array = np.array([self.lm_list[20][1:]])[0]
+        if palm_len > palm_width: # means hand is shown from the side
+            # 4 finger tips
+            index_tip_array = np.array(self.lm_list[8][1:])
+            middle_tip_array = np.array(self.lm_list[12][1:])
+            ring_tip_array = np.array(self.lm_list[16][1:])
+            pinky_tip_array = np.array(self.lm_list[20][1:])
+            
+            hand_tips = np.array([index_tip_array,
+                                middle_tip_array,
+                                ring_tip_array,
+                                pinky_tip_array])
 
-        hand_tips = np.array([index_tip_array,
-                              middle_tip_array,
-                              ring_tip_array,
-                              pinky_tip_array])
-        # print(f"hand_tips: {hand_tips}")
+            tips_midpoint_array = np.mean(hand_tips, axis=0)
 
-        tips_midpoint_array = np.mean(hand_tips, axis=0)
-        # print(f"tips_midpoint_array:{tips_midpoint_array}")
-
-        # compute hand aperture as l2norm between hand tips midpoint and lower palm midpoint
-        # normalize by palm size computed before
-        aperture = np.linalg.norm(
-            tips_midpoint_array - lower_palm_midpoint_array, ord=2)/palm_size
+            # compute hand aperture length as L2norm between hand tips midpoint and lower palm midpoint
+            # normalize by palm length computed before
+            hand_len = np.linalg.norm(
+                tips_midpoint_array - lower_palm_midpoint_array, ord=2)
+            aperture = hand_len / palm_len
+        else: # means hand is shown from the front
+            # compute hand aperture width
+            thump_tip_array = np.array(self.lm_list[4][1:])
+            pinky_tip_array = np.array(self.lm_list[20][1:])
+            thump_to_pinly_tip_distance = np.linalg.norm(
+                thump_tip_array - pinky_tip_array, ord=2)
+            aperture = thump_to_pinly_tip_distance / palm_width
 
         aperture_norm = np.round(
             np.interp(aperture, aperture_range, [0, 100]), 1)
@@ -306,8 +410,10 @@ class HandDetector():
             cv2.putText(frame, "HAND APERTURE:" + str(aperture_norm), (10, 40),
                         cv2.FONT_HERSHEY_PLAIN, 2, (255, 255, 255), 1, cv2.LINE_AA)
         if show_aperture:
-            frame = cv2.line(frame, tuple(tips_midpoint_array.astype(int)),
-                             tuple(lower_palm_midpoint_array.astype(int)), (255, 0, 0), 3)
+            # frame = cv2.line(frame, tuple(tips_midpoint_array.astype(int)),
+            #                  tuple(lower_palm_midpoint_array.astype(int)), (255, 0, 0), 3)
+            frame = cv2.line(frame, tuple(thump_tip_array.astype(int)),
+                             tuple(pinky_tip_array.astype(int)), (255, 0, 0), 3)
 
         return frame, aperture_norm
 

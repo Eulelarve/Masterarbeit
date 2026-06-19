@@ -6,7 +6,7 @@ import math
 
 from Detector_Modules.HandDetectorModule_changed import HandDetector as hdm
 from Detector_Modules.PoseDetectorModule_changed import poseDetector as pdm
-from own_funktions import get_hand_center, ProcessHandStatus
+from own_funktions import get_hand_center, ProcessHandAperture, HandOpenClosedBuffer, ValueBuffer
 
 
 def main(fps_cap=30, show_fps=True, source=0, pause_frame:int=None):
@@ -31,7 +31,8 @@ def main(fps_cap=30, show_fps=True, source=0, pause_frame:int=None):
     paused = False
     frame = None
     process_ones = False
-    hand_status_smoother = ProcessHandStatus()
+    hand_aperture_smoother = ProcessHandAperture()
+    hand_status_buffer = HandOpenClosedBuffer(buffer_size=10)
 
     previous_time = time.perf_counter()
     last_frame_time = time.perf_counter()
@@ -201,12 +202,12 @@ def main(fps_cap=30, show_fps=True, source=0, pause_frame:int=None):
                     draw=True
                 )
                 
-                # # draw hand points from mediapipe pose landmarks
-                # hands = [15, 21,19,17, 16, 22, 20, 18]
-                # pose_detector.draw_landmarks(
-                #     frame=frame,
-                #     landmark_ids=hands,
-                # )
+                # draw hand points from mediapipe pose landmarks
+                hands = [15, 21,19,17, 16, 22, 20, 18,   7,8,0]
+                pose_detector.draw_landmarks(
+                    frame=frame,
+                    landmark_ids=hands,
+                )
         # --------------------------------------------------
         # chose ROI for hand detection
         # --------------------------------------------------
@@ -216,8 +217,8 @@ def main(fps_cap=30, show_fps=True, source=0, pause_frame:int=None):
 
             if len(pose_landmarks) > 0:
 
-                width = 120
-                height = 120
+                width = 150
+                height = 150
 
                 min_width = width // 2
                 min_height = height // 2
@@ -248,8 +249,13 @@ def main(fps_cap=30, show_fps=True, source=0, pause_frame:int=None):
         # Hand detection
         # --------------------------------------------------
         if not paused:
-            
+
+            open_status = {'text':"open", 'color':(0,0,255)}
+            close_status = {'text':"closed", 'color':(255,0,0)}
+            no_hand_status = {'text':"no hand", 'color':(255,255,0)}
+
             aperture = None
+            open_closed = None
 
             frame = hand_detector.findHands(
                 frame=frame,
@@ -269,19 +275,33 @@ def main(fps_cap=30, show_fps=True, source=0, pause_frame:int=None):
                 frame, aperture = hand_detector.findHandAperture(
                         frame=frame, 
                         verbose=True, 
-                        show_aperture=True
+                        show_aperture=False
                     )
+                open_closed = hand_detector.open_or_close(frame,True)
 
-            hand_status_smoother.add(aperture)
-            hand_major = hand_status_smoother.get_major()
+            
+            print(frame_counter, 'openclosed:', open_closed)
+             # 1 is added for open, 0 for closed
+            most = hand_status_buffer.add_and_get(open_closed)
+            if most == None: # no hand in screen
+                text, color = no_hand_status['text'], no_hand_status['color']
+            elif most == 1: # open
+                text, color = open_status['text'], open_status['color']
+            elif most == 0: # closed 
+                text, color = close_status['text'], close_status['color']
+            
+            # hand_aperture_smoother.add(aperture)
+            # hand_major = hand_aperture_smoother.get_major()
+
+
             # show hand status
             cv2.putText(
                 frame,
-                hand_major['text'],
+                text,
                 (10, 200),
                 cv2.FONT_HERSHEY_PLAIN,
                 2,
-                hand_major['color'],
+                color,
                 2
             )
 
@@ -438,6 +458,6 @@ if __name__ == "__main__":
     main(
         fps_cap=30,
         show_fps=True,
-        source=v1,
+        source=v2,
         pause_frame=None
     )

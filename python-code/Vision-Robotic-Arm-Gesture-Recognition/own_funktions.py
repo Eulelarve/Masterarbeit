@@ -155,13 +155,24 @@ class ValueBuffer:
 
     def __init__(self, buffer_size):
         self.values = deque(maxlen=buffer_size)
-        self.last_majority = None
+        self.last_majority = None # saves the last value that was the majority in the buffer, so that it can be returned if there is no majority in the current buffer
 
     def add(self, value, update_majority=True):
         self.values.append(value)
         if update_majority:
             self.majority
     
+    def set_majority(self, value):
+        self.values.clear()
+        for _ in range(self.values.maxlen//2):
+            self.values.append(value)
+        self.add(value, update_majority=True)
+
+    def flood(self, value):
+        for _ in range(self.values.maxlen-1):
+            self.values.append(value)
+        self.add(value, update_majority=True)
+
     def add_and_get_average(self, value):
         self.add(value, update_majority=False)
         return self.average
@@ -170,6 +181,10 @@ class ValueBuffer:
         self.add(value)
         return self.majority
 
+    def add_and_get_most_frequently(self, value):
+        self.add(value, update_majority=False)
+        return self.most_frequently
+    
     @property
     def average(self):
         """ calculate the average of the values in the buffer
@@ -211,8 +226,38 @@ class ValueBuffer:
         # if no element nomber exceeds the min_nr_of_same_elements,
         return None
 
+class HandOpenClosedBuffer(ValueBuffer):
+    """_summary_
+        A class to store a buffer of hand status (open, closed, no hand) and calculate the majority of the hand status in the buffer.
+    """
 
-class ProcessHandStatus():
+    def __init__(self, buffer_size, non_means_closed_after_frame=5, none_after_frame=40):
+        super().__init__(buffer_size)
+        self.none_frame = none_after_frame
+        self.closed_frame = non_means_closed_after_frame
+        self.none_counter = 0
+        self.closed_status = 0
+    
+    def add(self, hand_status, update_majority=True):
+        if hand_status == None:
+            self.none_counter += 1
+            if self.none_counter >= self.none_frame:
+                self.values.clear() # clear the buffer if no hand is detected for a long time, so that the majority is not influenced by old values
+            elif self.none_counter >= self.closed_frame:
+                super().add(self.closed_status, update_majority=update_majority) # None is interpreted as closed hand, because it is more likely that closed hand is not detected
+        else:
+            self.none_counter = 0
+            super().add(hand_status, update_majority=update_majority)
+        
+    def add_and_get(self, hand_status):
+        return self.add_and_get_most_frequently(hand_status)
+
+  
+
+
+
+
+class ProcessHandAperture():
     """_summary_
         A class to process the hand status based on the aperture values and a buffer of the hand status. 
         It can be used to smooth the hand status and to detect if the hand is lost.
