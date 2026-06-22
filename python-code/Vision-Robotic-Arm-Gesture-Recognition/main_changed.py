@@ -9,7 +9,7 @@ import numpy as np
 
 from Detector_Modules.HandDetectorModule_changed import HandDetector as hdm
 from Detector_Modules.PoseDetectorModule_changed import poseDetector as pdm
-from own_funktions import get_hand_center, ProcessHandAperture, HandOpenClosedBuffer, ValueBuffer
+from own_funktions import get_hand_center, ProcessHandAperture, HandOpenClosedBuffer, ValueBuffer, AddStatusMamually
 
 
 def main(fps_cap=30, show_fps=True, source=0, pause_frame:int=None):
@@ -32,10 +32,12 @@ def main(fps_cap=30, show_fps=True, source=0, pause_frame:int=None):
 
     frame_counter = 0
     paused = False
+    process = True
     frame = None
     process_ones = False
     hand_aperture_smoother = ProcessHandAperture()
     hand_status_buffer = HandOpenClosedBuffer(buffer_size=10)
+    open_close_manual_status = AddStatusMamually(keys=(ord('1'), ord('2')), status=(1, 0)) # 1 = open, 0 = closed
 
     previous_time = time.perf_counter()
     last_frame_time = time.perf_counter()
@@ -126,20 +128,25 @@ def main(fps_cap=30, show_fps=True, source=0, pause_frame:int=None):
         # Keyboard controls
         # --------------------------------------------------
         key = cv2.waitKey(1) & 0xFF
+        
+        # empty the key buffer to prevent overflow if key stays pressed down
+        while cv2.waitKey(1) != -1:
+            pass
 
         if key == 27: # esc
             break
 
         elif key == ord(' '): # space
             paused = not paused
+        elif key == 13: # enter
+            process = not process
 
         # --------------------------------------------------
         # Video frame navigation
         # --------------------------------------------------
 
         if is_video_file:
-
-            if chr(key) in "wasd":
+            if key in (ord('w'), ord('a'), ord('s'), ord('d')):
                 if paused:
                     process_ones = True
                 
@@ -180,58 +187,63 @@ def main(fps_cap=30, show_fps=True, source=0, pause_frame:int=None):
 
             last_frame_time = time.perf_counter()
 
-        if use_realsense:
+            if use_realsense:
 
-            frames = pipeline.wait_for_frames()
+                frames = pipeline.wait_for_frames()
 
-            color_frame = frames.get_color_frame()
+                color_frame = frames.get_color_frame()
 
-            if not color_frame:
+                if not color_frame:
+                    continue
+
+                frame = np.asanyarray(color_frame.get_data())
+
+                if show_depth:
+
+                    depth_frame = frames.get_depth_frame()
+
+                    if depth_frame:
+
+                        depth_image = np.asanyarray(
+                            depth_frame.get_data()
+                        )
+
+                        depth_colormap = cv2.applyColorMap(
+                            cv2.convertScaleAbs(
+                                depth_image,
+                                alpha=0.03
+                            ),
+                            cv2.COLORMAP_JET
+                        )
+
+            else:
+
+                success, frame = video_capture.read()
+
+                if not success:
+                    print("End of video stream reached.")
+                    break
+
+            if not is_video_file:
+                frame = cv2.flip(frame, 1)
+            else:                          # define region of intrest (ROI)
+                        # frame = frame[
+                        #     y_start_pixel: y_end_pixel,
+                        #     x_start_pixel: x_end_pixel]
+                        pass
+
+            if frame is None:
                 continue
-
-            frame = np.asanyarray(color_frame.get_data())
-
-            if show_depth:
-
-                depth_frame = frames.get_depth_frame()
-
-                if depth_frame:
-
-                    depth_image = np.asanyarray(
-                        depth_frame.get_data()
-                    )
-
-                    depth_colormap = cv2.applyColorMap(
-                        cv2.convertScaleAbs(
-                            depth_image,
-                            alpha=0.03
-                        ),
-                        cv2.COLORMAP_JET
-                    )
-
-        else:
-
-            success, frame = video_capture.read()
-
-            if not success:
-                print("End of video stream reached.")
-                break
-
-        if not is_video_file:
-            frame = cv2.flip(frame, 1)
-        else:                          # define region of intrest (ROI)
-                    # frame = frame[
-                    #     y_start_pixel: y_end_pixel,
-                    #     x_start_pixel: x_end_pixel]
-                    pass
-
-        if frame is None:
-            continue
-
+        
+        # --------------------------------------------------
+        # add status manually
+        # --------------------------------------------------
+        if not paused:
+            open_close_manual_status.add(key)
         # --------------------------------------------------
         # Pose detection
         # --------------------------------------------------
-        if not paused:
+        if not paused and process:
 
             # choose between 2D and 3D pose estimation
             _3D = True 
@@ -282,14 +294,14 @@ def main(fps_cap=30, show_fps=True, source=0, pause_frame:int=None):
         # --------------------------------------------------
         # chose ROI for hand detection
         # --------------------------------------------------
-        if not paused:
+        if not paused and process:
             
             roi_hand = None
 
             if len(pose_landmarks) > 0:
 
-                width = 150
-                height = 150
+                width = 170
+                height = 170
 
                 min_width = width // 2
                 min_height = height // 2
@@ -319,64 +331,76 @@ def main(fps_cap=30, show_fps=True, source=0, pause_frame:int=None):
         # --------------------------------------------------
         # Hand depth value
         # --------------------------------------------------
-        if not paused:
-            if show_depth:
-                cx, cy = hand_center
+        if not paused and process:
+            if roi_hand:
+                if show_depth:
+                    cx, cy = hand_center
 
-                distance_m = depth_frame.get_distance(
-                    int(cx),
-                    int(cy)
-                )
+                    distance_m = depth_frame.get_distance(
+                        int(cx),
+                        int(cy)
+                    )
 
-                print(f"Distance: {distance_m:.3f} m")
+                    print(f"Distance: {distance_m:.3f} m")
         # --------------------------------------------------
         # Hand detection
         # --------------------------------------------------
-        if not paused:
+        if not paused and process:
+            hand_status = None 
 
+            # if no roi_hand is there, no hand schoult be in the frame
+            if roi_hand: 
+
+               
+
+                aperture = None
+                open_closed = None
+
+                frame = hand_detector.findHands(
+                    frame=frame,
+                    roi=roi_hand,
+                    draw_landmarks=True
+                )
+
+                # _, index = hand_detector.choose_hand("top")
+
+                hand_landmarks, frame = hand_detector.findHandPosition(
+                        frame=frame, 
+                        # hand_num=index, 
+                        draw=False
+                    )
+                
+                if len(hand_landmarks) > 0:
+                    frame, aperture = hand_detector.findHandAperture(
+                            frame=frame, 
+                            verbose=True, 
+                            show_aperture=False
+                        )
+                    
+                    open_closed = hand_detector.open_or_close(frame,True)
+                    # hand_aperture_smoother.add(aperture)
+                    # hand_major = hand_aperture_smoother.get_major()
+
+           
+                # --------------------------------------------------
+                # smoothing hand status
+                hand_status = hand_status_buffer.add_and_get(open_closed)
+
+            # --------------------------------------------------
+            # draw hand status
+
+            no_hand_status = {'text':"no hand", 'color':(250,250,250)}
             open_status = {'text':"open", 'color':(0,0,255)}
             close_status = {'text':"closed", 'color':(255,0,0)}
-            no_hand_status = {'text':"no hand", 'color':(255,255,0)}
-
-            aperture = None
-            open_closed = None
-
-            frame = hand_detector.findHands(
-                frame=frame,
-                roi=roi_hand,
-                draw_landmarks=True
-            )
-
-            # _, index = hand_detector.choose_hand("top")
-
-            hand_landmarks, frame = hand_detector.findHandPosition(
-                    frame=frame, 
-                    # hand_num=index, 
-                    draw=False
-                )
             
-            if len(hand_landmarks) > 0:
-                frame, aperture = hand_detector.findHandAperture(
-                        frame=frame, 
-                        verbose=True, 
-                        show_aperture=False
-                    )
-                open_closed = hand_detector.open_or_close(frame,True)
-
-            
-            print(frame_counter, 'openclosed:', open_closed)
-             # 1 is added for open, 0 for closed
-            most = hand_status_buffer.add_and_get(open_closed)
-            if most == None: # no hand in screen
+            if hand_status == None: # no hand in screen
                 text, color = no_hand_status['text'], no_hand_status['color']
-            elif most == 1: # open
+            elif hand_status == 1: # open
                 text, color = open_status['text'], open_status['color']
-            elif most == 0: # closed 
+            elif hand_status == 0: # closed 
                 text, color = close_status['text'], close_status['color']
             
-            # hand_aperture_smoother.add(aperture)
-            # hand_major = hand_aperture_smoother.get_major()
-
+ 
 
             # show hand status
             cv2.putText(
@@ -494,20 +518,30 @@ def main(fps_cap=30, show_fps=True, source=0, pause_frame:int=None):
         # --------------------------------------------------
         # controls overlay
 
-        text = "SPACE=Pause"
-
-        if is_video_file:
-            text += " | W/S=+/-1 frame | A/D=+/-200 frames"
-
+        text = "SPACE=Pause | ENTER=processing on/off"
         cv2.putText(
             frame,
             text,
-            (10, frame.shape[0] - 20),
+            (10, frame.shape[0] - 10),
             cv2.FONT_HERSHEY_PLAIN,
-            1.5,
+            1,
             (0, 255, 0),
-            2
+            1
         )
+
+        # video file controls
+        if is_video_file:
+            text = "W/S=+/-1 frame | A/D=+/-200 frames"
+
+            cv2.putText(
+                frame,
+                text,
+                (10, frame.shape[0] - 25),
+                cv2.FONT_HERSHEY_PLAIN,
+                1,
+                (0, 255, 0),
+                1
+            )
 
         # --------------------------------------------------
         # stop if the window is closed
@@ -537,6 +571,7 @@ def main(fps_cap=30, show_fps=True, source=0, pause_frame:int=None):
     else:
         video_capture.release()
     cv2.destroyAllWindows()
+    open_close_manual_status.save_to_file(source+"open_close_manual_status.txt")
 
     print("Application terminated.")
 
@@ -545,13 +580,17 @@ if __name__ == "__main__":
 
     # Webcam input
     # main(source=0)
-    v1 = "C:/Users/Ampelman/Desktop/3D-Audio-Raum.MOV"
-    v2 = "C:/Users/Ampelman/Desktop/WIN_20260609_19_51_56_Pro.mp4"
+    v1 = r"C:/Users/Ampelman/Desktop/3D-Audio-Raum.MOV"
+    v2 = r"C:/Users/Ampelman/Desktop/WIN_20260609_19_51_56_Pro.mp4"
+    v3 = r"C:\Users\Ampelman\Desktop\WIN_20260622_15_27_19_Pro.mp4"
+    v4 = r"C:\Users\Ampelman\Desktop\WIN_20260622_15_24_46_Pro.mp4"
+    v5 = r"C:\Users\Ampelman\Desktop\WIN_20260622_14_46_06_Pro.mp4".replace("\\","/")
+    v6 = r"C:\Users\Ampelman\Desktop\WIN_20260622_14_50_01_Pro.mp4".replace("\\","/")
     rs = 'realsens'
     # Video file input
     main(
         fps_cap=30,
         show_fps=True,
-        source=rs,
+        source=v4,
         pause_frame=None
     )

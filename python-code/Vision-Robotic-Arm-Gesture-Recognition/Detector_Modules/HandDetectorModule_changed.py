@@ -27,7 +27,6 @@ class HandDetector():
         self.modCompl = modCompl  # complexity of the model (can be 0 or 1)
         self.detCon = detCon  # detection confidence threshold
         self.trackCon = trackCon  # tracking confidence threshold
-        print('################',mp)
         self.mpHands = mp.solutions.hands
         self.hands = self.mpHands.Hands(static_image_mode=self.mode,
                                         max_num_hands=self.maxHands,

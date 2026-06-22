@@ -1,3 +1,1 @@
-import mediapipe as mp
-print(hasattr(mp, "solutions"))
-print(dir(mp)[:30])
+print("www",chr(13),"www",chr(10),"www",chr(9),"www",chr(8),"www",chr(7),"www")

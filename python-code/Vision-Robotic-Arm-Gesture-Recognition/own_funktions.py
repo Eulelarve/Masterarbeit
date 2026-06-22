@@ -1,5 +1,51 @@
 # from copy import deepcopy
 
+class AddStatusMamually:
+    def __init__(self, keys:list, status:list):
+        self.keys = keys
+        self.status = status
+        self.saved = []
+    
+    def add(self, key, if_no_key_match_add_none=True):
+        if key in self.keys:
+            index = self.keys.index(key)
+            self.saved.append(self.status[index])
+            return self.status[index]
+        elif if_no_key_match_add_none:
+            self.saved.append(None)
+        else:
+            return None
+
+    def save_to_file(self, filename):
+        if not self.saved:
+            print("No status to save.")
+            return
+        with open(filename, 'w') as f:
+            for item in self.saved:
+                f.write(f"{item}\n")
+            print(f"Saved {len(self.saved)} status to {filename}.")
+    
+    def load_from_file(self, filename):
+        with open(filename, 'r') as f:
+            self.saved = [line.strip() for line in f]
+    
+    def get(self, index):
+        if index < len(self.saved):
+            return self.saved[index]
+        else:
+            return None
+
+class AddStatusMamuallyTriggered(AddStatusMamually):
+    def __init__(self, keys:list, status:list):
+        super().__init__(keys, status)
+        self.trigger_key = trigger_key
+    
+    def add(self, key):
+        if key == self.trigger_key:
+            return super().add(key)
+        else:
+            return None
+
 def fit_frameregion_landmoars_to_frame(landmarks, pixel_frame_size, pixel_region_x_y_w_h):
     """ change the landmark coordinates to fit the region in the frame, if the region is not the whole frame.
         so you can draw in the origiunal frame in on the right position.
@@ -231,12 +277,13 @@ class HandOpenClosedBuffer(ValueBuffer):
         A class to store a buffer of hand status (open, closed, no hand) and calculate the majority of the hand status in the buffer.
     """
 
-    def __init__(self, buffer_size, non_means_closed_after_frame=5, none_after_frame=40):
+    def __init__(self, buffer_size, non_means_closed_after_frame=5, none_after_frame=99999):
         super().__init__(buffer_size)
         self.none_frame = none_after_frame
         self.closed_frame = non_means_closed_after_frame
         self.none_counter = 0
         self.closed_status = 0
+        self.open_status = 1
     
     def add(self, hand_status, update_majority=True):
         if hand_status == None:
