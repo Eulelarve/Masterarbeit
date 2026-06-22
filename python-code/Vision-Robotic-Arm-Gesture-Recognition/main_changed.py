@@ -4,6 +4,9 @@ import cv2
 import time
 import math
 
+import pyrealsense2 as rs
+import numpy as np
+
 from Detector_Modules.HandDetectorModule_changed import HandDetector as hdm
 from Detector_Modules.PoseDetectorModule_changed import poseDetector as pdm
 from own_funktions import get_hand_center, ProcessHandAperture, HandOpenClosedBuffer, ValueBuffer
@@ -47,14 +50,51 @@ def main(fps_cap=30, show_fps=True, source=0, pause_frame:int=None):
 
     cv2.setUseOptimized(True)
 
-    video_capture = cv2.VideoCapture(source)
-    success, frame = video_capture.read()
+    use_realsense = source in ["realsense", "realsense_depth", "realsense_d"]
+    show_depth = source in ["realsense_depth", "realsense_d"]
 
-    if not video_capture.isOpened():
-        print(f"Cannot open source: {source}")
-        return
+    if use_realsense:
 
-    is_video_file = isinstance(source, str)
+        pipeline = rs.pipeline()
+        config = rs.config()
+
+        config.enable_stream(
+            rs.stream.color,
+            640,
+            480,
+            rs.format.bgr8,
+            30
+        )
+
+        if show_depth:
+            config.enable_stream(
+                rs.stream.depth,
+                640,
+                480,
+                rs.format.z16,
+                30
+            )
+
+        pipeline.start(config)
+
+        frames = pipeline.wait_for_frames()
+        color_frame = frames.get_color_frame()
+
+        frame = np.asanyarray(color_frame.get_data())
+
+        success = True
+
+    else:
+
+        video_capture = cv2.VideoCapture(source)
+
+        success, frame = video_capture.read()
+
+        if not video_capture.isOpened():
+            print(f"Cannot open source: {source}")
+            return
+
+    is_video_file = isinstance(source, str) and not use_realsense
 
     # -------------------------------------------------------
     # ROI - Define region of interest for video files
@@ -140,19 +180,50 @@ def main(fps_cap=30, show_fps=True, source=0, pause_frame:int=None):
 
             last_frame_time = time.perf_counter()
 
+        if use_realsense:
+
+            frames = pipeline.wait_for_frames()
+
+            color_frame = frames.get_color_frame()
+
+            if not color_frame:
+                continue
+
+            frame = np.asanyarray(color_frame.get_data())
+
+            if show_depth:
+
+                depth_frame = frames.get_depth_frame()
+
+                if depth_frame:
+
+                    depth_image = np.asanyarray(
+                        depth_frame.get_data()
+                    )
+
+                    depth_colormap = cv2.applyColorMap(
+                        cv2.convertScaleAbs(
+                            depth_image,
+                            alpha=0.03
+                        ),
+                        cv2.COLORMAP_JET
+                    )
+
+        else:
+
             success, frame = video_capture.read()
 
             if not success:
                 print("End of video stream reached.")
                 break
 
-            if not is_video_file:
-                frame = cv2.flip(frame, 1) # mirror the frame for better user interaction, in livestream
-            else:                          # define region of intrest (ROI)
-                # frame = frame[
-                #     y_start_pixel: y_end_pixel,
-                #     x_start_pixel: x_end_pixel]
-                pass
+        if not is_video_file:
+            frame = cv2.flip(frame, 1)
+        else:                          # define region of intrest (ROI)
+                    # frame = frame[
+                    #     y_start_pixel: y_end_pixel,
+                    #     x_start_pixel: x_end_pixel]
+                    pass
 
         if frame is None:
             continue
@@ -244,7 +315,20 @@ def main(fps_cap=30, show_fps=True, source=0, pause_frame:int=None):
                 # only use the ROI if it is large enough
                 if width >= min_width and height >= min_height:
                     roi_hand = (start_x, start_y, width, height)
+       
+        # --------------------------------------------------
+        # Hand depth value
+        # --------------------------------------------------
+        if not paused:
+            if show_depth:
+                cx, cy = hand_center
 
+                distance_m = depth_frame.get_distance(
+                    int(cx),
+                    int(cy)
+                )
+
+                print(f"Distance: {distance_m:.3f} m")
         # --------------------------------------------------
         # Hand detection
         # --------------------------------------------------
@@ -440,9 +524,18 @@ def main(fps_cap=30, show_fps=True, source=0, pause_frame:int=None):
             frame
         )
 
+        if show_depth:
+            cv2.imshow(
+                "Depth",
+                depth_colormap
+            )
 
 
-    video_capture.release()
+
+    if use_realsense:
+        pipeline.stop()
+    else:
+        video_capture.release()
     cv2.destroyAllWindows()
 
     print("Application terminated.")
@@ -454,10 +547,11 @@ if __name__ == "__main__":
     # main(source=0)
     v1 = "C:/Users/Ampelman/Desktop/3D-Audio-Raum.MOV"
     v2 = "C:/Users/Ampelman/Desktop/WIN_20260609_19_51_56_Pro.mp4"
+    rs = 'realsens'
     # Video file input
     main(
         fps_cap=30,
         show_fps=True,
-        source=v2,
+        source=rs,
         pause_frame=None
     )
