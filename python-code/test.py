@@ -1,1 +1,3 @@
-print("www",chr(13),"www",chr(10),"www",chr(9),"www",chr(8),"www",chr(7),"www")
+n = [None]*0
+e = [1,2,3,4,3,4,5,6,7,8,9,0]
+print(e[:1]+e[1:],e[:-1])

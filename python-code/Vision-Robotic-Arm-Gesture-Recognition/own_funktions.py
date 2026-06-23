@@ -1,7 +1,12 @@
-# from copy import deepcopy
+import ctypes
 
-class AddStatusMamually:
-    def __init__(self, keys:list, status:list):
+def key_pressed(vk_code):
+    return ctypes.windll.user32.GetAsyncKeyState(vk_code) & 0x8000 != 0
+
+class CaptureStatus:
+    def __init__(self, keys:list, status:list=None):
+        if status is None:
+            status = keys
         self.keys = keys
         self.status = status
         self.saved = []
@@ -15,6 +20,37 @@ class AddStatusMamually:
             self.saved.append(None)
         else:
             return None
+    
+    def add_from_pressed_key(self, if_no_key_match_add_none=True, add_only_first=False):
+        add = []
+        
+        for i, key in enumerate(self.keys):
+            if key_pressed(key):
+                add.append(self.status[i])
+        
+        if not add and if_no_key_match_add_none:
+            add.append(None)
+        
+        if add_only_first:
+            add = add[0]
+
+        self.saved.append(add)
+
+        return add if add else None
+
+    def shift_all_by(self, i:int, fill = None):
+        if type(self.saved[0]) is list and type(fill) is not list:
+            fill = [fill]
+
+        fill = [fill]*abs(i)
+        lost = None
+        if i >= 1:
+            lost = self.saved[:i]
+            self.saved = fill + self.saved[i:]
+        elif i <= -1:
+            lost = self.saved[i:]
+            self.saved = self.saved[:i] + fill
+        return lost, fill
 
     def save_to_file(self, filename):
         if not self.saved:
@@ -35,16 +71,17 @@ class AddStatusMamually:
         else:
             return None
 
-class AddStatusMamuallyTriggered(AddStatusMamually):
-    def __init__(self, keys:list, status:list):
-        super().__init__(keys, status)
-        self.trigger_key = trigger_key
+class SaveFrameStatus(CaptureStatus):
     
-    def add(self, key):
-        if key == self.trigger_key:
-            return super().add(key)
-        else:
-            return None
+    def add(self, start_frame, key, print_out=True):
+        if key in self.keys:
+            i = self.keys.index(key)
+            add = [start_frame, self.status[i]]
+            self.saved.append(add)
+            if print_out:
+                print('Frame', start_frame, '-', self.status[i])
+
+
 
 def fit_frameregion_landmoars_to_frame(landmarks, pixel_frame_size, pixel_region_x_y_w_h):
     """ change the landmark coordinates to fit the region in the frame, if the region is not the whole frame.

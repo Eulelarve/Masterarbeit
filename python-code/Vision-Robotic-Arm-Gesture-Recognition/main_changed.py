@@ -9,10 +9,10 @@ import numpy as np
 
 from Detector_Modules.HandDetectorModule_changed import HandDetector as hdm
 from Detector_Modules.PoseDetectorModule_changed import poseDetector as pdm
-from own_funktions import get_hand_center, ProcessHandAperture, HandOpenClosedBuffer, ValueBuffer, AddStatusMamually
+from own_funktions import get_hand_center, ProcessHandAperture, HandOpenClosedBuffer, ValueBuffer, SaveFrameStatus
 
 
-def main(fps_cap=30, show_fps=True, source=0, pause_frame:int=None):
+def main(fps_cap=30, show_fps=True, show_processing=True,source=0, pause_frame:int=None, capture_status_manually:bool=False):
     """
     Video processing entry point.
 
@@ -32,12 +32,12 @@ def main(fps_cap=30, show_fps=True, source=0, pause_frame:int=None):
 
     frame_counter = 0
     paused = False
-    process = True
+    process = False
     frame = None
     process_ones = False
     hand_aperture_smoother = ProcessHandAperture()
     hand_status_buffer = HandOpenClosedBuffer(buffer_size=10)
-    open_close_manual_status = AddStatusMamually(keys=(ord('1'), ord('2')), status=(1, 0)) # 1 = open, 0 = closed
+    open_close_manual_status = SaveFrameStatus(keys=(ord('1'), ord('2'), ord('3')), status=('hand open', 'hand closed', None)) 
 
     previous_time = time.perf_counter()
     last_frame_time = time.perf_counter()
@@ -116,22 +116,36 @@ def main(fps_cap=30, show_fps=True, source=0, pause_frame:int=None):
 
     while True:
         # --------------------------------------------------
-        # frame counter
+        # FPS handling
         # --------------------------------------------------
+        if not paused and not process_ones:
+            current_time = time.perf_counter()
+            # --------------------------------------------------
+            # FPS cap
 
-        if is_video_file:
-            frame_counter = int(video_capture.get(cv2.CAP_PROP_POS_FRAMES))
-        elif not paused:
-            frame_counter += 1
+            delta_time = current_time - last_frame_time
+
+            if delta_time < frame_interval:
+                continue # skip the reading and processing if the next frrame
+
+            # --------------------------------------------------
+            # FPS calculation
+            fps = 1.0 / max(
+                (current_time - last_frame_time),
+                1e-6
+            )
+
+            last_frame_time = time.perf_counter()
+
 
         # --------------------------------------------------
         # Keyboard controls
         # --------------------------------------------------
         key = cv2.waitKey(1) & 0xFF
         
-        # empty the key buffer to prevent overflow if key stays pressed down
-        while cv2.waitKey(1) != -1:
-            pass
+        # # empty the key buffer to prevent overflow if key stays pressed down, but miss sume keys
+        # while cv2.waitKey(1) != -1:
+        #     pass
 
         if key == 27: # esc
             break
@@ -146,47 +160,57 @@ def main(fps_cap=30, show_fps=True, source=0, pause_frame:int=None):
         # --------------------------------------------------
 
         if is_video_file:
-            if key in (ord('w'), ord('a'), ord('s'), ord('d')):
+            if chr(key) in 'wasd':
                 if paused:
                     process_ones = True
                 
-                # each loop goes one frame forward, by its self so add 0, -2, 199, -201
-
                 # A = step back 200 frame
                 if key == ord('a'):
-                    frame_counter = max(0, frame_counter -201)
+                    frame_counter = max(0, frame_counter -200)
 
                 # D = step forward 200 frame
                 elif key == ord('d'):
-                    frame_counter += 199 
+                    frame_counter += 200 
 
                 # S = step back 1 frames
                 elif key == ord('s'):
-                    frame_counter = max(0, frame_counter - 2) 
+                    frame_counter = max(0, frame_counter - 1) 
 
                 # W = step forward 1 frames
                 elif key == ord('w'):
-                    frame_counter += 0 
+                    frame_counter += 1 
                 
                 # set frame in video
                 video_capture.set(
                         cv2.CAP_PROP_POS_FRAMES,
                         frame_counter 
                     )
+                
+        # --------------------------------------------------
+        # process one frame - unpausing for one frame when paused
+        # --------------------------------------------------
 
+        if process_ones:
+            if paused:
+                paused = False
+            else:
+                paused = True
+                process_ones = False
+
+        # --------------------------------------------------
+        # frame counter
+        # --------------------------------------------------
+        if not paused:
+            if is_video_file:
+                frame_counter = int(video_capture.get(cv2.CAP_PROP_POS_FRAMES))
+            else:
+                frame_counter += 1
         # --------------------------------------------------
         # Live / Video Live processing
         # --------------------------------------------------
 
         if not paused:
-
-            delta_time = time.perf_counter() - last_frame_time
-
-            if delta_time < frame_interval:
-                continue
-
-            last_frame_time = time.perf_counter()
-
+            
             if use_realsense:
 
                 frames = pipeline.wait_for_frames()
@@ -215,7 +239,6 @@ def main(fps_cap=30, show_fps=True, source=0, pause_frame:int=None):
                             ),
                             cv2.COLORMAP_JET
                         )
-
             else:
 
                 success, frame = video_capture.read()
@@ -236,10 +259,11 @@ def main(fps_cap=30, show_fps=True, source=0, pause_frame:int=None):
                 continue
         
         # --------------------------------------------------
-        # add status manually
+        # capture status manually
         # --------------------------------------------------
-        if not paused:
-            open_close_manual_status.add(key)
+        if capture_status_manually:
+            open_close_manual_status.add(frame_counter, key)
+
         # --------------------------------------------------
         # Pose detection
         # --------------------------------------------------
@@ -247,15 +271,18 @@ def main(fps_cap=30, show_fps=True, source=0, pause_frame:int=None):
 
             # choose between 2D and 3D pose estimation
             _3D = True 
+            draw_pose = True
+            draw_landmarks = True
+            draw_angles = True
 
             frame = pose_detector.findPose(
                 frame=frame,
-                draw=False
+                draw=show_processing and draw_pose
             )
    
             pose_landmarks = pose_detector.findPosePosition(
                     frame=frame,
-                    draw=False
+                    draw=show_processing and draw_landmarks
                 )
                     
             if len(pose_landmarks) > 0:
@@ -271,7 +298,7 @@ def main(fps_cap=30, show_fps=True, source=0, pause_frame:int=None):
                     14,
                     16,
                     angle3d=_3D,
-                    draw=True
+                    draw=show_processing and draw_angles
                 )
 
                 elbow_angle_rad = math.radians(elbow_angle)
@@ -282,7 +309,7 @@ def main(fps_cap=30, show_fps=True, source=0, pause_frame:int=None):
                     12,
                     14,
                     angle3d=_3D,
-                    draw=True
+                    draw=show_processing and draw_angles
                 )
                 
                 # draw hand points from mediapipe pose landmarks
@@ -350,7 +377,9 @@ def main(fps_cap=30, show_fps=True, source=0, pause_frame:int=None):
 
             # if no roi_hand is there, no hand schoult be in the frame
             if roi_hand: 
-
+                draw_landmarks = True
+                draw_aperture = True
+                draw_roi = True
                
 
                 aperture = None
@@ -359,7 +388,8 @@ def main(fps_cap=30, show_fps=True, source=0, pause_frame:int=None):
                 frame = hand_detector.findHands(
                     frame=frame,
                     roi=roi_hand,
-                    draw_landmarks=True
+                    draw_landmarks=show_processing and draw_landmarks,
+                    draw_roi=show_processing and draw_roi,
                 )
 
                 # _, index = hand_detector.choose_hand("top")
@@ -371,15 +401,17 @@ def main(fps_cap=30, show_fps=True, source=0, pause_frame:int=None):
                     )
                 
                 if len(hand_landmarks) > 0:
-                    frame, aperture = hand_detector.findHandAperture(
-                            frame=frame, 
-                            verbose=True, 
-                            show_aperture=False
-                        )
-                    
-                    open_closed = hand_detector.open_or_close(frame,True)
-                    # hand_aperture_smoother.add(aperture)
-                    # hand_major = hand_aperture_smoother.get_major()
+                    if 0:
+                        frame, aperture = hand_detector.findHandAperture(
+                                frame=frame, 
+                                verbose=True, 
+                                show_aperture=show_processing and draw_aperture
+                            )
+                    else:
+                        open_closed = hand_detector.open_or_close(frame,
+                                                                show_processing and draw_aperture)
+                        # hand_aperture_smoother.add(aperture)
+                        # hand_major = hand_aperture_smoother.get_major()
 
            
                 # --------------------------------------------------
@@ -413,40 +445,18 @@ def main(fps_cap=30, show_fps=True, source=0, pause_frame:int=None):
                 2
             )
 
-        # --------------------------------------------------
-        # FPS calculation
-        # --------------------------------------------------
-        if not paused and not process_ones:
-            current_time = time.perf_counter()
-
-            fps = 1.0 / max(
-                (current_time - previous_time),
-                1e-6
-            )
-
-            previous_time = current_time
+       
 
 
-        # --------------------------------------------------
-        # pause functionalities
         # --------------------------------------------------
         # pause at frame
+        # --------------------------------------------------
 
         if pause_frame is not None and is_video_file:
             if frame_counter == pause_frame:
                 if not paused:
                     print(f"Reached pause frame: {pause_frame}")
                     paused = True
-
-        # --------------------------------------------------
-        # process one frame - unpausing for one frame when paused
-
-        if process_ones:
-            if paused:
-                paused = False
-            else:
-                paused = True
-                process_ones = False
 
 
         # --------------------------------------------------
@@ -498,22 +508,21 @@ def main(fps_cap=30, show_fps=True, source=0, pause_frame:int=None):
         # --------------------------------------------------
         # frame counter overlay
 
-        if not paused:
-            text = f"Frame: {frame_counter}"
+        text = f"Frame: {frame_counter}"
 
-            if is_video_file:
-                text += '/'
-                text += str(int(video_capture.get(cv2.CAP_PROP_FRAME_COUNT)))
+        if is_video_file:
+            text += '/'
+            text += str(int(video_capture.get(cv2.CAP_PROP_FRAME_COUNT)))
 
-            cv2.putText(
-                frame,
-                text,
-                (10, 120),
-                cv2.FONT_HERSHEY_PLAIN,
-                2,
-                (255, 255, 255),
-                2
-            )
+        cv2.putText(
+            frame,
+            text,
+            (10, 120),
+            cv2.FONT_HERSHEY_PLAIN,
+            2,
+            (255, 255, 255),
+            2
+        )
 
         # --------------------------------------------------
         # controls overlay
@@ -565,13 +574,18 @@ def main(fps_cap=30, show_fps=True, source=0, pause_frame:int=None):
             )
 
 
-
+    # --------------------------------------------------
+    # finaly and closing
+    # --------------------------------------------------
     if use_realsense:
         pipeline.stop()
     else:
         video_capture.release()
     cv2.destroyAllWindows()
-    open_close_manual_status.save_to_file(source+"open_close_manual_status.txt")
+
+    # anti_delay_shift = -int(0.2*fps)
+    # lust = open_close_manual_status.shift_all_by(anti_delay_shift,)
+    open_close_manual_status.save_to_file(source+f"frame_and_open_close_manual_status.txt")
 
     print("Application terminated.")
 
@@ -591,6 +605,10 @@ if __name__ == "__main__":
     main(
         fps_cap=30,
         show_fps=True,
-        source=v4,
-        pause_frame=None
+        source=v2,
+        pause_frame=None,
+        show_processing=True,
+        capture_status_manually=True,
+
     )
+    
