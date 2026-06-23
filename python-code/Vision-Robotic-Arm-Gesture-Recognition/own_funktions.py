@@ -70,9 +70,16 @@ class CaptureStatus:
             return self.saved[index]
         else:
             return None
+        
+    def pop(self, i:int=-1):
+        if self.saved:
+            return self.saved.pop(i)
 
 class SaveFrameStatus(CaptureStatus):
-    
+    def __init__(self, keys, status = None):
+        super().__init__(keys, status)
+        self.pop_key = ord('x')
+
     def add(self, start_frame, key, print_out=True):
         if key in self.keys:
             i = self.keys.index(key)
@@ -80,7 +87,15 @@ class SaveFrameStatus(CaptureStatus):
             self.saved.append(add)
             if print_out:
                 print('Frame', start_frame, '-', self.status[i])
-
+        elif key == self.pop_key:
+            wrong = self.pop()
+            if wrong:
+                if print_out:
+                    print('pop: Frame', wrong[0], '-', wrong[1])
+                return wrong[0]
+            else:
+                if print_out:
+                    print('empty - nothing to pop')
 
 
 def fit_frameregion_landmoars_to_frame(landmarks, pixel_frame_size, pixel_region_x_y_w_h):

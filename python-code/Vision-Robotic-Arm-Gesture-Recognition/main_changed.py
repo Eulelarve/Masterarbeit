@@ -262,7 +262,17 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0, pause_frame:i
         # capture status manually
         # --------------------------------------------------
         if capture_status_manually:
-            open_close_manual_status.add(frame_counter, key)
+            wrong_frame = open_close_manual_status.add(frame_counter, key)
+            if type(wrong_frame) == int:
+                if is_video_file:
+                    if paused:
+                        process_ones = True
+            
+                    # set frame in video
+                    video_capture.set(
+                            cv2.CAP_PROP_POS_FRAMES,
+                            wrong_frame-1 
+                        )
 
         # --------------------------------------------------
         # Pose detection
@@ -605,10 +615,10 @@ if __name__ == "__main__":
     main(
         fps_cap=30,
         show_fps=True,
-        source=v2,
+        source=v6,
         pause_frame=None,
         show_processing=True,
-        capture_status_manually=True,
+        capture_status_manually=False,
 
     )
     
