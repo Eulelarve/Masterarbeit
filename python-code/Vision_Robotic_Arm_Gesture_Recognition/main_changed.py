@@ -9,10 +9,15 @@ import numpy as np
 
 from Detector_Modules.HandDetectorModule_changed import HandDetector as hdm
 from Detector_Modules.PoseDetectorModule_changed import poseDetector as pdm
-from own_funktions import get_hand_center, ProcessHandAperture, HandOpenClosedBuffer, ValueBuffer, SaveFrameStatus
+from own_funktions import get_hand_center, ProcessHandAperture, HandOpenClosedBuffer, ValueBuffer, SaveFrameStatus, CSVWriter
 
 
-def main(fps_cap=30, show_fps=True, show_processing=True,source=0, pause_frame:int=None, capture_status_manually:bool=False):
+def main(fps_cap=30, show_fps=True, show_processing=True,source=0, 
+         pause_frame:int=None, 
+         capture_status_manually:bool=False, 
+         capture_status_comparison:bool=False,
+         roi_size:int=100
+         ):
     """
     Video processing entry point.
 
@@ -31,13 +36,15 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0, pause_frame:i
     window_name = "Hand and Pose Detection"
 
     frame_counter = 0
+    frame_counter_hand = 0
     paused = False
-    process = False
+    process = True
     frame = None
     process_ones = False
+    upper_body_size = ValueBuffer(40)
     hand_aperture_smoother = ProcessHandAperture()
     hand_status_buffer = HandOpenClosedBuffer(buffer_size=10)
-    open_close_manual_status = SaveFrameStatus(keys=(ord('1'), ord('2'), ord('3')), status=('hand open', 'hand closed', None)) 
+    open_close_status_capturer = SaveFrameStatus(keys=(ord('1'), ord('2'), ord('3')), status=('hand open', 'hand closed', None)) 
 
     previous_time = time.perf_counter()
     last_frame_time = time.perf_counter()
@@ -97,6 +104,8 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0, pause_frame:i
             return
 
     is_video_file = isinstance(source, str) and not use_realsense
+    frame_x=frame.shape[1] 
+    frame_y=frame.shape[0]
 
     # -------------------------------------------------------
     # ROI - Define region of interest for video files
@@ -258,21 +267,7 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0, pause_frame:i
             if frame is None:
                 continue
         
-        # --------------------------------------------------
-        # capture status manually
-        # --------------------------------------------------
-        if capture_status_manually:
-            wrong_frame = open_close_manual_status.add(frame_counter, key)
-            if type(wrong_frame) == int:
-                if is_video_file:
-                    if paused:
-                        process_ones = True
-            
-                    # set frame in video
-                    video_capture.set(
-                            cv2.CAP_PROP_POS_FRAMES,
-                            wrong_frame-1 
-                        )
+       
 
         # --------------------------------------------------
         # Pose detection
@@ -280,10 +275,10 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0, pause_frame:i
         if not paused and process:
 
             # choose between 2D and 3D pose estimation
-            _3D = True 
-            draw_pose = True
-            draw_landmarks = True
-            draw_angles = True
+            _3D = False 
+            draw_pose = False
+            draw_landmarks = False
+            draw_angles = False
 
             frame = pose_detector.findPose(
                 frame=frame,
@@ -322,26 +317,37 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0, pause_frame:i
                     draw=show_processing and draw_angles
                 )
                 
-                # draw hand points from mediapipe pose landmarks
-                hands = [15, 21,19,17, 16, 22, 20, 18,   7,8,0]
-                pose_detector.draw_landmarks(
-                    frame=frame,
-                    landmark_ids=hands,
-                )
+                # # draw hand points from mediapipe pose landmarks
+                # hands = [15, 21,19,17, 16, 22, 20, 18,   7,8,0]
+                # pose_detector.draw_landmarks(
+                #     frame=frame,
+                #     landmark_ids=hands,
+                # )
         # --------------------------------------------------
         # chose ROI for hand detection
         # --------------------------------------------------
         if not paused and process:
-            
             roi_hand = None
 
+            # --------------------------------------------------
+            # hand ROI size from body length
+            # pixel = int(pose_detector.get_upper_body_length())
+            # upper_budy_pixel_len = upper_body_size.add_and_get_average(pixel)
+            # roi_size = int(upper_budy_pixel_len * 1.5)
+            
+            # --------------------------------------------------
+            # hand ROI size from frame size
+            # roi_size =  frame.shape[0] // 5
+
+            # --------------------------------------------------
+            # difine hand ROI area in frame
             if len(pose_landmarks) > 0:
+                roi_width = roi_size
+                roi_height = roi_size
 
-                width = 170
-                height = 170
-
-                min_width = width // 2
-                min_height = height // 2
+                # dont try if less then min window size
+                min_width = 50
+                min_height = 50
 
                 hand_center = get_hand_center(
                     pose_landmarks=pose_landmarks,
@@ -349,21 +355,21 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0, pause_frame:i
                     mirrored=not is_video_file
                 )
 
-                start_x = hand_center[0] - width // 2
-                start_y = hand_center[1] - height // 2
-                end_x = start_x + width
-                end_y = start_y + height
+                start_x = hand_center[0] - roi_width // 2
+                start_y = hand_center[1] - roi_height // 2
+                end_x = start_x + roi_width
+                end_y = start_y + roi_height
                 # ensure the ROI is within the frame boundaries
                 start_x = max(0, start_x)
                 start_y = max(0, start_y)
                 end_x = min(frame.shape[1], end_x)
                 end_y = min(frame.shape[0], end_y)
                 # update width and height based on the adjusted ROI
-                width = end_x - start_x
-                height = end_y - start_y
+                roi_width = end_x - start_x
+                roi_height = end_y - start_y
                 # only use the ROI if it is large enough
-                if width >= min_width and height >= min_height:
-                    roi_hand = (start_x, start_y, width, height)
+                if roi_width >= min_width and roi_height >= min_height:
+                    roi_hand = (start_x, start_y, roi_width, roi_height)
        
         # --------------------------------------------------
         # Hand depth value
@@ -411,6 +417,7 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0, pause_frame:i
                     )
                 
                 if len(hand_landmarks) > 0:
+                    frame_counter_hand += 1
                     if 0:
                         frame, aperture = hand_detector.findHandAperture(
                                 frame=frame, 
@@ -441,8 +448,6 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0, pause_frame:i
                 text, color = open_status['text'], open_status['color']
             elif hand_status == 0: # closed 
                 text, color = close_status['text'], close_status['color']
-            
- 
 
             # show hand status
             cv2.putText(
@@ -455,8 +460,28 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0, pause_frame:i
                 2
             )
 
-       
-
+        # --------------------------------------------------
+        # capture status comparsion 
+        # --------------------------------------------------
+        if not paused:
+            if capture_status_comparison:
+                open_close_status_capturer.add_comparison_status(open_closed)
+        
+        # --------------------------------------------------
+        # capture status manually
+        # --------------------------------------------------
+        if capture_status_manually:
+            wrong_frame = open_close_status_capturer.add(frame_counter, key)
+            if type(wrong_frame) == int:
+                if is_video_file:
+                    if paused:
+                        process_ones = True
+            
+                    # set frame in video
+                    video_capture.set(
+                            cv2.CAP_PROP_POS_FRAMES,
+                            wrong_frame-1 
+                        )
 
         # --------------------------------------------------
         # pause at frame
@@ -468,23 +493,23 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0, pause_frame:i
                     print(f"Reached pause frame: {pause_frame}")
                     paused = True
 
-
         # --------------------------------------------------
         # Status overlay
         # --------------------------------------------------
         # FPS overlay
-        if show_fps:
-            x = frame.shape[1] - 170
-            y = 40
-            cv2.putText(
-                frame,
-                f"FPS: {round(fps, 1)}",
-                (x, y),
-                cv2.FONT_HERSHEY_PLAIN,
-                2,
-                (0, 255, 0),
-                2
-            )
+        if not paused:
+            if show_fps:
+                x = frame.shape[1] - 170
+                y = 40
+                cv2.putText(
+                    frame,
+                    f"FPS: {round(fps, 1)}",
+                    (x, y),
+                    cv2.FONT_HERSHEY_PLAIN,
+                    2,
+                    (0, 255, 0),
+                    2
+                )
 
         # --------------------------------------------------
         #  video status overlay
@@ -587,17 +612,42 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0, pause_frame:i
     # --------------------------------------------------
     # finaly and closing
     # --------------------------------------------------
+    # closing cv2 or realsens 
     if use_realsense:
         pipeline.stop()
     else:
         video_capture.release()
     cv2.destroyAllWindows()
+    # --------------------------------------------------
+    # post-processing
 
     # anti_delay_shift = -int(0.2*fps)
-    # lust = open_close_manual_status.shift_all_by(anti_delay_shift,)
-    open_close_manual_status.save_to_file(source+f"frame_and_open_close_manual_status.txt")
+    # lust = open_close_status_capturer.shift_all_by(anti_delay_shift,)
+    name = source+f"_frame_and_open_close_manual_status"
+    end = '.txt'
+    if capture_status_manually:
+        open_close_status_capturer.save_to_file(name+end)
 
-    print("Application terminated.")
+    if capture_status_comparison:
+        open_close_status_capturer.load_from_file(name+end)
+        open_close_status_capturer.save_comp_to_file(name+'_comp_'+end)
+    
+    hand_rate = round(frame_counter_hand / frame_counter *100, 1)
+    print(f"hand detektet in {frame_counter_hand} of {frame_counter} frames ({hand_rate} %)")
+    print(f"used ROI size {roi_width} x {roi_height} in frame with {frame_x} x {frame_y} pixel")
+
+    CSVWriter.write('HAND_ROI_TEST.csv',
+        name=source,
+        frame_x=frame_x, frame_y=frame_y,
+        roi_width=roi_width, roi_height=roi_height, 
+        frame_counter=frame_counter,
+        frame_counter_hand=frame_counter_hand,
+        hand_rate=hand_rate,
+    )
+    # --------------------------------------------------
+    # end mesage
+    print(f"Video Detection with source: {source}")
+    print(f"Video Detection End")
 
 
 if __name__ == "__main__":
@@ -608,17 +658,21 @@ if __name__ == "__main__":
     v2 = r"C:/Users/Ampelman/Desktop/WIN_20260609_19_51_56_Pro.mp4"
     v3 = r"C:\Users\Ampelman\Desktop\WIN_20260622_15_27_19_Pro.mp4"
     v4 = r"C:\Users\Ampelman\Desktop\WIN_20260622_15_24_46_Pro.mp4"
-    v5 = r"C:\Users\Ampelman\Desktop\WIN_20260622_14_46_06_Pro.mp4".replace("\\","/")
-    v6 = r"C:\Users\Ampelman\Desktop\WIN_20260622_14_50_01_Pro.mp4".replace("\\","/")
+    v5 = r"C:\Users\Ampelman\Desktop\WIN_20260622_14_46_06_Pro.mp4"
+    v6 = r"C:\Users\Ampelman\Desktop\WIN_20260622_14_50_01_Pro.mp4"
     rs = 'realsens'
     # Video file input
-    main(
-        fps_cap=30,
-        show_fps=True,
-        source=v6,
-        pause_frame=None,
-        show_processing=True,
-        capture_status_manually=False,
+    for v in (v2,v3,v4,v5,v6):
+        for roi_size in (50,100,150,200,250,300):
+            main(
+                fps_cap=60,
+                show_fps=True,
+                source=v,
+                pause_frame=None,
+                show_processing=True,
+                capture_status_manually=False,
+                capture_status_comparison = False,
+                roi_size = roi_size,
 
-    )
+            )
     

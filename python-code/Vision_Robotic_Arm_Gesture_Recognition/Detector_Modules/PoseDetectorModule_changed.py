@@ -223,12 +223,17 @@ class poseDetector():
             v21 = np.array([x1 - x2, y1 - y2]) * 100
             v32 = np.array([x3 - x2, y3 - y2]) * 100
 
-        angle = np.degrees(
-            np.arccos(
-                np.dot(v21, v32)/(np.linalg.norm(v21, 2)
-                                  * np.linalg.norm(v32, 2))
-            )
-        )
+
+        len21 = np.linalg.norm(v21, 2)
+        len31 = np.linalg.norm(v32, 2)
+        if len21 * len31 == 0: 
+            return None # zero division
+        
+        cos_angle = np.dot(v21, v32) / (len21 * len31)
+
+        cos_angle = np.clip(cos_angle, -1.0, 1.0)
+
+        angle = np.degrees(np.arccos(cos_angle))
 
         if draw:
             # draw the angle and the keypoints, and the connections between them.
@@ -249,6 +254,20 @@ class poseDetector():
                         cv2.FONT_HERSHEY_PLAIN, 1, (255, 255, 255), 2, cv2.LINE_AA)
 
         return angle
+
+    def get_upper_body_length(self):
+        if self.lm_list:
+            marks = self.lm_list
+        elif self.lm_3dlist:
+            marks = self.lm_3dlist
+        else:
+            raise Exception('Landmark list is empty, use this function only after using the FindPose and FindPosePosition methods')
+        x_y_shulder = (np.array(marks[12][1:3]) + marks[13][1:3]) / 2 # midle between ledt and right sholder side
+        x_y_hip = (np.array(marks[24][1:3]) + marks[23][1:3]) / 2 
+
+        # compute upper body lenght as L2 norm between the upper palm midpoint and lower palm midpoint
+        body_len = np.linalg.norm(x_y_shulder - x_y_hip, ord=2)
+        return body_len
 
 # ---------------------------------------------------------------
 # MAIN SCRIPT EXAMPLE FOR REAL-TIME POSE TRACKING USING A WEBCAM

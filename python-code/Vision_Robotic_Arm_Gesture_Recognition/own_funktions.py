@@ -1,4 +1,5 @@
 import ctypes
+import ast
 
 def key_pressed(vk_code):
     return ctypes.windll.user32.GetAsyncKeyState(vk_code) & 0x8000 != 0
@@ -52,18 +53,26 @@ class CaptureStatus:
             self.saved = self.saved[:i] + fill
         return lost, fill
 
-    def save_to_file(self, filename):
-        if not self.saved:
-            print("No status to save.")
+    def save_to_file(self, filename, data:tuple=None):
+        if not data:
+            data = self.saved
+        if not data:
+            print("No status data to save.")
             return
         with open(filename, 'w') as f:
-            for item in self.saved:
+            for item in data:
                 f.write(f"{item}\n")
-            print(f"Saved {len(self.saved)} status to {filename}.")
+            print(f"Saved {len(data)} status to {filename}.")
     
-    def load_from_file(self, filename):
-        with open(filename, 'r') as f:
-            self.saved = [line.strip() for line in f]
+    def load_from_file(self, filename, data:list=None):
+        if not data:
+            data = self.saved
+        with open(filename, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                data.append(ast.literal_eval(line)) # alternative to json file
     
     def get(self, index):
         if index < len(self.saved):
@@ -75,10 +84,13 @@ class CaptureStatus:
         if self.saved:
             return self.saved.pop(i)
 
+
 class SaveFrameStatus(CaptureStatus):
     def __init__(self, keys, status = None):
         super().__init__(keys, status)
         self.pop_key = ord('x')
+        self.status_for_each_frame = []
+        self.status_for_each_frame_comp = []
 
     def add(self, start_frame, key, print_out=True):
         if key in self.keys:
@@ -97,6 +109,66 @@ class SaveFrameStatus(CaptureStatus):
                 if print_out:
                     print('empty - nothing to pop')
 
+    def get_status_for_each_frame(self,):
+        if not self.status_for_each_frame:
+            self.create_status_for_each_frame()
+        return self.status_for_each_frame
+
+    def create_status_for_each_frame(self):
+        if not self.saved:
+            raise Exception('no self.saved data to transform')
+        
+        self.status_for_each_frame.clear() # just in case
+        status = None # start startus
+        f_nr = 0 # start frame nr
+
+        # for each saved startus change in saved
+        for start_frame, next_status in self.saved:
+            # add the same status until the start frame of the next status is reached
+            while f_nr < start_frame:   
+                self.status_for_each_frame.append(status)
+                f_nr += 1 
+            status = next_status
+        
+        # add last status only ons for all remaining frames 
+        self.status_for_each_frame.append(status)
+
+    def check_frame_order(self):
+        frame_nr_before = -1
+        for save in self.saved:
+            f_nr = save[0]
+            if f_nr > frame_nr_before:
+                frame_nr_before = f_nr
+            else:
+                raise Exception(f'Frame order Error: {f_nr} folows {frame_nr_before}')
+    
+    def add_comparison_status(self, status, if_no_match_add_none=True):
+        if status in self.status:
+            self.status_for_each_frame_comp.append(status)
+        elif if_no_match_add_none:
+            self.status_for_each_frame_comp.append(None)
+
+    def load_from_file(self, filename):
+        r = super().load_from_file(filename)
+        # self.change_str_to_int()
+        self.check_frame_order()
+        return r
+    
+    def save_comp_to_file(self, filename:str):
+        if not self.status_for_each_frame_comp:
+            print('no compare data to save')
+        if not self.status_for_each_frame:
+            try:
+                self.create_status_for_each_frame()
+            except:
+                print('no saved data there, just save saved_comp data')
+                data = self.status_for_each_frame_comp
+                
+        if self.status_for_each_frame:
+            print('saving zip[saveed, saved_comp] data for each frame')
+            data = zip(self.status_for_each_frame, self.status_for_each_frame_comp)
+
+        return super().save_to_file(filename, data)
 
 def fit_frameregion_landmoars_to_frame(landmarks, pixel_frame_size, pixel_region_x_y_w_h):
     """ change the landmark coordinates to fit the region in the frame, if the region is not the whole frame.
@@ -405,3 +477,107 @@ class ProcessHandAperture():
                 return self.status_now
             else:
                 return major
+
+
+# chat gpt jasn class
+import json
+import os
+from datetime import datetime
+
+class SaveToJSON:
+    def __init__(self, filename="save.json", timestemp=True):
+        self.timestemp = timestemp
+        self.filename = filename
+        self.data = {}
+
+        # Falls Datei schon existiert, laden wir sie direkt
+        if os.path.exists(self.filename):
+            self.load()
+
+    def set(self, key, value):
+        """Speichert eine einzelne Variable"""
+        self.data[key] = value
+
+    def set_many(self, **kwargs):
+        """Speichert mehrere Variablen auf einmal"""
+        for key, value in kwargs.items():
+            self.data[key] = value
+
+    def get(self, key, default=None):
+        """Liest eine Variable"""
+        return self.data.get(key, default)
+
+    def remove(self, key):
+        """Löscht eine Variable"""
+        if key in self.data:
+            del self.data[key]
+
+    def save(self):
+        """Speichert alles in die JSON-Datei"""
+    
+        end = '.json'
+        if self.timestemp:
+            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            self.filename += ' '+timestamp
+
+        with open(self.filename+end, "w", encoding="utf-8") as f:
+            json.dump(self.data, f, indent=4, ensure_ascii=False)
+
+    def load(self):
+        """Lädt Daten aus der JSON-Datei"""
+        try:
+            with open(self.filename, "r", encoding="utf-8") as f:
+                self.data = json.load(f)
+        except (FileNotFoundError, json.JSONDecodeError):
+            self.data = {}
+
+# fon chag gpt CSVWriter
+
+import csv
+import os
+
+class CSVWriter:
+
+    @staticmethod
+    def create(filename:str, *headers):
+        """
+        Beispiel:
+        filename = CSVWriter.create(
+            "name",
+            "alter",
+            "punkte"
+        )
+        """
+        # timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        # filename += f"{timestamp}.csv"
+
+        with open(filename, "w", newline="", encoding="utf-8") as file:
+            i = 2
+            if os.path.exists(filename):
+                while os.path.exists(filename+f'({i})'):
+                    i=+1
+                filename+=f'({i})'
+
+            writer = csv.writer(file)
+            writer.writerow(headers)
+            print(f'CSVWriter: create {filename}')
+        return filename
+
+    @staticmethod
+    def write(filename:str, **kwargs):
+        file_exists = os.path.exists(filename)
+
+        with open(filename, "a", newline="", encoding="utf-8") as file:
+            writer = csv.DictWriter(
+                file,
+                fieldnames=kwargs.keys()
+            )
+
+            if not file_exists:
+                print(f'CSVWriter: create {filename}')
+
+                writer.writeheader()
+
+            writer.writerow(kwargs)
+            print(f'CSVWriter: add row to {filename}')
