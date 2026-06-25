@@ -1,0 +1,7 @@
+name,frame_x,frame_y,roi_size,frame_counter_processed,frame_counter_pose,pose_rate,frame_counter_hand,hand_rate,fps_mean
+C:/Users/Ampelman/Desktop/v1_20260609_19_51_56_Pro.mp4,1280,720,,20,20,100.0,20,100.0,13.2
+C:/Users/Ampelman/Desktop/v1_20260609_19_51_56_Pro.mp4,1280,720,50,20,20,100.0,20,100.0,12.7
+C:\Users\Ampelman\Desktop\v2_20260622_15_27_19_Pro.mp4,1280,720,,35,35,100.0,12,34.3,15.3
+C:\Users\Ampelman\Desktop\v3_20260622_15_24_46_Pro.mp4,640,480,,37,37,100.0,30,81.1,13.1
+C:/Users/Ampelman/Desktop/v1_20260609_19_51_56_Pro.mp4,1280,720,,31,31,100.0,31,100.0,13.2
+C:/Users/Ampelman/Desktop/v1_20260609_19_51_56_Pro.mp4,1280,720,50,21,21,100.0,21,100.0,12.5

@@ -1,5 +1,6 @@
 import ctypes
 import ast
+from datetime import datetime
 
 def key_pressed(vk_code):
     return ctypes.windll.user32.GetAsyncKeyState(vk_code) & 0x8000 != 0
@@ -581,3 +582,33 @@ class CSVWriter:
 
             writer.writerow(kwargs)
             print(f'CSVWriter: add row to {filename}')
+
+
+def tolist(list_or_not, keep_none=True):
+    if list_or_not is None:
+        return None if keep_none else []
+    if isinstance(list_or_not, list):
+        return list_or_not
+    try:
+        return list(list_or_not)
+    except TypeError:
+        return [list_or_not]
+
+
+import cv2
+
+def screenshot(frame, name='screnshot', timestemp=True, printout=True, info:list=None):
+    if info:
+        for v in info:
+            name += '_'+str(v)
+    if timestemp:
+        name += datetime.now().strftime("_%Y%m%d_%H%M%S")
+    name += '.png'
+    success = cv2.imwrite(name, frame)
+    if printout:
+        print(f"screenshot: {name}")
+        if success:
+            print(f"...Saved")
+        else:
+            print(f"...Failed !")
+    return success

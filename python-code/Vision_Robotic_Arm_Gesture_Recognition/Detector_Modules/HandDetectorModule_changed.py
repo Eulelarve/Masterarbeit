@@ -8,7 +8,7 @@ import time
 from own_funktions import fit_frameregion_landmoars_to_frame
 
 class HandDetector():
-    def __init__(self, mode=False, maxHands=1, modCompl=1, detCon=0.5, trackCon=0.5):
+    def __init__(self, mode=False, maxHands=2, modCompl=1, detCon=0.5, trackCon=0.5):
         """Hand detector class that is used to detect the hand keypoints.
 
         Args:
@@ -37,95 +37,95 @@ class HandDetector():
 
     ### added methods
 
-    # def choose_hand(self, left_right_top='top'):
-    #     """ Chooses the hand landmarks and index to return based on the specified mode.
-    #     Args:
-    #         left_right_top (str, optional): Mode for selecting hand landmarks. 
-    #             "top" - selects the hand whose center is highest in the image.
-    #             "left" - selects the homans left hand.
-    #             "right" - selects the homans right hand.
-    #             Default is "top".
-    #     Returns:
-    #         hand_landmarks: The selected hand landmarks or None if no hand is detected.
-    #         index: The index of the selected hand in the multi_hand_landmarks list, or None if no hand is detected.
-    #     """
-    #     if self.results.multi_hand_landmarks and self.results.multi_handedness:
+    def choose_hand(self, left_right_top='top'):
+        """ Chooses the hand landmarks and index to return based on the specified mode.
+        Args:
+            left_right_top (str, optional): Mode for selecting hand landmarks. 
+                "top" - selects the hand whose center is highest in the image.
+                "left" - selects the homans left hand.
+                "right" - selects the homans right hand.
+                Default is "top".
+        Returns:
+            hand_landmarks: The selected hand landmarks or None if no hand is detected.
+            index: The index of the selected hand in the multi_hand_landmarks list, or None if no hand is detected.
+        """
+        if self.results.multi_hand_landmarks and self.results.multi_handedness:
             
-    #         # only the first leter is capital letter, so if fits to the Mediapipe label format
-    #         left_right_top = left_right_top.capitalize() 
+            # only the first leter is capital letter, so if fits to the Mediapipe label format
+            left_right_top = left_right_top.capitalize() 
 
-    #         #--------------------------------------------------
-    #         # Only one hand detected, return it regardless of the mode
-    #         #--------------------------------------------------
+            #--------------------------------------------------
+            # Only one hand detected, return it regardless of the mode
+            #--------------------------------------------------
 
-    #         if len(self.results.multi_hand_landmarks) == 1:
-    #             index = 0
-    #             return self.results.multi_hand_landmarks[0], index 
+            if len(self.results.multi_hand_landmarks) == 1:
+                index = 0
+                return self.results.multi_hand_landmarks[0], index 
             
-    #         # --------------------------------------------------
-    #         # Oberste Hand
-    #         # --------------------------------------------------
+            # --------------------------------------------------
+            # Oberste Hand
+            # --------------------------------------------------
 
-    #         elif left_right_top == "Top":
+            elif left_right_top == "Top":
 
-    #             top_hand, index = self._get_topmost_hand(
-    #                 self.results.multi_hand_landmarks
-    #             )
+                top_hand, index = self._get_topmost_hand(
+                    self.results.multi_hand_landmarks
+                )
 
-    #             if top_hand is not None:
-    #                 return top_hand, index
+                if top_hand is not None:
+                    return top_hand, index
 
-    #         # --------------------------------------------------
-    #         # Linke oder rechte Hand
-    #         # --------------------------------------------------
+            # --------------------------------------------------
+            # Linke oder rechte Hand
+            # --------------------------------------------------
 
-    #         elif left_right_top in ("Left", "Right"):
+            elif left_right_top in ("Left", "Right"):
 
-    #             desired_label = left_right_top.capitalize()
+                desired_label = left_right_top.capitalize()
 
-    #             for i, (hand_landmarks, handedness) in enumerate(zip(
-    #                 self.results.multi_hand_landmarks,
-    #                 self.results.multi_handedness
-    #             )):
+                for i, (hand_landmarks, handedness) in enumerate(zip(
+                    self.results.multi_hand_landmarks,
+                    self.results.multi_handedness
+                )):
 
-    #                 label = (
-    #                     handedness.classification[0].label
-    #                 )
+                    label = (
+                        handedness.classification[0].label
+                    )
 
-    #                 if label == desired_label:
-    #                     index = i
-    #                     return hand_landmarks, index
-    #         else:
-    #         # --------------------------------------------------
-    #         # Invalid mode
-    #         # --------------------------------------------------
+                    if label == desired_label:
+                        index = i
+                        return hand_landmarks, index
+            else:
+            # --------------------------------------------------
+            # Invalid mode
+            # --------------------------------------------------
 
-    #             print(f"Invalid hand selection mode: {left_right_top}. Please choose 'top', 'left' or 'right'.")
+                print(f"Invalid hand selection mode: {left_right_top}. Please choose 'top', 'left' or 'right'.")
         
-    #     return None, 0
+        return None, 0
 
-    # def _get_topmost_hand(self, multi_hand_landmarks):
-    #     """
-    #     Gibt die Hand zurück, deren Mittelpunkt
-    #     am weitesten oben im Bild liegt.
-    #     """
+    def _get_topmost_hand(self, multi_hand_landmarks):
+        """
+        Gibt die Hand zurück, deren Mittelpunkt
+        am weitesten oben im Bild liegt.
+        """
 
-    #     top_hand_landmarks = None
-    #     best_y = float("inf")
-    #     index = None
+        top_hand_landmarks = None
+        best_y = float("inf")
+        index = None
 
-    #     for i, hand_landmarks in enumerate(multi_hand_landmarks):
+        for i, hand_landmarks in enumerate(multi_hand_landmarks):
 
-    #         mean_y = sum(
-    #             lm.y for lm in hand_landmarks.landmark
-    #         ) / len(hand_landmarks.landmark)
+            mean_y = sum(
+                lm.y for lm in hand_landmarks.landmark
+            ) / len(hand_landmarks.landmark)
 
-    #         if mean_y < best_y:
-    #             best_y = mean_y
-    #             top_hand_landmarks = hand_landmarks
-    #             index = i
+            if mean_y < best_y:
+                best_y = mean_y
+                top_hand_landmarks = hand_landmarks
+                index = i
 
-    #     return top_hand_landmarks, index
+        return top_hand_landmarks, index
     
     ### added methods
 
@@ -169,8 +169,7 @@ class HandDetector():
 
             # for each hand
             for handLMs in self.results.multi_hand_landmarks:
-                
-                # applies the offset to fit reagion landmarks in the original frame
+                # applies the offset to fit roi landmarks in the original frame
                 if roi:
                     width_hight = frame.shape[1], frame.shape[0]
 
@@ -191,7 +190,7 @@ class HandDetector():
         else:
             return frame
 
-    def findHandPosition(self, frame, hand_num=0, draw=True):
+    def findHandPosition(self, frame, hand_choice:str='top', draw=True):
         '''
         Given and image, returns the hand keypoints position in the format of a list of lists
         [[id_point0, x_point0, y_point0], ..., [id_point19, x_point19, y_point19]]
@@ -208,10 +207,9 @@ class HandDetector():
         '''
         self.lm_list = []
         h, w, c = frame.shape
-
         if self.results.multi_hand_landmarks:
-            hand = self.results.multi_hand_landmarks[hand_num]
-            for id_point, lm in enumerate(hand.landmark):
+            handLMs, i = self.choose_hand(hand_choice)
+            for id_point, lm in enumerate(handLMs.landmark):
                 cx, cy = int(lm.x * w), int(lm.y * h)
                 self.lm_list.append([id_point, cx, cy])
                 if draw:
@@ -219,7 +217,7 @@ class HandDetector():
 
         return self.lm_list, frame
 
-    def findHand3DPosition(self, hand_num=0, draw=False):
+    def findHand3DPosition(self, hand_choice:str='top', draw=False):
         '''
         Find the hand 3d positions on the referred detected hand in real-world 3D coordinates 
         that are in meters with the origin at the hand's approximate geometric center.
@@ -234,12 +232,12 @@ class HandDetector():
         '''
         self.lm3d_list = []
         if self.results.multi_hand_world_landmarks:
-            hand3d = self.results.multi_hand_world_landmarks[hand_num]
-            for id_point, lm in enumerate(hand3d.landmark):
+            hand3DLMs, i = self.choose_hand(hand_choice)
+            for id_point, lm in enumerate(hand3DLMs.landmark):
                 self.lm3d_list.append([id_point, lm.x, lm.y, lm.z])
             if draw:
                 self.mpDraw.plot_landmarks(
-                    hand3d, self.mpHands.HAND_CONNECTIONS, azimuth=5)
+                    hand3DLMs, self.mpHands.HAND_CONNECTIONS, azimuth=5)
         return self.lm3d_list
 
     # def get_biggest_distance_in_one_hand(self, frame=None,  draw=True):

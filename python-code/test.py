@@ -9,9 +9,7 @@ from Vision_Robotic_Arm_Gesture_Recognition.own_funktions import SaveFrameStatus
 
 from datetime import datetime
 
-now = datetime.now()
-print(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
-
+print( datetime.now().strftime("%Y_%m%d_%H%M%S"))
 # import ast
 # import json
 # names = [
