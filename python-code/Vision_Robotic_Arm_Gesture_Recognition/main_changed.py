@@ -754,11 +754,11 @@ if __name__ == "__main__":
     # Webcam input
     # main(source=0)
     v0 = r"C:/Users/Ampelman/Desktop/3D-Audio-Raum.MOV"
-    v1 = r"C:/Users/Ampelman/Desktop/v1_20260609_19_51_56_Pro.mp4"
-    v2 = r"C:\Users\Ampelman\Desktop\v2_20260622_15_27_19_Pro.mp4"
-    v3 = r"C:\Users\Ampelman\Desktop\v3_20260622_15_24_46_Pro.mp4"
-    v4 = r"C:\Users\Ampelman\Desktop\v4_20260622_14_46_06_Pro.mp4"
-    v5 = r"C:\Users\Ampelman\Desktop\v5_20260622_14_50_01_Pro.mp4"
+    v1 = r"C:\Users\Ampelman\Desktop\v1_32.5deg_1280x720p_long_sleeves_20260609_19_51_56_Pro.mp4"
+    v2 = r"C:\Users\Ampelman\Desktop\v2_0deg_1280x720p_short_sleves_20260622_15_27_19_Pro.mp4"
+    v3 = r"C:\Users\Ampelman\Desktop\v3_0deg_640x480p_short_sleves_20260622_15_24_46_Pro.mp4"
+    v4 = r"C:\Users\Ampelman\Desktop\v4_32.5deg_1280x720p_short_sleeves_20260622_14_46_06_Pro.mp4"
+    v5 = r"C:\Users\Ampelman\Desktop\v5_32.5deg_640x480p_short_sleves_20260622_14_50_01_Pro.mp4"
     rs = 'realsens'
     # Video file input
     for v in (v1,v2,v3,v4,v5):
