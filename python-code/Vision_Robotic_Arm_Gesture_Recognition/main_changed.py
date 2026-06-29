@@ -23,7 +23,7 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
          foto_name:str='hand_detection',
          foto_frames:list=None,
          hand_not_found_means=None,
-         detection_methode = 'aperture_len'
+         skip_hand_move_detection=False
 
          ):
     """
@@ -62,6 +62,12 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
     open_closed = None
     hand_status = None 
 
+    hand_status_dict = {'aperture':None, 'aperture_width':None,  'len_width_thr_1.2':None, 'len_width_thr_1.4':None, 'distance_dif_0.3':None,'distance_dif_0.4':None}
+    hand_status_detected = {'aperture':[], 'aperture_width':[],  'len_width_thr_1.2':[], 'len_width_thr_1.4':[], 'distance_dif_0.3':[], 'distance_dif_0.4':[]}
+    hand_status_buffer_dict = {'aperture':HandOpenClosedBuffer(buffer_size=S.hand_status_buffer_size), 'aperture_width':HandOpenClosedBuffer(buffer_size=S.hand_status_buffer_size), 
+                                'len_width_thr_1.2':HandOpenClosedBuffer(buffer_size=S.hand_status_buffer_size), 'len_width_thr_1.4':HandOpenClosedBuffer(buffer_size=S.hand_status_buffer_size), 
+                                'distance_dif_0.3':HandOpenClosedBuffer(buffer_size=1), 'distance_dif_0.4':HandOpenClosedBuffer(buffer_size=1)}
+    
 
 
     paused = False
@@ -72,7 +78,6 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
     hand_aperture_smoother = ValueBuffer(5)
     hand_status_buffer = HandOpenClosedBuffer(buffer_size=S.hand_status_buffer_size)
     open_close_status_capturer = SaveFrameStatus(keys=(ord('1'), ord('2'), ord('3')), status=('hand open', 'hand closed', None))
-    hand_status_detected = [] 
 
     previous_time = time.perf_counter()
     last_frame_time = time.perf_counter()
@@ -379,7 +384,8 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
         # hand stands still while grappling
         # --------------------------------------------------
         if not paused and process:
-            hand_stands_still = pose_detector.hand_is_not_moving(min_speed=3, max_speed_change=20)
+            if len(pose_landmarks) > 0:
+                hand_stands_still = pose_detector.hand_is_not_moving(min_speed=3, max_speed_change=20)
 
         # --------------------------------------------------
         # chose ROI for hand detection
@@ -472,50 +478,83 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
                 hand_found = hand_index is not None
                 # --------------------------------------------------
                 # evaluate/change Hand status only if it is not moving
-                if hand_stands_still:
-                    
+                if hand_stands_still or skip_hand_move_detection:
                     if hand_found:
                         # hand detected in frame
                         frame_counter_hand += 1
                         
-                        if 'aperture' in detection_methode:
-                            
-                            hand_landmarks, frame = hand_detector.findHandPosition(
-                            frame=frame, 
-                            # hand_num=index, 
-                            draw=False
+                        #
+                        # aperture methode
+                        #
+                        hand_landmarks, frame = hand_detector.findHandPosition(
+                        frame=frame, 
+                        # hand_num=index, 
+                        draw=False
+                        )
+
+                        width_factor = 0
+                        frame, aperture = hand_detector.findHandAperture(
+                                frame=frame, 
+                                verbose=True, 
+                                show_aperture=show_processing and draw_aperture,
+                                use_len_if_larger_then_width = width_factor
                             )
-                            if 'width' in detection_methode:
-                                width_factor = 1.2
-                            else:
-                                width_factor = 0
-                            frame, aperture = hand_detector.findHandAperture(
-                                    frame=frame, 
-                                    verbose=True, 
-                                    show_aperture=show_processing and draw_aperture,
-                                    use_len_if_larger_then_width = width_factor
-                                )
-                            hand_aperture_smoother.add(aperture)
-                            aperture = hand_aperture_smoother.average
-                            if aperture >= 70:
-                                open_closed = 1 # open
-                            elif aperture <= 60:
-                                open_closed = 0 # closed
-                            else:
-                                open_closed = open_closed # stay like it is
-                        elif 'len_width_thr' in detection_methode:
-                            if '1.2' in detection_methode:
-                                opening_faktor = 1.2
-                            elif '1.4' in detection_methode:
-                                opening_faktor = 1.4
-                            open_closed = hand_detector.open_or_close_len_width_thr(frame, show_processing and draw_aperture, 
-                                                                                    hand_opening_factor=opening_faktor)
-                        elif 'distance_dif' in detection_methode:
-                            open_closed = hand_detector.open_or_close_distance_dif(frame, show_processing and draw_aperture, 
-                                                                                   min_distance_difference=0.3, frame_difference=S.hand_status_buffer_size)
+                        hand_aperture_smoother.add(aperture)
+                        aperture = hand_aperture_smoother.average
+                        if aperture >= 70:
+                            open_closed = 1 # open
+                        elif aperture <= 60:
+                            open_closed = 0 # closed
                         else:
-                            raise Exception('no valid detection_methode')
-                            
+                            open_closed = open_closed # stay like it is
+                        hand_status_dict['aperture'] = open_closed
+                        #
+                        # aperture_width methode
+                        #
+                        width_factor = 1.2
+                        frame, aperture = hand_detector.findHandAperture(
+                                frame=frame, 
+                                verbose=True, 
+                                show_aperture=show_processing and draw_aperture,
+                                use_len_if_larger_then_width = width_factor
+                            )
+                        hand_aperture_smoother.add(aperture)
+                        aperture = hand_aperture_smoother.average
+                        if aperture >= 70:
+                            open_closed = 1 # open
+                        elif aperture <= 60:
+                            open_closed = 0 # closed
+                        else:
+                            open_closed = open_closed # stay like it is
+                        hand_status_dict['aperture_width'] = open_closed
+                        #
+                        # len_width_thr_1.2 methode
+                        #
+                        opening_faktor = 1.2
+                        open_closed = hand_detector.open_or_close_len_width_thr(frame, show_processing and draw_aperture, 
+                                                                                    hand_opening_factor=opening_faktor)
+                        hand_status_dict['len_width_thr_1.2'] = open_closed
+                        #
+                        # len_width_thr_1.4 methode
+                        #
+                        opening_faktor = 1.4
+                        open_closed = hand_detector.open_or_close_len_width_thr(frame, show_processing and draw_aperture, 
+                                                                                    hand_opening_factor=opening_faktor)
+                        hand_status_dict['len_width_thr_1.4'] = open_closed
+                        #
+                        # distance_dif_0.3 methode
+                        #
+                        min_distance_difference = 0.3
+                        open_closed = hand_detector.open_or_close_distance_dif(frame, show_processing and draw_aperture, 
+                                                                                   min_distance_difference=min_distance_difference, frame_difference=S.hand_status_buffer_size)
+                        hand_status_dict['distance_dif_0.3'] = open_closed
+                        #
+                        # distance_dif_0.4 methode
+                        #
+                        min_distance_difference = 0.4
+                        open_closed = hand_detector.open_or_close_distance_dif(frame, show_processing and draw_aperture, 
+                                                                                   min_distance_difference=min_distance_difference, frame_difference=S.hand_status_buffer_size)
+                        hand_status_dict['distance_dif_0.4'] = open_closed
 
                     else:   
                         # if hand probably there but not found. closed hand are more likly to be not found
@@ -523,18 +562,24 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
             
                     # --------------------------------------------------
                     # smoothing hand status
-                    if 'distance_dif' in detection_methode:
-                        hand_status = open_closed
-                    else:
-                        hand_status = hand_status_buffer.add_and_get(open_closed)
+                    for methode in hand_status_dict.keys():
+                        status = hand_status_dict[methode]
+                        status = hand_status_buffer_dict[methode].add_and_get(status)
+                        hand_status_detected[methode].append(status)
+                    hand_status = status
                 else:
                     # if hand is moving curently, do not change the hand status
                     hand_status = hand_status
-                    if 'distance_dif' in detection_methode:
-                            hand_detector.buffer_clear()
+                    hand_detector.buffer_clear()
+
+                    for methode in hand_status_dict.keys():
+                        status = hand_status_buffer_dict[methode].most_frequently
+                        hand_status_detected[methode].append(status)
 
             else:
                 hand_status = None # no hand in frame
+                for methode in hand_status_dict.keys():
+                        hand_status_detected[methode].append(None)
             
         # --------------------------------------------------
         # draw hand status
@@ -571,9 +616,9 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
         # --------------------------------------------------
         # capture status comparsion 
         # --------------------------------------------------
-        if not paused:
-            if capture_status:
-                hand_status_detected.append(open_closed)
+        # if not paused:
+        #     if capture_status:
+        #         hand_status_detected.append(open_closed)
                 # open_close_status_capturer.add_comparison_status(open_closed)
         
         # --------------------------------------------------
@@ -782,8 +827,7 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
     if capture_status_manually:
         open_close_status_capturer.save_to_file(name+end)
 
-    if capture_status:
-        save_list_to_file(source+f'_hand_detected_{detection_methode}.txt',hand_status_detected)
+
     
     hand_rate = round(frame_counter_hand / frame_counter_processed *100, 1)
     pose_rate = round(frame_counter_pose / frame_counter_processed *100, 1)
@@ -804,6 +848,12 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
 
     # save_list_to_file(f'{source}_hand_pixel_moves.txt',hand_moves)
 
+    if capture_status:
+        for methode in hand_status_dict.keys():
+            status = hand_status_buffer_dict[methode].most_frequently
+            data = hand_status_detected[methode]
+            save_list_to_file(source+f'-hand_detected_{methode}_no_hand_{hand_not_found_means}_no_movedetect_{skip_hand_move_detection}.txt',data)
+
     CSVWriter.write('HAND_detektionmethod_TEST.csv',
         name=source,
         frame_x=frame_x, frame_y=frame_y,
@@ -811,6 +861,8 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
         frame_counter_processed=frame_counter_processed,
         frame_counter_pose=frame_counter_pose, pose_rate=pose_rate,
         frame_counter_hand=frame_counter_hand, hand_rate=hand_rate,
+        hand_not_found_means=hand_not_found_means,
+        skip_hand_move_detection=skip_hand_move_detection,
         fps_mean=fps_mean
     )
     # --------------------------------------------------
@@ -833,24 +885,25 @@ if __name__ == "__main__":
     rs = 'realsens'
     # Video file input
     for v in (v1,v2,v3,v4,v5):
-        for detection_methode in ['distance_dif', 'aperture', 'aperture_width', 'len_width_thr_1.2', 'len_width_thr_1.4' ]:
-            r = main(
-                fps_cap=60,
-                show_fps=True,
-                source=v,
-                pause_frames=None,
-                show_processing=True,
-                capture_status_manually=False,
-                capture_status = True,
-                roi_size = None,
-                start_frame=250,
-                end_frame = None,
-                foto_name='hand_detection',
-                foto_frames=None,
-                detection_methode = detection_methode, # aperture, width, len_width_thr, distance_dif
-            )
-            if r == False:
-                break
-        if r == False:
-                break
+        for hand_not_found_means in [None, 0]:
+            for skip_hand_move_detection in [True, False]:
+                r = main(
+                    fps_cap=60,
+                    show_fps=True,
+                    source=v,
+                    pause_frames=None,
+                    show_processing=True,
+                    capture_status_manually=False,
+                    capture_status = True,
+                    roi_size = None,
+                    start_frame=250,
+                    end_frame = None,
+                    foto_name='hand_detection',
+                    foto_frames=None,
+                    hand_not_found_means=hand_not_found_means,
+                    skip_hand_move_detection=skip_hand_move_detection,
+                )
+                if r == False:break
+            if r == False:break
+        if r == False:break
     

@@ -7,7 +7,7 @@ from Vision_Robotic_Arm_Gesture_Recognition.own_funktions import SaveFrameStatus
 # c.saved = s.get_status_for_each_frame()
 # c.save_to_file(name+"_each_frame"+end)
 from math import dist
-print(dist((0,1),(10,2)))
+print({'rr':3,'44':4}.keys)
 
 # import ast
 # import json
