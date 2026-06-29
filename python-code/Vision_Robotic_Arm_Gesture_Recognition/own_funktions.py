@@ -1,6 +1,24 @@
 import ctypes
 import ast
 from datetime import datetime
+import cv2
+
+def save_list_to_file(filename, data:tuple=None):
+    if not data:
+        print("No status data to save.")
+        return
+    with open(filename, 'w') as f:
+        for item in data:
+            f.write(f"{item}\n")
+        print(f"Saved {len(data)} status to {filename}.")
+
+def load_list_from_file(filename, data:list=None):
+    with open(filename, "r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            data.append(ast.literal_eval(line)) # alternative to json file
 
 def key_pressed(vk_code):
     return ctypes.windll.user32.GetAsyncKeyState(vk_code) & 0x8000 != 0
@@ -57,23 +75,12 @@ class CaptureStatus:
     def save_to_file(self, filename, data:tuple=None):
         if not data:
             data = self.saved
-        if not data:
-            print("No status data to save.")
-            return
-        with open(filename, 'w') as f:
-            for item in data:
-                f.write(f"{item}\n")
-            print(f"Saved {len(data)} status to {filename}.")
+        save_list_to_file(filename=filename,data=data)
     
     def load_from_file(self, filename, data:list=None):
         if not data:
             data = self.saved
-        with open(filename, "r", encoding="utf-8") as f:
-            for line in f:
-                line = line.strip()
-                if not line:
-                    continue
-                data.append(ast.literal_eval(line)) # alternative to json file
+        load_list_from_file(filename=filename, data=data)
     
     def get(self, index):
         if index < len(self.saved):
@@ -171,7 +178,7 @@ class SaveFrameStatus(CaptureStatus):
 
         return super().save_to_file(filename, data)
 
-def fit_frameregion_landmoars_to_frame(landmarks, pixel_frame_size, pixel_region_x_y_w_h):
+def fit_roi_landmarks_to_frame(landmarks, pixel_frame_size, pixel_region_x_y_w_h):
     """ change the landmark coordinates to fit the region in the frame, if the region is not the whole frame.
         so you can draw in the origiunal frame in on the right position.
         for this, it applies a linear funktion offset to landmarks
@@ -251,70 +258,6 @@ def get_center_of_landmarks(pose_landmarks, landmark_indices, round_to_int=True)
 
     return (center_x, center_y)
 
-def get_upper_hand_center(pose_landmarks):
-    """
-    gives the center of the hand that is higher in the image, based on the average y value of the pose landmarks.
-    returns the right hand center if both hands are at the same height.
-    Args:
-        pose_landmarks: list of pose landmarks
-    Returns:
-        hand_center: the hand center as a tuple (x, y)
-    """
-    y_left_hand_center = (
-        # pose_landmarks[15][2] +
-        pose_landmarks[17][2] +
-        pose_landmarks[19][2] 
-        # + pose_landmarks[21][2]
-        )
-
-    y_right_hand_center = (
-        # pose_landmarks[16][2] +
-        pose_landmarks[18][2] +
-        pose_landmarks[20][2] 
-        # + pose_landmarks[22][2]
-    )
-    
-    # smaller y value means higher position in the image
-    if y_left_hand_center < y_right_hand_center: 
-        # hand_points = [15, 17, 19, 21] # left hand landmarks from mediapipe pose
-        hand_points = [ 17, 19] # landmarks ID of pinky start and index finger start
-    else:
-        # hand_points = [16, 18, 20, 22] # right hand landmarks from mediapipe pose
-        hand_points = [18, 20] # landmarks ID of pinky start and index finger start
-
-    return get_center_of_landmarks(pose_landmarks, hand_points)
-
-def get_hand_center(pose_landmarks, left_right_top='top', mirrored=False):
-    """ choose between left, right or top hand based on the pose landmarks
-    Args:
-        pose_landmarks: list of pose landmarks
-        left_right_top: 'left', 'right' or 'top'
-        mirrored: if the image is mirrored, left and right are switched
-    Returns:
-        hand_center: index of the chosen wrist landmark (15 for left, 16 for right)
-    
-    """
-        
-    # only the first leter is capital letter, so it is uniform for all spelling options
-    left_right_top = left_right_top.capitalize() 
-    hand_center = None
-    left_hand_points = [15, 17, 19, 21] # left hand landmarks from mediapipe pose
-    right_hand_points = [16, 18, 20, 22] # right hand landmarks from mediapipe pose
-
-    if left_right_top == "Top":
-        hand_center = get_upper_hand_center(pose_landmarks)
-
-    elif left_right_top == "Left":
-        hand_points = left_hand_points if not mirrored else right_hand_points
-        hand_center = get_center_of_landmarks(pose_landmarks, hand_points)
-
-    elif left_right_top == "Right":
-        hand_points = right_hand_points if not mirrored else left_hand_points
-        hand_center = get_center_of_landmarks(pose_landmarks, hand_points)
-    else:
-        print(f"Invalid hand selection mode: {left_right_top}. Please choose 'top', 'left' or 'right'.")
-    
-    return hand_center
 
 
 from collections import deque
@@ -595,20 +538,31 @@ def tolist(list_or_not, keep_none=True):
         return [list_or_not]
 
 
-import cv2
+def screenshot(frame,
+               name="screenshot",
+               timestamp=True,
+               printout=True,
+               info=None,
+               ask_name=False):
 
-def screenshot(frame, name='screnshot', timestemp=True, printout=True, info:list=None):
+    if ask_name:
+        user_name = input("Name the Screenshots (empty = default): ").strip()
+        if user_name:
+            name = user_name
+
     if info:
         for v in info:
-            name += '_'+str(v)
-    if timestemp:
+            name += "_" + str(v)
+
+    if timestamp:
         name += datetime.now().strftime("_%Y%m%d_%H%M%S")
-    name += '.png'
+
+    name += ".png"
+
     success = cv2.imwrite(name, frame)
+
     if printout:
-        print(f"screenshot: {name}")
-        if success:
-            print(f"...Saved")
-        else:
-            print(f"...Failed !")
+        print(f"Screenshot: {name}")
+        print("...Saved" if success else "...Failed!")
+
     return success

@@ -10,7 +10,8 @@ from datetime import datetime
 
 from Detector_Modules.HandDetectorModule_changed import HandDetector as hdm
 from Detector_Modules.PoseDetectorModule_changed import poseDetector as pdm
-from own_funktions import get_hand_center, ProcessHandAperture, HandOpenClosedBuffer, ValueBuffer, SaveFrameStatus, CSVWriter, tolist, screenshot
+from own_funktions import ProcessHandAperture, HandOpenClosedBuffer, ValueBuffer, SaveFrameStatus, CSVWriter, tolist, screenshot, save_list_to_file
+import settings as S
 
 def main(fps_cap=30, show_fps=True, show_processing=True,source=0, 
          pause_frames:list=None, 
@@ -54,6 +55,10 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
     frame_counter_pose = 0
     frame_counter_hand = 0
     current_frame = start_frame - 1
+    size_sum = 0
+    hand_status = None 
+
+
 
     paused = False
     process = True
@@ -200,7 +205,7 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
             process = not process
 
         elif key == ord('p'): # p -> screen shot
-            screenshot(frame=frame, name=foto_name)
+            screenshot(frame=frame, name=foto_name, ask_name=True)
 
         # --------------------------------------------------
         # Video frame navigation
@@ -211,13 +216,13 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
                 if paused:
                     process_ones = True
                 
-                # A = step back 200 frame
+                # A = step back x frame
                 if key == ord('a'):
-                    current_frame = max(0, current_frame-200)
+                    current_frame = max(0, current_frame- S.skip_frames)
 
-                # D = step forward 200 frame
+                # D = step forward x frame
                 elif key == ord('d'):
-                    current_frame += 200 
+                    current_frame += S.skip_frames
 
                 # S = step back 1 frames
                 elif key == ord('s'):
@@ -364,6 +369,13 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
                 #     frame=frame,
                 #     landmark_ids=hands,
                 # )
+
+        # --------------------------------------------------
+        # hand stands still while grappling
+        # --------------------------------------------------
+        if not paused and process:
+            hand_stands_still = pose_detector.hand_is_not_moving(min_speed=2, max_speed_change=20)
+
         # --------------------------------------------------
         # chose ROI for hand detection
         # --------------------------------------------------
@@ -371,30 +383,32 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
             roi_hand = None
 
             # --------------------------------------------------
+            # just take inmutparameter ROI size 
+            _roi_size = roi_size
+
+            # --------------------------------------------------
             # hand ROI size from body length
-            # pixel = int(pose_detector.get_upper_body_length())
-            # upper_budy_pixel_len = upper_body_size.add_and_get_average(pixel)
-            # roi_size = int(upper_budy_pixel_len * 1.5)
+            pixel = int(pose_detector.get_upper_body_length())
+            upper_budy_pixel_len = upper_body_size.add_and_get_average(pixel)
+            _roi_size = int(upper_budy_pixel_len * 1.4)
+            size_sum += _roi_size
             
             # --------------------------------------------------
             # hand ROI size from frame size
-            # roi_size =  frame.shape[0] // 5
+            if roi_size:
+                _roi_size =  frame.shape[0] // roi_size
 
             # --------------------------------------------------
             # difine hand ROI area in frame
-            if len(pose_landmarks) > 0 and roi_size:
-                roi_width = roi_size
-                roi_height = roi_size
+            if len(pose_landmarks) > 0 and _roi_size:
+                roi_width = _roi_size
+                roi_height = _roi_size
 
                 # dont try if less then min window size
                 min_width = 50
                 min_height = 50
 
-                hand_center = get_hand_center(
-                    pose_landmarks=pose_landmarks,
-                    left_right_top="top",
-                    mirrored=not is_video_file
-                )
+                hand_center = pose_detector.hand_center
 
                 start_x = hand_center[0] - roi_width // 2
                 start_y = hand_center[1] - roi_height // 2
@@ -411,7 +425,7 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
                 # only use the ROI if it is large enough
                 if roi_width >= min_width and roi_height >= min_height:
                     roi_hand = (start_x, start_y, roi_width, roi_height)
-       
+
         # --------------------------------------------------
         # Hand depth value
         # --------------------------------------------------
@@ -426,21 +440,19 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
                     )
 
                     print(f"Distance: {distance_m:.3f} m")
+
         # --------------------------------------------------
         # Hand detection
         # --------------------------------------------------
         if not paused and process:
-            hand_status = None 
-
             # if no roi_hand is there, no hand schoult be in the frame
-            if roi_hand or not roi_size: 
+            if roi_hand or not _roi_size: 
                 draw_landmarks = True
                 draw_aperture = True
                 draw_roi = True
                
 
-                aperture = None
-                open_closed = None
+
 
                 frame = hand_detector.findHands(
                     frame=frame,
@@ -450,58 +462,70 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
                 )
 
                 # _, index = hand_detector.choose_hand("top")
-
-                hand_landmarks, frame = hand_detector.findHandPosition(
-                        frame=frame, 
-                        # hand_num=index, 
-                        draw=False
-                    )
                 
-                if len(hand_landmarks) > 0:
-                    # hand detected in frame
-                    frame_counter_hand += 1
+                hand_index = hand_detector.choose_hand(left_right_top='top')
 
-                    if 0:
-                        frame, aperture = hand_detector.findHandAperture(
-                                frame=frame, 
-                                verbose=True, 
-                                show_aperture=show_processing and draw_aperture
-                            )
-                    else:
-                        open_closed = hand_detector.open_or_close(frame,
-                                                                show_processing and draw_aperture)
-                        # hand_aperture_smoother.add(aperture)
-                        # hand_major = hand_aperture_smoother.get_major()
-
-           
                 # --------------------------------------------------
-                # smoothing hand status
-                hand_status = hand_status_buffer.add_and_get(open_closed)
+                # evaluate/change Hand status only if it is not moving
+                if hand_stands_still:
+                    aperture = None
+                    open_closed = None
+                    
+                    if hand_index is not None:
+                        # hand detected in frame
+                        frame_counter_hand += 1
 
-            # --------------------------------------------------
-            # draw hand status
+                        if 0:
+                        
+                            hand_landmarks, frame = hand_detector.findHandPosition(
+                            frame=frame, 
+                            # hand_num=index, 
+                            draw=False
+                                )
+                            frame, aperture = hand_detector.findHandAperture(
+                                    frame=frame, 
+                                    verbose=True, 
+                                    show_aperture=show_processing and draw_aperture
+                                )
+                        else:
+                            open_closed = hand_detector.open_or_close(frame,
+                                                                    show_processing and draw_aperture)
+                            # hand_aperture_smoother.add(aperture)
+                            # hand_major = hand_aperture_smoother.get_major()
 
-            no_hand_status = {'text':"no hand", 'color':(250,250,250)}
-            open_status = {'text':"open", 'color':(0,0,255)}
-            close_status = {'text':"closed", 'color':(255,0,0)}
             
-            if hand_status == None: # no hand in screen
-                text, color = no_hand_status['text'], no_hand_status['color']
-            elif hand_status == 1: # open
-                text, color = open_status['text'], open_status['color']
-            elif hand_status == 0: # closed 
-                text, color = close_status['text'], close_status['color']
+                    # --------------------------------------------------
+                    # smoothing hand status
+                    hand_status = hand_status_buffer.add_and_get(open_closed)
 
-            # show hand status
-            cv2.putText(
-                frame,
-                text,
-                (10, 200),
-                cv2.FONT_HERSHEY_PLAIN,
-                2,
-                color,
-                2
-            )
+                # --------------------------------------------------
+                # draw hand status
+                red = (0, 0, 255)
+                blue = (255, 0, 0)
+                white = (250,250,250)
+                no_hand_status = {'text':"no hand", 'color':white}
+                open_status = {'text':"open", 'color':blue}
+                close_status = {'text':"closed", 'color':red}
+                
+                if hand_status == None: # no hand in screen
+                    text, color = no_hand_status['text'], no_hand_status['color']
+                elif hand_status == 1: # open
+                    text, color = open_status['text'], open_status['color']
+                elif hand_status == 0: # closed 
+                    text, color = close_status['text'], close_status['color']
+                if not hand_stands_still: # hand is moving
+                    text += ' moving'
+
+                # show hand status
+                cv2.putText(
+                    frame,
+                    text,
+                    (10, 200),
+                    cv2.FONT_HERSHEY_PLAIN,
+                    2,
+                    color,
+                    2
+                )
 
         # --------------------------------------------------
         # capture status comparsion 
@@ -652,10 +676,10 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
                 pose_rate = round(frame_counter_pose / frame_counter_processed *100, 1)
                 fps_mean = round(fps_sum / frame_counter_processed, 1)
 
-                screenshot(frame=frame, name=source,
+                screenshot(frame=frame, name=source, ask_name=False,
                            info=[
                                     frame_x, frame_y,
-                                    roi_size, 
+                                    _roi_size, 
                                     frame_counter_processed,
                                     frame_counter_pose, pose_rate,
                                     frame_counter_hand, hand_rate,
@@ -724,19 +748,25 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
     pose_rate = round(frame_counter_pose / frame_counter_processed *100, 1)
     fps_mean = round(fps_sum / frame_counter_processed, 1)
 
+    if roi_size is None:
+        _roi_size = size_sum//frame_counter_processed
+
     # --------------------------------------------------
     # print analyse stats
     print(f"pose detektet in {frame_counter_pose} of {frame_counter_processed} frames ({pose_rate} %)")
     print(f"hand detektet in {frame_counter_hand} of {frame_counter_processed} frames ({hand_rate} %)")
-    print(f"used ROI size {roi_size} in frame with {frame_x} x {frame_y} pixel")
+    print(f"used ROI size {_roi_size} in frame with {frame_x} x {frame_y} pixel")
     print(f'performance {fps_mean} fps mean')
 
     # --------------------------------------------------
     # save analyse stats
-    CSVWriter.write('HAND_FPS_TEST.csv',
+
+    # save_list_to_file(f'{source}_hand_pixel_moves.txt',hand_moves)
+
+    CSVWriter.write('HAND_x_TEST.csv',
         name=source,
         frame_x=frame_x, frame_y=frame_y,
-        roi_size=roi_size, 
+        roi_size=_roi_size, 
         frame_counter_processed=frame_counter_processed,
         frame_counter_pose=frame_counter_pose, pose_rate=pose_rate,
         frame_counter_hand=frame_counter_hand, hand_rate=hand_rate,
@@ -761,8 +791,8 @@ if __name__ == "__main__":
     v5 = r"C:\Users\Ampelman\Desktop\v5_32.5deg_640x480p_short_sleves_20260622_14_50_01_Pro.mp4"
     rs = 'realsens'
     # Video file input
-    for v in (v1,v2,v3,v4,v5):
-        for roi_size in [None,50,100,300]:
+    for v in (v2,v3):
+        for roi_size in [None]:
             r = main(
                 fps_cap=60,
                 show_fps=True,
@@ -774,7 +804,7 @@ if __name__ == "__main__":
                 roi_size = roi_size,
                 start_frame=250,
                 end_frame = None,
-                foto_name='234§4$%"!_:hand_detection',
+                foto_name='hand_detection',
                 foto_frames=None,
             )
             if r == False:

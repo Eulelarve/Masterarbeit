@@ -3,7 +3,9 @@ import numpy as np
 import cv2
 
 import time
+import math
 
+from own_funktions import get_center_of_landmarks, ValueBuffer
 
 class poseDetector():
     def __init__(self, mode=False, modCompl=1, upBody=False, smooth=True, segm=False, smooth_seg=True, detCon=0.5, trackCon=0.5):
@@ -34,6 +36,9 @@ class poseDetector():
         self.smooth_seg = smooth_seg
         self.detCon = detCon  # detection confidence threshold
         self.trackCon = trackCon  # tracking confidence threshold
+        self.hand_center = [0,0]
+        self.hand_speed = 0
+        self.hand_moving_buffer = ValueBuffer(5)
 
         self.mpPose = mp.solutions.pose
         self.pose = self.mpPose.Pose(static_image_mode=self.mode,
@@ -45,46 +50,7 @@ class poseDetector():
                                      min_tracking_confidence=self.trackCon)
         self.mpDraw = mp.solutions.drawing_utils
     
-    # added funktios
-    def draw_landmarks(self, frame, landmark_ids:tuple[int], 
-                       conection_list:tuple[tuple[int, int]]=None, 
-                       color_landmarks:tuple[int, int, int]=(0,255,0), 
-                       color_connections:tuple[int, int, int]=(255, 0, 0), 
-                       thickness_landmarks:int=3, 
-                       thickness_connections:int=2):
-        '''
-        Draws the landmarks and the connections between them on the given frame.
-            Args:
-                frame (opencv BGR image): the image on which the landmarks and connections will be drawn
-                landmarks (tuple of int): a tuple containing the index of the landmarks to be drawn. The index of the landmarks can be found in this image: https://google.github.io/mediapipe/images/mobile/pose_tracking_full_body_landmarks.png
-                conection_list (tuple of tuple of int, optional): a tuple containing the connections to be drawn. Each connection is represented as a tuple of two integers, where each integer is the index of a landmark. The index of the landmarks can be found in this image: https://google.github.io/mediapipe/images/mobile/pose_tracking_full_body_landmarks.png. Defaults to None, which means that no connections will be drawn.
-                color_landmarks (tuple of int, optional): a tuple containing the BGR color values for the landmarks. Defaults to (0, 255, 0), which is green.
-                color_connections (tuple of int, optional): a tuple containing the BGR color values for the connections. Defaults to (255, 0, 0), which is blue.
-                thickness_landmarks (int, optional): the thickness of the landmarks. Defaults to 3.
-                thickness_connections (int, optional): the thickness of the connections. Defaults to 2.
-        '''
 
-        for idx in landmark_ids:
-
-            lm = self.results.pose_landmarks.landmark[idx]
-
-            x = int(lm.x * frame.shape[1])
-            y = int(lm.y * frame.shape[0])
-
-            cv2.circle(frame, (x, y), thickness_landmarks, color_landmarks, cv2.FILLED)
-        
-        if conection_list:
-            for p0, p1 in conection_list:
-
-                cv2.line(
-                    frame,
-                    p0,
-                    p1,
-                    color_connections,
-                    thickness_connections
-                )
-
-    # added funktios
 
     def findPose(self, frame, draw=True):
         """
@@ -254,6 +220,137 @@ class poseDetector():
                         cv2.FONT_HERSHEY_PLAIN, 1, (255, 255, 255), 2, cv2.LINE_AA)
 
         return angle
+
+    # added funktios
+
+    def draw_landmarks(self, frame, landmark_ids:tuple[int], 
+                       conection_list:tuple[tuple[int, int]]=None, 
+                       color_landmarks:tuple[int, int, int]=(0,255,0), 
+                       color_connections:tuple[int, int, int]=(255, 0, 0), 
+                       thickness_landmarks:int=3, 
+                       thickness_connections:int=2):
+        '''
+        Draws the landmarks and the connections between them on the given frame.
+            Args:
+                frame (opencv BGR image): the image on which the landmarks and connections will be drawn
+                landmarks (tuple of int): a tuple containing the index of the landmarks to be drawn. The index of the landmarks can be found in this image: https://google.github.io/mediapipe/images/mobile/pose_tracking_full_body_landmarks.png
+                conection_list (tuple of tuple of int, optional): a tuple containing the connections to be drawn. Each connection is represented as a tuple of two integers, where each integer is the index of a landmark. The index of the landmarks can be found in this image: https://google.github.io/mediapipe/images/mobile/pose_tracking_full_body_landmarks.png. Defaults to None, which means that no connections will be drawn.
+                color_landmarks (tuple of int, optional): a tuple containing the BGR color values for the landmarks. Defaults to (0, 255, 0), which is green.
+                color_connections (tuple of int, optional): a tuple containing the BGR color values for the connections. Defaults to (255, 0, 0), which is blue.
+                thickness_landmarks (int, optional): the thickness of the landmarks. Defaults to 3.
+                thickness_connections (int, optional): the thickness of the connections. Defaults to 2.
+        '''
+
+        for idx in landmark_ids:
+
+            lm = self.results.pose_landmarks.landmark[idx]
+
+            x = int(lm.x * frame.shape[1])
+            y = int(lm.y * frame.shape[0])
+
+            cv2.circle(frame, (x, y), thickness_landmarks, color_landmarks, cv2.FILLED)
+        
+        if conection_list:
+            for p0, p1 in conection_list:
+
+                cv2.line(
+                    frame,
+                    p0,
+                    p1,
+                    color_connections,
+                    thickness_connections
+                )
+
+    def get_upper_hand_center(self):
+        """
+        gives the center of the hand that is higher in the image, based on the average y value of the pose landmarks.
+        returns the right hand center if both hands are at the same height.
+        Args:
+            pose_landmarks: list of pose landmarks
+        Returns:
+            hand_center: the hand center as a tuple (x, y)
+        """
+        pose_landmarks = self.lm_list
+        y_left_hand_center = (
+            # pose_landmarks[15][2] +
+            pose_landmarks[17][2] +
+            pose_landmarks[19][2] 
+            # + pose_landmarks[21][2]
+            )
+
+        y_right_hand_center = (
+            # pose_landmarks[16][2] +
+            pose_landmarks[18][2] +
+            pose_landmarks[20][2] 
+            # + pose_landmarks[22][2]
+        )
+        
+        # smaller y value means higher position in the image
+        if y_left_hand_center < y_right_hand_center: 
+            # hand_points = [15, 17, 19, 21] # left hand landmarks from mediapipe pose
+            hand_points = [ 17, 19] # landmarks ID of pinky start and index finger start
+        else:
+            # hand_points = [16, 18, 20, 22] # right hand landmarks from mediapipe pose
+            hand_points = [18, 20] # landmarks ID of pinky start and index finger start
+
+        return get_center_of_landmarks(pose_landmarks, hand_points)
+
+    def get_hand_center(self, left_right_top='top', mirrored=False):
+        """ choose between left, right or top hand based on the pose landmarks
+        Args:
+            pose_landmarks: list of pose landmarks
+            left_right_top: 'left', 'right' or 'top'
+            mirrored: if the image is mirrored, left and right are switched
+        Returns:
+            hand_center: index of the chosen wrist landmark (15 for left, 16 for right)
+        
+        """
+        pose_landmarks = self.lm_list
+            
+        # only the first leter is capital letter, so it is uniform for all spelling options
+        left_right_top = left_right_top.capitalize() 
+        hand_center = None
+        left_hand_points = [15, 17, 19, 21] # left hand landmarks from mediapipe pose
+        right_hand_points = [16, 18, 20, 22] # right hand landmarks from mediapipe pose
+
+        if left_right_top == "Top":
+            hand_center = self.get_upper_hand_center()
+
+        elif left_right_top == "Left":
+            hand_points = left_hand_points if not mirrored else right_hand_points
+            hand_center = get_center_of_landmarks(pose_landmarks, hand_points)
+
+        elif left_right_top == "Right":
+            hand_points = right_hand_points if not mirrored else left_hand_points
+            hand_center = get_center_of_landmarks(pose_landmarks, hand_points)
+        else:
+            print(f"Invalid hand selection mode: {left_right_top}. Please choose 'top', 'left' or 'right'.")
+        
+        return hand_center
+
+    def _hand_pose_change(self, min_speed=2, max_speed_change = 20):
+        new_hand_center = self.get_hand_center(left_right_top='top')
+        new_hand_speed = math.dist(new_hand_center, self.hand_center)
+        speed_change = abs(self.hand_speed - new_hand_speed)
+        
+        self.hand_center = new_hand_center
+        self.hand_speed = new_hand_speed
+
+        if speed_change <= max_speed_change:
+            if new_hand_speed >= min_speed:
+                return True
+            return False
+        return None
+    
+    def hand_is_not_moving(self, min_speed=2, max_speed_change = 20):
+        moving = self._hand_pose_change(min_speed=min_speed, max_speed_change=max_speed_change)
+        major = self.hand_moving_buffer.add_and_get_mojority(moving)
+        
+        # if hand is not moving for at least n frames -> return True
+        if major == False: 
+            return True
+        return False
+
 
     def get_upper_body_length(self):
         if self.lm_list:

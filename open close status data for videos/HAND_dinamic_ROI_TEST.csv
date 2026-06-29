@@ -1,0 +1,7 @@
+name,frame_x,frame_y,roi_size,frame_counter_processed,frame_counter_pose,pose_rate,frame_counter_hand,hand_rate,fps_mean,
+C:\Users\Ampelman\Desktop\v2_0deg_1280x720p_short_sleves_20260622_15_27_19_Pro.mp4,1280,720,180,3366,3366,100.0,2754,81.8,14.1,frame y / 4
+C:\Users\Ampelman\Desktop\v2_0deg_1280x720p_short_sleves_20260622_15_27_19_Pro.mp4,1280,720,144,3366,3366,100.0,2667,79.2,14.2,frame y / 5
+C:\Users\Ampelman\Desktop\v2_0deg_1280x720p_short_sleves_20260622_15_27_19_Pro.mp4,1280,720,232,3366,3366,100.0,2811,83.5,14.0,1.5*body (dinamisch)
+C:\Users\Ampelman\Desktop\v4_32.5deg_1280x720p_short_sleeves_20260622_14_46_06_Pro.mp4,1280,720,180,4415,4415,100.0,3824,86.6,13.9,frame y / 4
+C:\Users\Ampelman\Desktop\v4_32.5deg_1280x720p_short_sleeves_20260622_14_46_06_Pro.mp4,1280,720,144,4415,4415,100.0,3734,84.6,13.9,frame y / 5
+C:\Users\Ampelman\Desktop\v4_32.5deg_1280x720p_short_sleeves_20260622_14_46_06_Pro.mp4,1280,720,169,4415,4415,100.0,3823,86.6,13.8,2.5*body (dinamisch)

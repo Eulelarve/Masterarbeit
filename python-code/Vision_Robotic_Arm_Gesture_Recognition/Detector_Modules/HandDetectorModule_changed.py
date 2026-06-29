@@ -5,7 +5,7 @@ import cv2
 
 import time
 
-from own_funktions import fit_frameregion_landmoars_to_frame
+from own_funktions import fit_roi_landmarks_to_frame
 
 class HandDetector():
     def __init__(self, mode=False, maxHands=2, modCompl=1, detCon=0.5, trackCon=0.5):
@@ -49,10 +49,15 @@ class HandDetector():
             hand_landmarks: The selected hand landmarks or None if no hand is detected.
             index: The index of the selected hand in the multi_hand_landmarks list, or None if no hand is detected.
         """
+        self.hand_landmarks = None
+        index:int = None
+
         if self.results.multi_hand_landmarks and self.results.multi_handedness:
             
             # only the first leter is capital letter, so if fits to the Mediapipe label format
             left_right_top = left_right_top.capitalize() 
+
+
 
             #--------------------------------------------------
             # Only one hand detected, return it regardless of the mode
@@ -60,7 +65,6 @@ class HandDetector():
 
             if len(self.results.multi_hand_landmarks) == 1:
                 index = 0
-                return self.results.multi_hand_landmarks[0], index 
             
             # --------------------------------------------------
             # Oberste Hand
@@ -71,9 +75,6 @@ class HandDetector():
                 top_hand, index = self._get_topmost_hand(
                     self.results.multi_hand_landmarks
                 )
-
-                if top_hand is not None:
-                    return top_hand, index
 
             # --------------------------------------------------
             # Linke oder rechte Hand
@@ -94,15 +95,19 @@ class HandDetector():
 
                     if label == desired_label:
                         index = i
-                        return hand_landmarks, index
             else:
             # --------------------------------------------------
             # Invalid mode
             # --------------------------------------------------
 
                 print(f"Invalid hand selection mode: {left_right_top}. Please choose 'top', 'left' or 'right'.")
-        
-        return None, 0
+
+        if index is not None:
+            self.hand_landmarks = self.results.multi_hand_landmarks[index].landmark
+            self.hand_world_landmarks = self.results.multi_hand_world_landmarks[index].landmark
+
+        return index 
+
 
     def _get_topmost_hand(self, multi_hand_landmarks):
         """
@@ -148,6 +153,8 @@ class HandDetector():
         :param: draw (boolean, draw the keypoint if set to true, default is true)
         :returns: img (opencv image in BGR with keypoints drawn if draw is set to true)
         '''
+        green = (0, 255, 0)
+        white = (255,255,255)
         
 
         # if ROI is specified, only process the region of interest, otherwise process the whole image
@@ -157,7 +164,7 @@ class HandDetector():
             
             # draw the region of interest (ROI) if specified
             if draw_roi:
-                cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
+                cv2.rectangle(frame, (x, y), (x + w, y + h),green,  2)
         else:
             search_region = frame
 
@@ -173,7 +180,7 @@ class HandDetector():
                 if roi:
                     width_hight = frame.shape[1], frame.shape[0]
 
-                    fit_frameregion_landmoars_to_frame(
+                    fit_roi_landmarks_to_frame(
                         landmarks=handLMs.landmark, 
                         pixel_frame_size=width_hight, 
                         pixel_region_x_y_w_h=roi
@@ -181,10 +188,10 @@ class HandDetector():
                 # draw the hand keypoints and connections
                 if draw_landmarks:
                     self.mpDraw.draw_landmarks(frame, handLMs,
-                                            self.mpHands.HAND_CONNECTIONS,)
-                                            # self.mpDraw.DrawingSpec(color=(0, 0, 255), thickness=2, circle_radius=4),
-                                            # self.mpDraw.DrawingSpec(color=(0, 255, 0), thickness=2, circle_radius=2))
-    
+                                            self.mpHands.HAND_CONNECTIONS,
+                                            self.mpDraw.DrawingSpec(color=green, thickness=1, circle_radius=2),
+                                            self.mpDraw.DrawingSpec(color=white, thickness=2, circle_radius=2))
+
         if return_handedness:
             return frame, self.results.multi_handedness
         else:
@@ -207,9 +214,8 @@ class HandDetector():
         '''
         self.lm_list = []
         h, w, c = frame.shape
-        if self.results.multi_hand_landmarks:
-            handLMs, i = self.choose_hand(hand_choice)
-            for id_point, lm in enumerate(handLMs.landmark):
+        if self.hand_landmarks:
+            for id_point, lm in enumerate(self.hand_landmarks):
                 cx, cy = int(lm.x * w), int(lm.y * h)
                 self.lm_list.append([id_point, cx, cy])
                 if draw:
@@ -231,13 +237,12 @@ class HandDetector():
         :returns: list of lists of 3d hand keypoints in the format [[id_point, x_point,y_point,z_point]]
         '''
         self.lm3d_list = []
-        if self.results.multi_hand_world_landmarks:
-            hand3DLMs, i = self.choose_hand(hand_choice)
-            for id_point, lm in enumerate(hand3DLMs.landmark):
+        if self.hand_world_landmarks:
+            for id_point, lm in enumerate(self.hand_world_landmarks):
                 self.lm3d_list.append([id_point, lm.x, lm.y, lm.z])
             if draw:
                 self.mpDraw.plot_landmarks(
-                    hand3DLMs, self.mpHands.HAND_CONNECTIONS, azimuth=5)
+                    self.hand_world_landmarks, self.mpHands.HAND_CONNECTIONS, azimuth=5)
         return self.lm3d_list
 
     # def get_biggest_distance_in_one_hand(self, frame=None,  draw=True):
@@ -281,10 +286,9 @@ class HandDetector():
         distance = None
         p0 = 0,0
         p1 = 0,0
-        if self.results.multi_hand_landmarks:
-            hand = self.results.multi_hand_landmarks[0]
-            lm1 = hand.landmark[landmark_id1]
-            lm2 = hand.landmark[landmark_id2]
+        if self.hand_landmarks:
+            lm1 = self.hand_landmarks[landmark_id1]
+            lm2 = self.hand_landmarks[landmark_id2]
             if frame is not None:
                 p0 = (int(lm1.x * frame.shape[1]), int(lm1.y * frame.shape[0]))
                 p1 = (int(lm2.x * frame.shape[1]), int(lm2.y * frame.shape[0]))
@@ -300,41 +304,94 @@ class HandDetector():
         
         return distance
     
-    def open_or_close(self, frame=None, draw=True):
+    def get_distance_from_list(self, landmark_id1, landmark_id2, frame=None, draw=False, color=(255, 0, 0)):
+        '''
+        Computes the distance between two hand keypoints in the detected hand.
+
+        :param: landmark_id1 (int): id of the first landmark (0-20)
+        :param: landmark_id2 (int): id of the second landmark (0-20)
+        :param: frame (opencv image in BGR, optional): if provided, draws a line between the two landmarks and shows the distance value on the frame
+        :param: draw (bool, optional): if set to true and frame is provided, draws a line between the two landmarks and shows the distance value on the frame
+
+        :returns: distance in pixels between the two specified hand keypoints
+        '''
+        distance = None
+        if self.lm_list:
+            p0 = self.lm_list[landmark_id1][1:]
+            p1 = self.lm_list[landmark_id2][1:]
+            if frame is not None:
+                distance_in_pixels = ((p0[0] - p1[0]) ** 2 + (p0[1] - p1[1]) ** 2) ** 0.5
+                distance = distance_in_pixels
+        
+        if draw and frame is not None and distance is not None:
+            cv2.line(frame, p0, p1, color, 3)
+            # cv2.putText(frame, f"Distance: {distance:.2f}", (10, 70), cv2.FONT_HERSHEY_PLAIN, 2,
+            #             (255, 255, 255), 1)
+        
+        return distance
+    
+    def open_or_close(self, frame=None, draw=True, use_len_if_larger_then_width=1, hand_opening_factor = 1.4):
         """ returns: 1: open hand: blue or 0: closed hand: red
         """
         red = (0, 0, 255)
         blue = (255, 0, 0)
-        hand_len = self.get_distance(0, 5)
-        hand_width = self.get_distance(5, 17 )
-        distance_wrist_index = self.get_distance(0, 8)
-        distance_thump_pinky = self.get_distance(4, 20)
-        color = blue
-        show_distance = (0, 8)
+        hand_len = (0, 9)
+        hand_width = (5, 17)
+        wrist_finger_tip = (0, 12)
+        thump_pinky = (4, 18)
 
-        if hand_len > hand_width:   # hand from the side, check length
-            if distance_wrist_index > 1.2 * hand_len: # open hand
-                state = 1
-            else: # closed hand
-                state = 0
-                show_distance = (0, 5)
-                color = red
-        else:   # hand from the fromt, check width
-            if distance_thump_pinky > 1.2 * hand_width: # open hand
-                state = 1
-                show_distance = (4, 20)
-            else: # closed hand
-                state = 0
-                show_distance = (5, 17)
-                color = red
+#       color = blue
+        show_distance = wrist_finger_tip
+        biggest = 0
+        is_open = 0
+
+        measurments = [
+            (hand_len, red,0, hand_opening_factor), 
+            (hand_width, red,0, hand_opening_factor*use_len_if_larger_then_width),
+            (wrist_finger_tip, blue,1, 1*use_len_if_larger_then_width),
+            (thump_pinky, blue,1, 1)
+        ]
+
+        for line, line_color, status, weighting in measurments:
+            distance = self.get_distance(*line) * weighting
+            if distance > biggest:
+                biggest = distance
+                show_distance = line
+                color = line_color
+                is_open = status
+
+        # color = blue
+        # show_distance = wrist_finger_tip
+        # distance_hand_len = self.get_distance(*hand_len)
+        # distance_hand_width = self.get_distance(*hand_width)
+        # distance_wrist_finger_tip = self.get_distance(*wrist_finger_tip)
+        # distance_thump_pinky = self.get_distance(*thump_pinky)
+
+        # use_len = distance_hand_len > distance_hand_width * use_len_if_larger_then_width
+
+        # if use_len:   # hand from the side, check length
+        #     if distance_wrist_finger_tip > distance_hand_len * hand_opening_factor: # open hand
+        #         state = 1
+        #     else: # closed hand
+        #         state = 0
+        #         show_distance = hand_len
+        #         color = red
+        # else:   # hand from the fromt, check width
+        #     if distance_thump_pinky > distance_hand_width * hand_opening_factor: # open hand
+        #         state = 1
+        #         show_distance = thump_pinky
+        #     else: # closed hand
+        #         state = 0
+        #         show_distance = hand_width
+        #         color = red
 
         if draw and frame is not None:
-            self.get_distance(show_distance[0], show_distance[1], frame=frame, draw=True, color=color)
+            self.get_distance(*show_distance, frame=frame, draw=True, color=color)
         
-        return state
+        return is_open
 
     
-    def findHandAperture(self, frame, verbose=False, show_aperture=True, aperture_range: list = [0.4, 1.7]):
+    def findHandAperture(self, frame, verbose=False, show_aperture=True, aperture_range = [0.4, 1.7], use_len_if_larger_then_width=1.2):
         '''
         Finds the normalized hand aperture as distance between the mean point of the hand tips and the mean wrist and thumb base point divided by the palm lenght.
 
@@ -373,7 +430,9 @@ class HandDetector():
         palm_width = np.linalg.norm(
             index_mcp_lm_array - pinky_mcp_lm_array, ord=2)
 
-        if palm_len > palm_width: # means hand is shown from the side
+        use_len = palm_len > palm_width * use_len_if_larger_then_width
+
+        if use_len: # means hand is shown from the side
             # 4 finger tips
             index_tip_array = np.array(self.lm_list[8][1:])
             middle_tip_array = np.array(self.lm_list[12][1:])
