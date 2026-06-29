@@ -5,7 +5,7 @@ import cv2
 
 import time
 
-from own_funktions import fit_roi_landmarks_to_frame
+from own_funktions import fit_roi_landmarks_to_frame, ValueBuffer
 
 class HandDetector():
     def __init__(self, mode=False, maxHands=2, modCompl=1, detCon=0.5, trackCon=0.5):
@@ -34,6 +34,8 @@ class HandDetector():
                                         min_detection_confidence=self.detCon,
                                         min_tracking_confidence=self.trackCon)
         self.mpDraw = mp.solutions.drawing_utils
+
+        self.is_hand_open:int = None
 
     ### added methods
 
@@ -330,7 +332,49 @@ class HandDetector():
         
         return distance
     
-    def open_or_close(self, frame=None, draw=True, use_len_if_larger_then_width=1, hand_opening_factor = 1.4):
+    def open_or_close_distance_dif(self, frame=None, draw=True, min_distance_difference=0.7, frame_difference=3, ):
+        wrist_finger_tip = (0, 12)
+        thump_pinky = (4, 20)
+        red = (0, 0, 255)
+        blue = (255, 0, 0)
+        
+        # get distance
+        distance = self.get_distance(*wrist_finger_tip) + self.get_distance(*thump_pinky)
+        # buffering
+        if getattr(self, "dist_smoother", None) is None:
+            print('test')
+            self.dist_smoother = ValueBuffer(frame_difference)
+            self.distance_buffer = ValueBuffer(frame_difference+1)
+        distance = self.dist_smoother.add_and_get_average(distance)
+        self.distance_buffer.add(distance)
+
+        # calcumation
+        dist_dif = self.distance_buffer.values[-1] -self.distance_buffer.values[0] # distance now minus distance  bofore x frames
+        rel_dif = abs(self.distance_buffer.difference / self.distance_buffer.max)
+        # desision
+        if rel_dif >= min_distance_difference: # hand startus change
+            if dist_dif < 0: 
+                self.is_hand_open = 0 # hand closing
+            else:           
+                self.is_hand_open = 1 # hand opening
+
+        # drawing
+        color = red
+        if self.is_hand_open:
+            color = blue
+        if draw and frame is not None:
+            self.get_distance(*wrist_finger_tip, frame=frame, draw=True, color=color)
+            self.get_distance(*thump_pinky, frame=frame, draw=True, color=color)
+        
+        return self.is_hand_open
+    
+    def buffer_clear(self):
+        if getattr(self, "dist_smoother", None) is not None:
+            self.dist_smoother.clear()
+            self.distance_buffer.clear()
+
+
+    def open_or_close_len_width_thr(self, frame=None, draw=True, use_len_if_larger_then_width=1, hand_opening_factor = 1.4):
         """ returns: 1: open hand: blue or 0: closed hand: red
         """
         red = (0, 0, 255)
@@ -343,7 +387,7 @@ class HandDetector():
 #       color = blue
         show_distance = wrist_finger_tip
         biggest = 0
-        is_open = 0
+        self.is_hand_open = 0
 
         measurments = [
             (hand_len, red,0, hand_opening_factor), 
@@ -358,7 +402,7 @@ class HandDetector():
                 biggest = distance
                 show_distance = line
                 color = line_color
-                is_open = status
+                self.is_hand_open = status
 
         # color = blue
         # show_distance = wrist_finger_tip
@@ -388,7 +432,7 @@ class HandDetector():
         if draw and frame is not None:
             self.get_distance(*show_distance, frame=frame, draw=True, color=color)
         
-        return is_open
+        return self.is_hand_open
 
     
     def findHandAperture(self, frame, verbose=False, show_aperture=True, aperture_range = [0.4, 1.7], use_len_if_larger_then_width=1.2):
@@ -466,10 +510,12 @@ class HandDetector():
             cv2.putText(frame, "HAND APERTURE:" + str(aperture_norm), (10, 40),
                         cv2.FONT_HERSHEY_PLAIN, 2, (255, 255, 255), 1, cv2.LINE_AA)
         if show_aperture:
-            # frame = cv2.line(frame, tuple(tips_midpoint_array.astype(int)),
-            #                  tuple(lower_palm_midpoint_array.astype(int)), (255, 0, 0), 3)
-            frame = cv2.line(frame, tuple(thump_tip_array.astype(int)),
-                             tuple(pinky_tip_array.astype(int)), (255, 0, 0), 3)
+            if use_len:
+                frame = cv2.line(frame, tuple(tips_midpoint_array.astype(int)),
+                                tuple(lower_palm_midpoint_array.astype(int)), (255, 0, 0), 3)
+            else:
+                frame = cv2.line(frame, tuple(thump_tip_array.astype(int)),
+                                tuple(pinky_tip_array.astype(int)), (255, 0, 0), 3)
 
         return frame, aperture_norm
 

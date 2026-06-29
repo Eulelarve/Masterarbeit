@@ -1,7 +1,0 @@
-name,frame_x,frame_y,roi_size,frame_counter_processed,frame_counter_pose,pose_rate,frame_counter_hand,hand_rate,fps_mean
-C:\Users\Ampelman\Desktop\v2_0deg_1280x720p_short_sleves_20260622_15_27_19_Pro.mp4,1280,720,181,34,34,100.0,29,85.3,12.7
-C:\Users\Ampelman\Desktop\v3_0deg_640x480p_short_sleves_20260622_15_24_46_Pro.mp4,640,480,113,29,29,100.0,29,100.0,12.1
-C:\Users\Ampelman\Desktop\v2_0deg_1280x720p_short_sleves_20260622_15_27_19_Pro.mp4,1280,720,220,747,747,100.0,671,89.8,14.1
-C:\Users\Ampelman\Desktop\v3_0deg_640x480p_short_sleves_20260622_15_24_46_Pro.mp4,640,480,139,1311,1311,100.0,1116,85.1,13.0
-C:\Users\Ampelman\Desktop\v2_0deg_1280x720p_short_sleves_20260622_15_27_19_Pro.mp4,1280,720,244,1347,1347,100.0,659,48.9,14.1
-C:\Users\Ampelman\Desktop\v3_0deg_640x480p_short_sleves_20260622_15_24_46_Pro.mp4,640,480,116,524,524,100.0,344,65.6,12.9

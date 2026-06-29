@@ -329,6 +329,18 @@ class ValueBuffer:
         # if no element nomber exceeds the half of the buffer size, return the last majority element, if there is one
         return None
     
+    @property
+    def difference(self):
+        return max(self.values) - min(self.values)
+
+    @property
+    def max(self):
+        return max(self.values)
+    
+    @property
+    def min(self):
+        return min(self.values)
+
     def atleast(self, min_nr_of_same_elements):
         if not self.values:
             return None
@@ -339,6 +351,9 @@ class ValueBuffer:
         
         # if no element nomber exceeds the min_nr_of_same_elements,
         return None
+    
+    def clear(self):
+        self.values.clear()
 
 class HandOpenClosedBuffer(ValueBuffer):
     """_summary_
@@ -378,7 +393,7 @@ class ProcessHandAperture():
         It can be used to smooth the hand status and to detect if the hand is lost.
     """
 
-    def __init__(self, smoothing_len=5, buffer_size=10, lost_hand_counter=40, 
+    def __init__(self, smoothing_len=5, buffer_size=5, lost_hand_counter=40, 
                  open_threshold = 70, 
                  close_threshold = 60 ):
         self.smoothed_aperture = ValueBuffer(smoothing_len)
@@ -387,9 +402,9 @@ class ProcessHandAperture():
         self.open_threshold = open_threshold
         self.close_threshold = close_threshold
 
-        self.open_status = {'text':"open", 'color':(0,0,255)}
-        self.close_status = {'text':"closed", 'color':(255,0,0)}
-        self.no_hand_status = {'text':"no hand", 'color':(255,255,0)}
+        self.open_status = 1
+        self.close_status = 0
+        self.no_hand_status = None
         
         self.lost_hand_counter = 0
         self.status_now = self.no_hand_status
