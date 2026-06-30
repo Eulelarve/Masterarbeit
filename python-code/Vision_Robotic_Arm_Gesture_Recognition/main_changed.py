@@ -392,50 +392,51 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
         # --------------------------------------------------
         if not paused and process:
             roi_hand = None
-
-            # --------------------------------------------------
-            # just take inmutparameter ROI size 
-            _roi_size = roi_size
-
-            # --------------------------------------------------
-            # hand ROI size from body length
-            pixel = int(pose_detector.get_upper_body_length())
-            upper_budy_pixel_len = upper_body_size.add_and_get_average(pixel)
-            _roi_size = int(upper_budy_pixel_len * 1.4)
-            size_sum += _roi_size
             
-            # --------------------------------------------------
-            # hand ROI size from frame size
-            if roi_size:
-                _roi_size =  frame.shape[0] // roi_size
+            if len(pose_landmarks) > 0:
+                # --------------------------------------------------
+                # just take inmutparameter ROI size 
+                _roi_size = roi_size
 
-            # --------------------------------------------------
-            # difine hand ROI area in frame
-            if len(pose_landmarks) > 0 and _roi_size:
-                roi_width = _roi_size
-                roi_height = _roi_size
+                # --------------------------------------------------
+                # hand ROI size from body length
+                pixel = int(pose_detector.get_upper_body_length())
+                upper_budy_pixel_len = upper_body_size.add_and_get_average(pixel)
+                _roi_size = int(upper_budy_pixel_len * 1.4)
+                size_sum += _roi_size
+                
+                # --------------------------------------------------
+                # hand ROI size from frame size
+                if roi_size:
+                    _roi_size =  frame.shape[0] // roi_size
 
-                # dont try if less then min window size
-                min_width = 50
-                min_height = 50
+                # --------------------------------------------------
+                # difine hand ROI area in frame
+                if _roi_size:
+                    roi_width = _roi_size
+                    roi_height = _roi_size
 
-                hand_center = pose_detector.hand_center
+                    # dont try if less then min window size
+                    min_width = 50
+                    min_height = 50
 
-                start_x = hand_center[0] - roi_width // 2
-                start_y = hand_center[1] - roi_height // 2
-                end_x = start_x + roi_width
-                end_y = start_y + roi_height
-                # ensure the ROI is within the frame boundaries
-                start_x = max(0, start_x)
-                start_y = max(0, start_y)
-                end_x = min(frame.shape[1], end_x)
-                end_y = min(frame.shape[0], end_y)
-                # update width and height based on the adjusted ROI
-                roi_width = end_x - start_x
-                roi_height = end_y - start_y
-                # only use the ROI if it is large enough
-                if roi_width >= min_width and roi_height >= min_height:
-                    roi_hand = (start_x, start_y, roi_width, roi_height)
+                    hand_center = pose_detector.hand_center
+
+                    start_x = hand_center[0] - roi_width // 2
+                    start_y = hand_center[1] - roi_height // 2
+                    end_x = start_x + roi_width
+                    end_y = start_y + roi_height
+                    # ensure the ROI is within the frame boundaries
+                    start_x = max(0, start_x)
+                    start_y = max(0, start_y)
+                    end_x = min(frame.shape[1], end_x)
+                    end_y = min(frame.shape[0], end_y)
+                    # update width and height based on the adjusted ROI
+                    roi_width = end_x - start_x
+                    roi_height = end_y - start_y
+                    # only use the ROI if it is large enough
+                    if roi_width >= min_width and roi_height >= min_height:
+                        roi_hand = (start_x, start_y, roi_width, roi_height)
 
         # --------------------------------------------------
         # Hand depth value

@@ -342,7 +342,6 @@ class HandDetector():
         distance = self.get_distance(*wrist_finger_tip) + self.get_distance(*thump_pinky)
         # buffering
         if getattr(self, "dist_smoother", None) is None:
-            print('test')
             self.dist_smoother = ValueBuffer(frame_difference)
             self.distance_buffer = ValueBuffer(frame_difference+1)
         distance = self.dist_smoother.add_and_get_average(distance)
