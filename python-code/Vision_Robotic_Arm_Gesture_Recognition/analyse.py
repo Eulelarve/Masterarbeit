@@ -5,19 +5,49 @@ import ctypes
 import json
 from pathlib import Path
 
-def get_files_with_extension(folder: str, extension: str) -> list[str]:
+def find_files(
+    folder: str,
+    ending: str | None = None,
+    starts_with: str | None = None,
+    contains: str | None = None,
+) -> list[str]:
     """
-    Gibt alle Dateien mit der angegebenen Endung in einem Ordner zurück.
+    Sucht Dateien in einem Ordner.
 
-    Beispiel:
-        get_files_with_extension("data", ".txt")
-        get_files_with_extension("images", "png")
+    Parameter:
+        folder: Ordnerpfad
+        ending: Dateiendung, z.B. ".txt" oder "txt"
+        starts_with: Dateiname muss damit beginnen
+        contains: Dateiname muss diesen Text enthalten
+
+    Alle Filter sind optional. Sind mehrere angegeben, müssen alle erfüllt sein.
     """
-    extension = extension if extension.startswith(".") else "." + extension
+
     folder = Path(folder)
 
-    return [str(file) for file in folder.iterdir()
-            if file.is_file() and file.suffix == extension]
+    if ending and not ending.startswith("."):
+        ending = "." + ending
+
+    result = []
+
+    for file in folder.iterdir():
+        if not file.is_file():
+            continue
+
+        name = file.name
+
+        if ending is not None and file.suffix != ending:
+            continue
+
+        if starts_with is not None and not name.startswith(starts_with):
+            continue
+
+        if contains is not None and contains not in name:
+            continue
+
+        result.append(str(file))
+
+    return result
 
 
 def save_dict_to_json(filename: str, data: dict) -> None:
@@ -310,21 +340,46 @@ class SaveFrameStatus(CaptureStatus):
                 return 'open_not_detected'
             if s_should == 0: # should be closed
                 return 'closed_not_detected'
+def process_all():
+    key_list = [
+        'no_hand_0',
+        'no_hand_None',
+        'movedetect_False',
+        'movedetect_True',
+        'hand_detected_aperture',
+        'hand_detected_aperture_width',
+        'hand_detected_distance_dif_0.3',
+        'hand_detected_distance_dif_0.4',
+        'hand_detected_len_width_thr_1.2',
+        'hand_detected_len_width_thr_1.4',
+    ]
+    videos =[
+        'v1_',
+        'v2_',
+        'v3_',
+        'v4_',
+        'v5_',
+    ]
 
-def process():
+def process(video:str):
     print('--------------analysiren-----------------')
     right_folder = r"C:\Users\Ampelman\Desktop\Masterarbeit\open close status data for videos/"
     comp_folder = r"C:\Users\Ampelman\Desktop\Masterarbeit\open close status data for videos\methoden test/"
-    right_files = get_files_with_extension(right_folder,'txt')
-    comp_files = get_files_with_extension(comp_folder,'txt')
+    right_files = find_files(right_folder,ending='txt',starts_with=video)
+    comp_files = find_files(comp_folder,ending='txt',starts_with=video)
     fs = SaveFrameStatus(None)
+    if len(right_files) != 1: raise
     fs.load_from_file(right_files[0])
-    fs.load_comp_from_file(comp_files[0],startframe=250)
-    result = fs.copare_fram_by_frame()
-    save_dict_to_json('test.json',result)
+
+    print(f'processing video {video} with {comp_files} compare files...')
+    for file in comp_files:
+
+        fs.load_comp_from_file(file,startframe=250)
+        result = fs.copare_fram_by_frame()
+        save_dict_to_json('test.json',result)
     print('---------------vergleichen----------------')
     pass
-
+    print(load_dict_from_json('test.json'))
 
 
 
