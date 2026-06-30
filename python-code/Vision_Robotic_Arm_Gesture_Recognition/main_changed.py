@@ -10,7 +10,9 @@ from datetime import datetime
 
 from Detector_Modules.HandDetectorModule_changed import HandDetector as hdm
 from Detector_Modules.PoseDetectorModule_changed import poseDetector as pdm
-from own_funktions import ProcessHandAperture, HandOpenClosedBuffer, ValueBuffer, SaveFrameStatus, CSVWriter, tolist, screenshot, save_list_to_file
+from own_funktions import ProcessHandAperture, HandOpenClosedBuffer, ValueBuffer, CSVWriter, tolist, screenshot
+from analyse import SaveFrameStatus, save_list_to_file
+
 import settings as S
 
 def main(fps_cap=30, show_fps=True, show_processing=True,source=0, 
@@ -885,7 +887,7 @@ if __name__ == "__main__":
     v5 = r"C:\Users\Ampelman\Desktop\v5_32.5deg_640x480p_short_sleves_20260622_14_50_01_Pro.mp4"
     rs = 'realsens'
     # Video file input
-    for v in (v1,v2,v3,v4,v5):
+    for v in (v5,v2,v3,v4,v5):
         for hand_not_found_means in [None, 0]:
             for skip_hand_move_detection in [True, False]:
                 r = main(
@@ -895,7 +897,7 @@ if __name__ == "__main__":
                     pause_frames=None,
                     show_processing=True,
                     capture_status_manually=False,
-                    capture_status = True,
+                    capture_status = False,
                     roi_size = None,
                     start_frame=250,
                     end_frame = None,
