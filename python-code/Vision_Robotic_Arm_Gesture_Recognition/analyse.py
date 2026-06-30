@@ -1,15 +1,40 @@
 # from own_funktions import ValueBuffer
-from collections import Counter
+from collections import Counter, defaultdict
 import ast
 import ctypes
 import json
 from pathlib import Path
+
+
+def rename_files(folder: str, old: str, new: str) -> int:
+    """
+    Ersetzt in allen Dateinamen eines Ordners den String `old` durch `new`.
+
+    Gibt die Anzahl der umbenannten Dateien zurück.
+    """
+
+    count = 0
+
+    for file in Path(folder).iterdir():
+        if not file.is_file():
+            continue
+
+        if old in file.name:
+            new_name = file.name.replace(old, new)
+            file.rename(file.with_name(new_name))
+            count += 1
+
+    return count
+
+from pathlib import Path
+
 
 def find_files(
     folder: str,
     ending: str | None = None,
     starts_with: str | None = None,
     contains: str | None = None,
+    names_only: bool = False,
 ) -> list[str]:
     """
     Sucht Dateien in einem Ordner.
@@ -19,6 +44,7 @@ def find_files(
         ending: Dateiendung, z.B. ".txt" oder "txt"
         starts_with: Dateiname muss damit beginnen
         contains: Dateiname muss diesen Text enthalten
+        names_only: Wenn True, werden nur die Dateinamen zurückgegeben.
 
     Alle Filter sind optional. Sind mehrere angegeben, müssen alle erfüllt sein.
     """
@@ -45,7 +71,7 @@ def find_files(
         if contains is not None and contains not in name:
             continue
 
-        result.append(str(file))
+        result.append(name if names_only else str(file))
 
     return result
 
@@ -341,6 +367,7 @@ class SaveFrameStatus(CaptureStatus):
             if s_should == 0: # should be closed
                 return 'closed_not_detected'
 def process_all():
+    destination_folder = r'C:\Users\Ampelman\Desktop\Masterarbeit\open close status data for videos\methoden test comp'
     key_list = [
         'no_hand_0',
         'no_hand_None',
@@ -360,29 +387,73 @@ def process_all():
         'v4_',
         'v5_',
     ]
+    results=defaultdict(list)
+    for v in videos:
+        results0 = process(v)
+        compare(results0,results=results)
 
-def process(video:str):
+    save_dict_to_json(destination_folder+f'/hand_detection_comp_results_v1-5.comp',results)
+    
+
+def process(video:str, save=False, results=defaultdict(list)):
     print('--------------analysiren-----------------')
-    right_folder = r"C:\Users\Ampelman\Desktop\Masterarbeit\open close status data for videos/"
+    right_folder = r"C:\Users\Ampelman\Desktop\Masterarbeit\open close status data for videos\\"
     comp_folder = r"C:\Users\Ampelman\Desktop\Masterarbeit\open close status data for videos\methoden test/"
-    right_files = find_files(right_folder,ending='txt',starts_with=video)
-    comp_files = find_files(comp_folder,ending='txt',starts_with=video)
+    destination_folder = r'C:\Users\Ampelman\Desktop\Masterarbeit\open close status data for videos\methoden test comp'
+    right_files = find_files(right_folder,ending='txt',starts_with=video, names_only=True)
+    comp_files = find_files(comp_folder,ending='txt',starts_with=video, names_only=True)
     fs = SaveFrameStatus(None)
     if len(right_files) != 1: raise
-    fs.load_from_file(right_files[0])
-
-    print(f'processing video {video} with {comp_files} compare files...')
+    fs.load_from_file(right_folder+right_files[0])
+    
+    print(f'processing video {video} with {len(comp_files)} compare files...')
     for file in comp_files:
-
-        fs.load_comp_from_file(file,startframe=250)
+        fs.load_comp_from_file(comp_folder+file,startframe=250)
         result = fs.copare_fram_by_frame()
-        save_dict_to_json('test.json',result)
-    print('---------------vergleichen----------------')
-    pass
-    print(load_dict_from_json('test.json'))
+        results['name'].append(file)
+        for key in result:
+            results[key].append(result[key])
+    if save:
+        save_dict_to_json(destination_folder+f'/hand_detection_resunls_{video}.comp',results)
+    
+    # compare
+    return results
+    # print(load_dict_from_json('test.json'))
+
+def compare(data:dict, results=defaultdict(list), save=False, save_file_name:str='compare_file'):
+    keys = [
+        'name',
+        'importent_frames',
+        'total_right',
+        'right_rate',
+        'total_false',
+        'false_rate',
+        'not_detected',
+        'not_detected_rate',
+    ]
+
+    for key in ['right_rate','false_rate', 'not_detected_rate']:
+        d = data[key]
+
+        dmax = max(d)
+        i = d.index(dmax)
+        name = data['name'][i]
+        results['max_'+key].append([name,dmax])
+
+        dmin = min(d)
+        i = d.index(dmin)
+        name = data['name'][i]
+        results['min_'+key].append([name,dmin])
+    
+    if save:
+        save_dict_to_json(save_file_name,results)
+    
+    return results
 
 
+  
 
 
 if __name__ == '__main__':
-    process()
+    process_all()
+
