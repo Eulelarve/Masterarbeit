@@ -1,4 +1,4 @@
-from Vision_Robotic_Arm_Gesture_Recognition.analyse import SaveFrameStatus, CaptureStatus
+# from Vision_Robotic_Arm_Gesture_Recognition.analyse import SaveFrameStatus, CaptureStatus
 # c = CaptureStatus(None)
 # s = SaveFrameStatus(None)
 # name = r"C:\Users\Ampelman\Desktop\Masterarbeit\open close status data for videos\WIN_20260609_19_51_56_Pro.mp4frame_and_open_close_manual_status"
@@ -6,12 +6,9 @@ from Vision_Robotic_Arm_Gesture_Recognition.analyse import SaveFrameStatus, Capt
 # s.load_from_file(name+end)
 # c.saved = s.get_status_for_each_frame()
 # c.save_to_file(name+"_each_frame"+end)
-from collections import Counter
-results = Counter({4:0})
-for key in ['fgf', '343', '3', 3, 4,'3','tztz','fgf','fgf',3]:
-    results[key] += 1
 
-print(results)
+
+print(round(5/7.5,1))
 print({1:1})
 
 # import ast

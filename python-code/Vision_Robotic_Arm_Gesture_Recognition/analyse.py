@@ -307,6 +307,16 @@ class SaveFrameStatus(CaptureStatus):
         return len(self.status_for_each_frame_comp)
 
     def copare_fram_by_frame(self):
+        results = {
+            'compared frames':0,
+            'None':0,
+            'open_right':0,
+            'open_false':0,
+            'closed_right':0,
+            'closed_false':0,
+            'open_not_detected':0,
+            'closed_not_detected':0,
+        }
         if not self.status_for_each_frame_comp:
             raise Exception('no data to compare with, no: status_for_each_frame_comp')
         if not self.status_for_each_frame:
@@ -315,7 +325,6 @@ class SaveFrameStatus(CaptureStatus):
         l1 = len(self.status_for_each_frame)
         l2 = len(self.status_for_each_frame_comp)
         shorter = min(l1,l2)
-        results = Counter()
 
         for i in range(shorter):
             s_should = self.status_for_each_frame[i]
@@ -366,9 +375,18 @@ class SaveFrameStatus(CaptureStatus):
                 return 'open_not_detected'
             if s_should == 0: # should be closed
                 return 'closed_not_detected'
+
+# ---------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+
 def process_all():
+    right_folder = r"C:\Users\Ampelman\Desktop\Masterarbeit\open close status data for videos\\"
+    comp_folder = r"C:\Users\Ampelman\Desktop\Masterarbeit\open close status data for videos\methoden test/"
     destination_folder = r'C:\Users\Ampelman\Desktop\Masterarbeit\open close status data for videos\methoden test comp'
-    key_list = [
+    right_files = find_files(right_folder,ending='txt', names_only=True)
+    comp_files = find_files(comp_folder,ending='txt', names_only=True)
+    methodes = [
         'no_hand_0',
         'no_hand_None',
         'movedetect_False',
@@ -380,6 +398,13 @@ def process_all():
         'hand_detected_len_width_thr_1.2',
         'hand_detected_len_width_thr_1.4',
     ]
+    methode_combinations = find_files(comp_folder,ending='txt', starts_with='v1_', names_only=True)
+    for i, combi in enumerate(methode_combinations):
+        start_i = combi.find('-') + 1
+        end_i = combi.find('.txt')
+        methode_combinations[i] = combi[start_i:end_i]
+    print('methode combinations found:', len(methode_combinations))
+
     videos =[
         'v1_',
         'v2_',
@@ -387,40 +412,99 @@ def process_all():
         'v4_',
         'v5_',
     ]
+
+    # results vor all videos and all methodes
     results=defaultdict(list)
     for v in videos:
-        results0 = process(v)
-        compare(results0,results=results)
+        right_files, comp_files = get_files_for_one_video(v, right_folder=right_folder, comp_folder=comp_folder)
+        print(f'use video {v} to compare to {len(comp_files)} compare files')
+        process_one_video(right_file=right_files[0], comp_files=comp_files, save=False, results=results)
 
-    save_dict_to_json(destination_folder+f'/hand_detection_comp_results_v1-5.comp',results)
-    
+    # results for each combination of methodes
+    results_for_parameters(
+        parameters=methode_combinations, 
+        results=results, destination_folder=destination_folder+'/methode_combinations', 
+        save=True
+    )
+    # results for each detection methodes
+    results_for_parameters(
+        parameters=methodes, 
+        results=results, destination_folder=destination_folder+'/detection_methodes', 
+        save=True
+    )
+       
 
-def process(video:str, save=False, results=defaultdict(list)):
+    # get max min values for each video and save to one file
+    # results=defaultdict(list)
+    # for v in videos:
+    #     results0 = process_one_video(v)
+    #     find_max_mix(results0,results=results)
+
+    # save_dict_to_json(destination_folder+f'/hand_detection_comp_results_v1-5.comp',results)
+
+
+def results_for_parameters(parameters:list, results:dict, destination_folder:str, save=False):
+     # indexes for each name containing the methode combination name
+    names = results['name']
+    parameters_indexes = defaultdict(list)
+    for parameter in parameters:
+        for i, name in enumerate(names):
+            if parameter in name:
+                parameters_indexes[parameter].append(i)
+
+    # results for each methode_combinations
+    parameter_results_dict = defaultdict(list)
+    for parameter in parameters_indexes:
+        indexes = parameters_indexes[parameter]
+        parameter_results = defaultdict(list)
+        for i in indexes:
+            for key in results:
+                parameter_results[key].append(results[key][i])
+
+        # average for each result key
+
+        for key in parameter_results:
+            if key == 'name':
+                parameter_results[key].insert(0, f'{parameter}_average')
+                continue
+            values = parameter_results[key]
+            if 'rate' in key:
+                average = round(sum(values)/len(values), 1)
+            else:
+                average = round(sum(values)/len(values))
+            parameter_results[key].insert(0, average)
+
+
+        parameter_results_dict[parameter] = parameter_results
+        if save:
+            save_dict_to_json(destination_folder+f'/hand_detection_parameter_results_{parameter}.comp',parameter_results)
+        
+        # find_max_mix(methode_results, results=results, save=True, save_file_name=destination_folder+f'/hand_detection_comp_results_{combi}.comp')
+
+    return parameter_results_dict
+
+def get_name_from_path(path:str):
+    return Path(path).stem
+
+def process_one_video(right_file:str, comp_files:list[str], results=defaultdict(list), save=False):
     print('--------------analysiren-----------------')
-    right_folder = r"C:\Users\Ampelman\Desktop\Masterarbeit\open close status data for videos\\"
-    comp_folder = r"C:\Users\Ampelman\Desktop\Masterarbeit\open close status data for videos\methoden test/"
-    destination_folder = r'C:\Users\Ampelman\Desktop\Masterarbeit\open close status data for videos\methoden test comp'
-    right_files = find_files(right_folder,ending='txt',starts_with=video, names_only=True)
-    comp_files = find_files(comp_folder,ending='txt',starts_with=video, names_only=True)
     fs = SaveFrameStatus(None)
-    if len(right_files) != 1: raise
-    fs.load_from_file(right_folder+right_files[0])
+    fs.load_from_file(right_file)
     
-    print(f'processing video {video} with {len(comp_files)} compare files...')
-    for file in comp_files:
-        fs.load_comp_from_file(comp_folder+file,startframe=250)
+    for file_path in comp_files:
+        name = get_name_from_path(file_path)
+        results['name'].append(name)
+        fs.load_comp_from_file(file_path,startframe=250)
         result = fs.copare_fram_by_frame()
-        results['name'].append(file)
         for key in result:
             results[key].append(result[key])
     if save:
-        save_dict_to_json(destination_folder+f'/hand_detection_resunls_{video}.comp',results)
+        video = get_name_from_path(right_file)[:3]
+        save_dict_to_json(f'hand_detection_resunls_{video}.comp',results)
     
-    # compare
     return results
-    # print(load_dict_from_json('test.json'))
 
-def compare(data:dict, results=defaultdict(list), save=False, save_file_name:str='compare_file'):
+def find_max_mix(data:dict, results=defaultdict(list), save=False, save_file_name:str='compare_file'):
     keys = [
         'name',
         'importent_frames',
@@ -450,7 +534,13 @@ def compare(data:dict, results=defaultdict(list), save=False, save_file_name:str
     
     return results
 
-
+def get_files_for_one_video(video:str, right_folder:str, comp_folder:str, name_only=False):
+    right_file = find_files(right_folder,ending='txt', starts_with=video, names_only=name_only)
+    comp_files = find_files(comp_folder,ending='txt',starts_with=video, names_only=name_only)
+    if len(right_file) != 1:
+        raise Exception(f'found {len(right_file)} right files for video {video}, should be 1')
+    
+    return right_file, comp_files
   
 
 
