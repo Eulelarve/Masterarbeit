@@ -389,9 +389,9 @@ def process_all():
     methodes = [
         'no_hand_0',
         'no_hand_None',
-        'movedetect_False',
-        'movedetect_True',
-        'hand_detected_aperture',
+        'no_movedetect_False',
+        'no_movedetect_True',
+        'hand_detected_aperture_n',
         'hand_detected_aperture_width',
         'hand_detected_distance_dif_0.3',
         'hand_detected_distance_dif_0.4',
@@ -424,26 +424,30 @@ def process_all():
     results_for_parameters(
         parameters=methode_combinations, 
         results=results, destination_folder=destination_folder+'/methode_combinations', 
-        save=True
+        save=False,
+        avarage_min_max=False
     )
     # results for each detection methodes
     results_for_parameters(
         parameters=methodes, 
         results=results, destination_folder=destination_folder+'/detection_methodes', 
-        save=True
+        save=False
     )
        
 
-    # get max min values for each video and save to one file
-    # results=defaultdict(list)
+    # # get max min values for each video and save to one file
+    # results_min_max = defaultdict(list)
     # for v in videos:
-    #     results0 = process_one_video(v)
-    #     find_max_mix(results0,results=results)
+    #     right_files, comp_files = get_files_for_one_video(v, right_folder=right_folder, comp_folder=comp_folder)
+    #     results0 = process_one_video(right_file=right_files[0], comp_files=comp_files, save=False)
+    #     # for name in results0['name']:
+    #     #     print(name)
+    #     find_min_max(results0,results=results_min_max)
 
-    # save_dict_to_json(destination_folder+f'/hand_detection_comp_results_v1-5.comp',results)
+    # save_dict_to_json(destination_folder+f'/hand_detection_results_min_max_v1-5.comp',results_min_max)
 
 
-def results_for_parameters(parameters:list, results:dict, destination_folder:str, save=False):
+def results_for_parameters(parameters:list, results:dict, destination_folder:str, save=False, avarage_min_max=False):
      # indexes for each name containing the methode combination name
     names = results['name']
     parameters_indexes = defaultdict(list)
@@ -478,16 +482,27 @@ def results_for_parameters(parameters:list, results:dict, destination_folder:str
         parameter_results_dict[parameter] = parameter_results
         if save:
             save_dict_to_json(destination_folder+f'/hand_detection_parameter_results_{parameter}.comp',parameter_results)
-        
-        # find_max_mix(methode_results, results=results, save=True, save_file_name=destination_folder+f'/hand_detection_comp_results_{combi}.comp')
+    
+    if avarage_min_max:
+        # min max parameter of the average results for each key
+        average_results = defaultdict(list)
+        for parameter in parameter_results_dict:
+            resupts = parameter_results_dict[parameter]
+            average_results['name'].append(parameter)
+            for key in resupts:
+                average_results[key].append(resupts[key][0])
+        save_dict_to_json(destination_folder+f'/hand_detection_parameter_results_average.comp',average_results)
+        return find_min_max(average_results, save=True, save_file_name=destination_folder+f'/hand_detection_parameter_results_average_min_max.comp')
 
     return parameter_results_dict
 
 def get_name_from_path(path:str):
     return Path(path).stem
 
-def process_one_video(right_file:str, comp_files:list[str], results=defaultdict(list), save=False):
+def process_one_video(right_file:str, comp_files:list[str], results:defaultdict=None, save=False):
     print('--------------analysiren-----------------')
+    if results is None:
+        results = defaultdict(list)
     fs = SaveFrameStatus(None)
     fs.load_from_file(right_file)
     
@@ -504,7 +519,10 @@ def process_one_video(right_file:str, comp_files:list[str], results=defaultdict(
     
     return results
 
-def find_max_mix(data:dict, results=defaultdict(list), save=False, save_file_name:str='compare_file'):
+def find_min_max(data:dict, results:defaultdict=None, save=False, save_file_name:str='compare_file'):
+    if results is None:
+        results = defaultdict(list)
+
     keys = [
         'name',
         'importent_frames',
@@ -515,7 +533,6 @@ def find_max_mix(data:dict, results=defaultdict(list), save=False, save_file_nam
         'not_detected',
         'not_detected_rate',
     ]
-
     for key in ['right_rate','false_rate', 'not_detected_rate']:
         d = data[key]
 
@@ -528,7 +545,7 @@ def find_max_mix(data:dict, results=defaultdict(list), save=False, save_file_nam
         i = d.index(dmin)
         name = data['name'][i]
         results['min_'+key].append([name,dmin])
-    
+
     if save:
         save_dict_to_json(save_file_name,results)
     

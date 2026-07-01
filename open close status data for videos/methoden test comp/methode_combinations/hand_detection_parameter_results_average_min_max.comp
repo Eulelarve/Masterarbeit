@@ -1,0 +1,6 @@
+["max_right_rate", [["hand_detected_distance_dif_0.3_no_hand_None_no_movedetect_False", 87.4]]]
+["min_right_rate", [["hand_detected_aperture_width_no_hand_0_no_movedetect_False_average", 79.1]]]
+["max_false_rate", [["hand_detected_aperture_width_no_hand_0_no_movedetect_False_average", 19.1]]]
+["min_false_rate", [["hand_detected_distance_dif_0.3_no_hand_None_no_movedetect_False", 10.7]]]
+["max_not_detected_rate", [["hand_detected_aperture_width_no_hand_0_no_movedetect_False_average", 19.1]]]
+["min_not_detected_rate", [["hand_detected_distance_dif_0.3_no_hand_None_no_movedetect_False", 10.7]]]
