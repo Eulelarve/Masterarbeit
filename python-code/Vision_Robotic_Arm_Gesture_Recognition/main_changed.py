@@ -8,10 +8,13 @@ import pyrealsense2 as rs
 import numpy as np
 from datetime import datetime
 
-from Detector_Modules.HandDetectorModule_changed import HandDetector as hdm
-from Detector_Modules.PoseDetectorModule_changed import poseDetector as pdm
-from own_funktions import ProcessHandAperture, HandOpenClosedBuffer, ValueBuffer, CSVWriter, tolist, screenshot
-from analyse import SaveFrameStatus, save_list_to_file
+
+from own_functions import ProcessHandAperture, HandOpenClosedBuffer, ValueBuffer, CSVWriter, tolist, screenshot, close_to
+
+
+from HandDetectorModule_changed import HandDetector as hdm
+from PoseDetectorModule_changed import poseDetector as pdm
+from analyse import SaveFrameStatus, save_list_to_file, find_files
 
 import settings as S
 
@@ -375,19 +378,19 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
                     draw=show_processing and draw_angles
                 )
                 
-                # # draw hand points from mediapipe pose landmarks
-                # hands = [15, 21,19,17, 16, 22, 20, 18,   7,8,0]
-                # pose_detector.draw_landmarks(
-                #     frame=frame,
-                #     landmark_ids=hands,
-                # )
+                # draw hand points from mediapipe pose landmarks
+                hands = [15, 21,19,17, 16, 22, 20, 18, ]
+                pose_detector.draw_landmarks(
+                    frame=frame,
+                    landmark_ids=hands,
+                )
 
         # --------------------------------------------------
         # hand stands still while grappling
         # --------------------------------------------------
         if not paused and process:
             if len(pose_landmarks) > 0:
-                hand_stands_still = pose_detector.hand_is_not_moving(min_speed=3, max_speed_change=20)
+                hand_stands_still = pose_detector.hand_is_not_moving(min_speed=S.moving_speed, max_speed_change=20)
 
         # --------------------------------------------------
         # chose ROI for hand detection
@@ -404,7 +407,7 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
                 # hand ROI size from body length
                 pixel = int(pose_detector.get_upper_body_length())
                 upper_budy_pixel_len = upper_body_size.add_and_get_average(pixel)
-                _roi_size = int(upper_budy_pixel_len * 1.4)
+                _roi_size = int(upper_budy_pixel_len * 1)
                 size_sum += _roi_size
                 
                 # --------------------------------------------------
@@ -464,6 +467,7 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
                 draw_landmarks = True
                 draw_aperture = True
                 draw_roi = True
+                draw_max_distance = True
                
 
 
@@ -476,13 +480,14 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
                 )
 
                 # _, index = hand_detector.choose_hand("top")
-                
-                hand_index = hand_detector.choose_hand(left_right_top='top')
-                hand_found = hand_index is not None
+                hand_index = hand_detector.choose_hand("first")
+                valide_hand =  hand_detector.hand_close_to(hand_center, 
+                                                           max_distance=0.03,
+                                                           frame=frame, draw=show_processing and draw_max_distance, hand_index=hand_index)
                 # --------------------------------------------------
                 # evaluate/change Hand status only if it is not moving
                 if hand_stands_still or skip_hand_move_detection:
-                    if hand_found:
+                    if valide_hand:
                         # hand detected in frame
                         frame_counter_hand += 1
                         
@@ -879,21 +884,30 @@ if __name__ == "__main__":
 
     # Webcam input
     # main(source=0)
-    v0 = r"C:/Users/Ampelman/Desktop/3D-Audio-Raum.MOV"
-    v1 = r"C:\Users\Ampelman\Desktop\v1_32.5deg_1280x720p_long_sleeves_20260609_19_51_56_Pro.mp4"
-    v2 = r"C:\Users\Ampelman\Desktop\v2_0deg_1280x720p_short_sleves_20260622_15_27_19_Pro.mp4"
-    v3 = r"C:\Users\Ampelman\Desktop\v3_0deg_640x480p_short_sleves_20260622_15_24_46_Pro.mp4"
-    v4 = r"C:\Users\Ampelman\Desktop\v4_32.5deg_1280x720p_short_sleeves_20260622_14_46_06_Pro.mp4"
-    v5 = r"C:\Users\Ampelman\Desktop\v5_32.5deg_640x480p_short_sleves_20260622_14_50_01_Pro.mp4"
+    videos = find_files(S.video_folder, ending=('.mp4', '.avi', '.mov'),names_only=True)
+    
+    # v1-11
+    v1 = videos[0]
+    v2 = videos[1]
+    v3 = videos[2]
+    v4 = videos[3]
+    v5 = videos[4]
+    v6 = videos[5]
+    v7 = videos[6]
+    v8 = videos[7]
+    v9 = videos[8]
+    v10 = videos[9]
+    v11 = videos[10]
+    
     rs = 'realsens'
     # Video file input
-    for v in (v5,v2,v3,v4,v5):
-        for hand_not_found_means in [None, 0]:
-            for skip_hand_move_detection in [True, False]:
+    for v in (v1,v6,v7,v8):
+        for hand_not_found_means in [0,None,]:
+            for skip_hand_move_detection in [False, True]:
                 r = main(
                     fps_cap=60,
                     show_fps=True,
-                    source=v,
+                    source=S.video_folder+v,
                     pause_frames=None,
                     show_processing=True,
                     capture_status_manually=False,

@@ -4,6 +4,7 @@ import ast
 import ctypes
 import json
 from pathlib import Path
+from own_functions import tolist
 
 
 def rename_files(folder: str, old: str, new: str) -> int:
@@ -29,30 +30,34 @@ def rename_files(folder: str, old: str, new: str) -> int:
 from pathlib import Path
 
 
+from pathlib import Path
+
+
 def find_files(
     folder: str,
-    ending: str | None = None,
-    starts_with: str | None = None,
-    contains: str | None = None,
+    ending: str | list[str] | None = None,
+    starts_with: str | list[str] | None = None,
+    contains: str | list[str] | None = None,
     names_only: bool = False,
 ) -> list[str]:
     """
     Sucht Dateien in einem Ordner.
 
-    Parameter:
-        folder: Ordnerpfad
-        ending: Dateiendung, z.B. ".txt" oder "txt"
-        starts_with: Dateiname muss damit beginnen
-        contains: Dateiname muss diesen Text enthalten
-        names_only: Wenn True, werden nur die Dateinamen zurückgegeben.
-
-    Alle Filter sind optional. Sind mehrere angegeben, müssen alle erfüllt sein.
+    Die Parameter ending, starts_with und contains können jeweils
+    entweder ein String oder eine Liste von Strings sein.
     """
 
     folder = Path(folder)
 
-    if ending and not ending.startswith("."):
-        ending = "." + ending
+    endings = tolist(ending)
+    prefixes = tolist(starts_with)
+    substrings = tolist(contains)
+
+    if endings:
+        endings = [
+            e if e.startswith(".") else "." + e
+            for e in endings
+        ]
 
     result = []
 
@@ -62,13 +67,13 @@ def find_files(
 
         name = file.name
 
-        if ending is not None and file.suffix != ending:
+        if endings is not None and file.suffix not in endings:
             continue
 
-        if starts_with is not None and not name.startswith(starts_with):
+        if prefixes is not None and not any(name.startswith(p) for p in prefixes):
             continue
 
-        if contains is not None and contains not in name:
+        if substrings is not None and not any(s in name for s in substrings):
             continue
 
         result.append(name if names_only else str(file))

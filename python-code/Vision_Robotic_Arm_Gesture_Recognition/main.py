@@ -4,8 +4,8 @@ import cv2
 import time
 import math
 
-from Detector_Modules.HandDetectorModule import HandDetector as hdm
-from Detector_Modules.PoseDetectorModule import poseDetector as pdm
+from Vision_Robotic_Arm_Gesture_Recognition.HandDetectorModule import HandDetector as hdm
+from Vision_Robotic_Arm_Gesture_Recognition.PoseDetectorModule import poseDetector as pdm
 
 # from python_robot_pub.ros_publisher import ROSPublisher as RosPub
 
