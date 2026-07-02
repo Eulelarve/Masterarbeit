@@ -15,10 +15,16 @@ Thumbs.db
 
 # Umgebungsvariablen
 .env
+env/
+
 
 # Build-Ordner
 dist/
 build/
 
 # Libraries in virtuellen umgebungen
-venv
+venv/
+.venv/
+
+# [gitignore]
+*[gitignore]*
