@@ -8,9 +8,27 @@
 # c.save_to_file(name+"_each_frame"+end)
 
 
-print(round(5/7.5,1))
-print({1:1})
+import numpy as np
+import matplotlib.pyplot as plt
 
+y_list = []
+n = range(-90, 91, 15)
+r = 100
+x = np.linspace(-r, r, 100)
+# view_angle = 20
+for angle in n:
+    # cam_factor = np.cos(np.radians(view_angle))
+    flatening_factor = np.sin(np.radians(angle))
+    # x -= x*(1-cam_factor)
+    circle_line = np.sqrt(r**2 - x**2)
+    y_list.append(flatening_factor * circle_line)
+
+for y in y_list:
+    plt.plot(y, x)
+plt.grid(True)
+plt.xlabel("y")
+plt.ylabel("x")
+plt.show()
 # import ast
 # import json
 # names = [
