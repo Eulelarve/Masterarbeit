@@ -4,7 +4,10 @@ import ast
 import ctypes
 import json
 from pathlib import Path
-from own_functions import tolist
+try:
+    from own_functions import tolist
+except:
+    from Vision_Robotic_Arm_Gesture_Recognition.own_functions import tolist
 
 
 def rename_files(folder: str, old: str, new: str) -> int:
