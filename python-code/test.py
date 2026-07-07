@@ -1,62 +1,84 @@
-# from Vision_Robotic_Arm_Gesture_Recognition.analyse import SaveFrameStatus, CaptureStatus
-# c = CaptureStatus(None)
-# s = SaveFrameStatus(None)
-# name = r"C:\Users\Ampelman\Desktop\Masterarbeit\open close status data for videos\WIN_20260609_19_51_56_Pro.mp4frame_and_open_close_manual_status"
-# end = '.txt'
-# s.load_from_file(name+end)
-# c.saved = s.get_status_for_each_frame()
-# c.save_to_file(name+"_each_frame"+end)
-
-
+import cv2
 import numpy as np
-import matplotlib.pyplot as plt
-
-y_list = []
-n = range(-90, 91, 15)
-r = 100
-x = np.linspace(-r, r, 100)
-# view_angle = 20
-for angle in n:
-    # cam_factor = np.cos(np.radians(view_angle))
-    flatening_factor = np.sin(np.radians(angle))
-    # x -= x*(1-cam_factor)
-    circle_line = np.sqrt(r**2 - x**2)
-    y_list.append(flatening_factor * circle_line)
-
-for y in y_list:
-    plt.plot(y, x)
-plt.grid(True)
-plt.xlabel("y")
-plt.ylabel("x")
-plt.show()
-# import ast
-# import json
-# names = [
-# r"C:\Users\Ampelman\Desktop\Masterarbeit\open close status data for videos\WIN_20260609_19_51_56_Pro.mp4frame_and_open_close_manual_status",
-# r"C:\Users\Ampelman\Desktop\Masterarbeit\open close status data for videos\WIN_20260622_14_46_06_Pro.mp4frame_and_open_close_manual_status",
-# r"C:\Users\Ampelman\Desktop\Masterarbeit\open close status data for videos\WIN_20260622_14_50_01_Pro.mp4frame_and_open_close_manual_status",
-# r"C:\Users\Ampelman\Desktop\Masterarbeit\open close status data for videos\WIN_20260622_15_27_19_Pro.mp4frame_and_open_close_manual_status"
-# ]
+import math
 
 
 
-# def f(name):
-#     data = []
+def get_globe_timeline_curv(r=200,deg=-90,cx=0,cy=0, steps=20):
 
-#     with open(name+'.txt', "r", encoding="utf-8") as f:
-#         for line in f:
-#             line = line.strip()
+    rad = math.radians(deg)
+    flatening = math.sin(rad)
+    ys = np.linspace(-r, r, steps)
+    pts = []
 
-#             if not line:
-#                 continue
+    for y in ys:
+        x = flatening * math.sqrt(r**2-y**2)
+        pts.append([x + cx, y + cy])
 
-#             data.append(ast.literal_eval(line))
+    return np.array(pts, dtype=np.int32).reshape((-1, 1, 2))
 
-#     with open(name+'.json', "w", encoding="utf-8") as f:
-#         json.dump(data, f, indent=4)
+def get_globe_timeline_curvs(r, cx=0, cy=0, deg_steps=15, draw_steps=30, frame=None, draw = False):
+    color = (0, 255, 0)
+    width = 2
+    timelines = []
+    for deg in range(-90, deg_steps+90, deg_steps):
+        pts = get_globe_timeline_curv(r,deg,cx,cy,draw_steps)
+        timelines.append(pts)
 
-#     print(f"{len(data)} Einträge nach {name+'.json'} gespeichert.")
+        if draw:
+            color = (0, 255, 0)
+            width = 2
+            cv2.polylines(frame, [pts], False, color, width)
+
+    return timelines
+
+# def time_area_curve(r, deg, cx, cy, steps=100):
+#     rad = math.radians(deg)
+#     x_offset = r * math.sin(rad)
+
+#     ys = np.linspace(-r, r, steps)
+#     pts = []
+
+#     for y in ys:
+#         inside = r*r - y*y
+#         if inside < 0:
+#             continue
+#         x_local = math.sqrt(inside)
+#         x = cx + x_offset
+#         pts.append([x, cy + y])
+
+#     return np.array(pts, dtype=np.int32).reshape((-1, 1, 2))
+
+cap = cv2.VideoCapture(1)
+
+if not cap.isOpened():
+    raise RuntimeError("Webcam konnte nicht geöffnet werden")
+
+while True:
+    ret, frame = cap.read()
+    if not ret or frame is None:
+        break
+
+    h, w = frame.shape[:2]
+    cx, cy = w // 2, h // 2
+    r = int(min(w, h) * 0.28)
+
+    overlay = frame.copy()
+
+    # Globus-Kontur
+    # cv2.circle(overlay, (cx, cy), r, (0, 255, 0), 3, cv2.LINE_AA)
+
+    # Meridiane / Zeitzonen in 15°-Schritten
+    pts = get_globe_timeline_curvs(r,cx,cy,15,50,overlay,True)
 
 
-# for name in names:
-#     f(name)
+
+    cv2.imshow("Globus Frontansicht", overlay)
+
+    if cv2.waitKey(1) & 0xFF == ord('q'):
+        break
+
+cap.release()
+cv2.destroyAllWindows()
+
+# cv2.polylines(overlay, [pts], False, (0, 0, 255), 3)

@@ -4,3 +4,6 @@ skip_frames = 100
 hand_status_buffer_size = 10
 video_folder = r'..\test_videos [gitignore]/'
 moving_speed = 2 # pixel per frame, min needed to be detected as moving hand
+gui_hight = 1/4 # of the frame hight
+arm_decection_border_top = 1/4 # of the frame hight
+arm_decection_border_bot = 1/4 # of the frame hight

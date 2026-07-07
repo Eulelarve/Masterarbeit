@@ -9,7 +9,7 @@ import numpy as np
 from datetime import datetime
 
 
-from own_functions import ProcessHandAperture, HandOpenClosedBuffer, ValueBuffer, CSVWriter, tolist, screenshot, close_to
+from own_functions import ProcessHandAperture, HandOpenClosedBuffer, ValueBuffer, CSVWriter, tolist, screenshot, close_to, MoveDetector, get_globe_timeline_curvs
 
 
 from HandDetectorModule_changed import HandDetector as hdm
@@ -28,7 +28,8 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
          foto_name:str='hand_detection',
          foto_frames:list=None,
          hand_not_found_means=None,
-         skip_hand_move_detection=False
+         skip_hand_move_detection=False,
+         show_globe = False
 
          ):
     """
@@ -81,6 +82,7 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
     process_ones = False
     upper_body_size = ValueBuffer(40)
     hand_aperture_smoother = ValueBuffer(5)
+    hand_move = MoveDetector(min_speed=2, max_speed_change=20, buffer_size=5)
     hand_status_buffer = HandOpenClosedBuffer(buffer_size=S.hand_status_buffer_size)
     open_close_status_capturer = SaveFrameStatus(keys=(ord('1'), ord('2'), ord('3')), status=('hand open', 'hand closed', None))
 
@@ -379,19 +381,52 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
                 )
                 
                 # draw hand points from mediapipe pose landmarks
-                hands = [15, 21,19,17, 16, 22, 20, 18, ]
-                pose_detector.draw_landmarks(
-                    frame=frame,
-                    landmark_ids=hands,
-                )
+                if show_processing and draw_landmarks:
+                    hands = [15, 21,19,17, 16, 22, 20, 18, ]
+                    pose_detector.draw_landmarks(
+                        frame=frame,
+                        landmark_ids=hands,
+                    )
 
         # --------------------------------------------------
-        # hand stands still while grappling
+        # get hand center and coresponding shulder and max arm length, relative arm length
         # --------------------------------------------------
         if not paused and process:
             if len(pose_landmarks) > 0:
-                hand_stands_still = pose_detector.hand_is_not_moving(min_speed=S.moving_speed, max_speed_change=20)
+                # hand and shulder
+                pose_detector.find_specific_limbs(_3D)
+                hand_center = pose_detector.hand_center
+                shulder = pose_detector.shulder
+                # arm
+                pose_detector.calibrate_arm_length(time_to_calibrate=2)
+                rel_arm_len = math.dist(hand_center, shulder)
+        # --------------------------------------------------
+        # hand (pose landmarks) is moving
+        # --------------------------------------------------
+        if not paused and process:
+            if len(pose_landmarks) > 0:
+                hand_stands_still = hand_move.stands_still(hand_center)
 
+        # --------------------------------------------------
+        # Analyze arm angle / pointing direction
+        # --------------------------------------------------
+        if not paused and process:
+            if len(pose_landmarks) > 0:
+                if hasattr(pose_detector,'arm_len'): # if arm length alreaddy calibrated
+                    pass
+        # --------------------------------------------------
+        # draw glode limelines
+        # --------------------------------------------------
+        if not paused and process:
+            if len(pose_landmarks) > 0:
+                if show_globe:
+                    r = 260
+                    get_globe_timeline_curvs(r,
+                                             *shulder,
+                                             frame=frame,
+                                             draw=show_globe
+                                             )
+        
         # --------------------------------------------------
         # chose ROI for hand detection
         # --------------------------------------------------
@@ -424,8 +459,6 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
                     # dont try if less then min window size
                     min_width = 50
                     min_height = 50
-
-                    hand_center = pose_detector.hand_center
 
                     start_x = hand_center[0] - roi_width // 2
                     start_y = hand_center[1] - roi_height // 2
@@ -901,24 +934,25 @@ if __name__ == "__main__":
     
     rs = 'realsens'
     # Video file input
-    for v in (v1,v6,v7,v8):
+    for v in (v6,v6,v7,v8):
         for hand_not_found_means in [0,None,]:
             for skip_hand_move_detection in [False, True]:
                 r = main(
-                    fps_cap=60,
+                    fps_cap=30,
                     show_fps=True,
                     source=S.video_folder+v,
                     pause_frames=None,
-                    show_processing=True,
+                    show_processing=False,
                     capture_status_manually=False,
                     capture_status = False,
                     roi_size = None,
-                    start_frame=250,
+                    start_frame=100,
                     end_frame = None,
-                    foto_name='hand_detection',
+                    foto_name='arm winkel perspektieve',
                     foto_frames=None,
                     hand_not_found_means=hand_not_found_means,
                     skip_hand_move_detection=skip_hand_move_detection,
+                    show_globe=True
                 )
                 if r == False:break
             if r == False:break
