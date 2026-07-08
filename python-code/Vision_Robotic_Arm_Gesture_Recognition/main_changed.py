@@ -9,7 +9,7 @@ import numpy as np
 from datetime import datetime
 
 
-from own_functions import ProcessHandAperture, HandOpenClosedBuffer, ValueBuffer, CSVWriter, tolist, screenshot, close_to, MoveDetector, get_globe_timeline_curvs
+from own_functions import ProcessHandAperture, HandOpenClosedBuffer, ValueBuffer, CSVWriter, tolist, screenshot, close_to, MoveDetector, get_globe_timeline_curvs, angle_between_points, draw_angle_between_points
 
 
 from HandDetectorModule_changed import HandDetector as hdm
@@ -56,6 +56,9 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
         start_frame = 0
     
     # create variables
+    red = (0, 0, 255)
+    blue = (255, 0, 0)
+    white = (250,250,250)
     return_value = True
 
     window_name = "Hand and Pose Detection"
@@ -336,10 +339,9 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
         if not paused and process:
 
             # choose between 2D and 3D pose estimation
-            _3D = False 
+            _3D = True 
             draw_pose = False
             draw_landmarks = False
-            draw_angles = False
 
             frame = pose_detector.findPose(
                 frame=frame,
@@ -360,25 +362,6 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
                         draw=False
                     )
 
-                elbow_angle = pose_detector.findAngle(
-                    frame,
-                    12,
-                    14,
-                    16,
-                    angle3d=_3D,
-                    draw=show_processing and draw_angles
-                )
-
-                elbow_angle_rad = math.radians(elbow_angle)
-
-                shoulder_angle = pose_detector.findAngle(
-                    frame,
-                    24,
-                    12,
-                    14,
-                    angle3d=_3D,
-                    draw=show_processing and draw_angles
-                )
                 
                 # draw hand points from mediapipe pose landmarks
                 if show_processing and draw_landmarks:
@@ -412,8 +395,56 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
         # --------------------------------------------------
         if not paused and process:
             if len(pose_landmarks) > 0:
-                if hasattr(pose_detector,'arm_len'): # if arm length alreaddy calibrated
+                draw_angles = True
+
+                # if hasattr(pose_detector,'arm_len'): # if arm length alreaddy calibrated
+                #     pass
+
+                x = pose_detector.lm_list[16][1] 
+                y = pose_detector.lm_list[16][2]
+                if pose_detector.lm_3dlist[16][3] < pose_detector.lm_3dlist[12][3] -0.05:
+                    color = red
+                    print('Vorne', pose_detector.lm_3dlist[16][3], pose_detector.lm_3dlist[12][3])
+                else:
+                    color = blue
+                    print('Hinten',  pose_detector.lm_3dlist[16][3], pose_detector.lm_3dlist[12][3])
+
+                cv2.circle(frame,(x,y),30,color,-1)
+
+                # --------------------------------------------------
+                # azimuth
+
+                arm_azimuth = pose_detector.findAngle(
+                    frame,
+                    11,
+                    12,
+                    16,
+                    angle3d=_3D,
+                    draw=show_processing and draw_angles,
+                    text_pos=(50,-50)
+
+                )
+                p3 = list(shulder)
+                if _3D:
+                    p3[2]*= -1
+                else:
                     pass
+                    # p3[2]*= -1
+
+                # arm_azimuth = angle_between_points()
+                # if show_processing and draw_angles:
+                #     pass
+                # --------------------------------------------------
+                # elovation
+
+                arm_elovation = pose_detector.findAngle(
+                    frame,
+                    24,
+                    12,
+                    16,
+                    angle3d=_3D,
+                    draw=show_processing and draw_angles,
+                )
         # --------------------------------------------------
         # draw glode limelines
         # --------------------------------------------------
@@ -627,9 +658,6 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
         # --------------------------------------------------
         if not paused and process:
                 
-            red = (0, 0, 255)
-            blue = (255, 0, 0)
-            white = (250,250,250)
             no_hand_status = {'text':"no hand", 'color':white}
             open_status = {'text':"open", 'color':blue}
             close_status = {'text':"closed", 'color':red}
@@ -941,8 +969,8 @@ if __name__ == "__main__":
                     fps_cap=30,
                     show_fps=True,
                     source=S.video_folder+v,
-                    pause_frames=None,
-                    show_processing=False,
+                    pause_frames=501,
+                    show_processing=True,
                     capture_status_manually=False,
                     capture_status = False,
                     roi_size = None,
@@ -952,7 +980,7 @@ if __name__ == "__main__":
                     foto_frames=None,
                     hand_not_found_means=hand_not_found_means,
                     skip_hand_move_detection=skip_hand_move_detection,
-                    show_globe=True
+                    show_globe=False
                 )
                 if r == False:break
             if r == False:break
