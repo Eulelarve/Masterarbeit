@@ -358,7 +358,7 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
                 frame_counter_pose += 1
 
                 if _3D:
-                    pose_detector.find3DPosePosition(
+                    pose_world_landmarks = pose_detector.find3DPosePosition(
                         draw=False
                     )
 
@@ -377,9 +377,9 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
         if not paused and process:
             if len(pose_landmarks) > 0:
                 # hand and shulder
-                pose_detector.find_specific_limbs(_3D)
-                hand_center = pose_detector.hand_center
-                shulder = pose_detector.shulder
+                pose_detector.find_specific_limbs()
+                hand_center = pose_detector.hand_center[1:]
+                shulder = pose_detector.shulder[1:]
                 # arm
                 pose_detector.calibrate_arm_length(time_to_calibrate=2)
                 rel_arm_len = math.dist(hand_center, shulder)
@@ -396,55 +396,71 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
         if not paused and process:
             if len(pose_landmarks) > 0:
                 draw_angles = True
-
-                # if hasattr(pose_detector,'arm_len'): # if arm length alreaddy calibrated
-                #     pass
-
-                x = pose_detector.lm_list[16][1] 
-                y = pose_detector.lm_list[16][2]
-                if pose_detector.lm_3dlist[16][3] < pose_detector.lm_3dlist[12][3] -0.05:
-                    color = red
-                    print('Vorne', pose_detector.lm_3dlist[16][3], pose_detector.lm_3dlist[12][3])
-                else:
-                    color = blue
-                    print('Hinten',  pose_detector.lm_3dlist[16][3], pose_detector.lm_3dlist[12][3])
-
-                cv2.circle(frame,(x,y),30,color,-1)
-
-                # --------------------------------------------------
-                # azimuth
-
-                arm_azimuth = pose_detector.findAngle(
-                    frame,
-                    11,
-                    12,
-                    16,
-                    angle3d=_3D,
-                    draw=show_processing and draw_angles,
-                    text_pos=(50,-50)
-
-                )
-                p3 = list(shulder)
                 if _3D:
-                    p3[2]*= -1
-                else:
-                    pass
-                    # p3[2]*= -1
+                    # if hasattr(pose_detector,'arm_len'): # if arm length alreaddy calibrated
+                    #     pass
 
-                # arm_azimuth = angle_between_points()
-                # if show_processing and draw_angles:
-                #     pass
-                # --------------------------------------------------
-                # elovation
+                    x = pose_detector.lm_list[12][1] 
+                    y = pose_detector.lm_list[12][2]
+                    if pose_detector.lm_3dlist[16][3] < pose_detector.lm_3dlist[12][3] -0.05:
+                        color = red
+                        # print('Vorne', pose_detector.lm_3dlist[16][3], pose_detector.lm_3dlist[12][3]) #test
+                    else:
+                        color = blue
+                        # print('Hinten',  pose_detector.lm_3dlist[16][3], pose_detector.lm_3dlist[12][3])
 
-                arm_elovation = pose_detector.findAngle(
-                    frame,
-                    24,
-                    12,
-                    16,
-                    angle3d=_3D,
-                    draw=show_processing and draw_angles,
-                )
+                    cv2.circle(frame,(x,y),20,color,2)
+
+                    # --------------------------------------------------
+                    # azimuth
+
+                    # arm_azimuth = pose_detector.findAngle(
+                    #     frame,
+                    #     11,
+                    #     12,
+                    #     16,
+                    #     angle3d=_3D,
+                    #     draw=show_processing and draw_angles,
+                    #     text_pos=(50,-50)
+                    # )
+                    i_shulder = pose_detector.shulder[0]
+                    i_hand = pose_detector.hand_center[0]
+                    p1_3d = pose_world_landmarks[i_hand][1:]
+                    p2_3d = pose_world_landmarks[i_shulder][1:]
+                    p3_3d = pose_world_landmarks[i_shulder][1:]
+                    p3_3d[0]*= -1 # put x to the oposit side of the boddy middel line
+                    
+                    arm_azimuth = angle_between_points(p1_3d, p2_3d, p3_3d)
+                    if draw_angles:
+                        p3_2d = shulder[:] # coppy the list
+                        if p3_3d[0] > 0:
+                            p3_2d[0] = frame.shape[1] # x = frame size
+                        else:
+                            p3_2d[0] = 0 # x = 0
+                        draw_angle_between_points(frame,arm_azimuth,hand_center,shulder,p3_2d,(50,-50))
+
+                    # arm_azimuth = angle_between_points()
+                    # if show_processing and draw_angles:
+                    #     pass
+                    # --------------------------------------------------
+                    # elovation
+
+                    # arm_elovation = pose_detector.findAngle(
+                    #     frame,
+                    #     24,
+                    #     12,
+                    #     16,
+                    #     angle3d=_3D,
+                    #     draw=show_processing and draw_angles,
+                    # )
+                    p3_3d = pose_world_landmarks[i_shulder][1:]
+                    p3_3d[1] = -1 # put y to the very bottom
+                    
+                    arm_elovation = angle_between_points(p1_3d, p2_3d, p3_3d)
+                    if draw_angles:
+                        p3_2d = shulder[:] # coppy the list
+                        p3_2d[1] = frame.shape[0] # y = frame size
+                        draw_angle_between_points(frame,arm_elovation ,hand_center,shulder,p3_2d)
         # --------------------------------------------------
         # draw glode limelines
         # --------------------------------------------------
