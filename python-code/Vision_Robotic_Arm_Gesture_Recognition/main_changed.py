@@ -9,7 +9,7 @@ import numpy as np
 from datetime import datetime
 
 
-from own_functions import ProcessHandAperture, HandOpenClosedBuffer, ValueBuffer, CSVWriter, tolist, screenshot, close_to, MoveDetector, get_globe_timeline_curvs, angle_between_points, draw_angle_between_points
+from own_functions import ProcessHandAperture, HandOpenClosedBuffer, ValueBuffer, CSVWriter, tolist, screenshot, close_to, MoveDetector, get_globe_timeline_curvs, angle_between_points, draw_angle_between_points, get_center_of_landmarks
 
 
 from HandDetectorModule_changed import HandDetector as hdm
@@ -55,9 +55,12 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
     if start_frame is None:
         start_frame = 0
     
+
+    
     # create variables
     red = (0, 0, 255)
     blue = (255, 0, 0)
+    green =(0, 255, 0)
     white = (250,250,250)
     return_value = True
 
@@ -155,11 +158,15 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
 
     # set to start frame / reset to frame 0
     if is_video_file:
-            if start_frame > 1:
-                video_capture.set(cv2.CAP_PROP_POS_FRAMES, start_frame -1)
-            else:
-                video_capture.set(cv2.CAP_PROP_POS_FRAMES, 0)
+        if start_frame > 1:
+            video_capture.set(cv2.CAP_PROP_POS_FRAMES, start_frame -1)
+        else:
+            video_capture.set(cv2.CAP_PROP_POS_FRAMES, 0)
 
+        # extrace camara angle from discription
+        name = source[source.rfind("/")+1:source.rfind(".mp4")]
+        cam_angle = float(name[4:name.find('deg')])
+        video_nr = int(name[1:name.find('_')])
 
     # -------------------------------------------------------
     # ROI - Define region of interest for video files
@@ -377,9 +384,10 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
         if not paused and process:
             if len(pose_landmarks) > 0:
                 # hand and shulder
-                pose_detector.find_specific_limbs()
+                pose_detector.find_specific_points()
                 hand_center = pose_detector.hand_center[1:]
                 shulder = pose_detector.shulder[1:]
+                hip = pose_detector.hip[1:]
                 # arm
                 pose_detector.calibrate_arm_length(time_to_calibrate=2)
                 rel_arm_len = math.dist(hand_center, shulder)
@@ -400,16 +408,16 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
                     # if hasattr(pose_detector,'arm_len'): # if arm length alreaddy calibrated
                     #     pass
 
-                    x = pose_detector.lm_list[12][1] 
-                    y = pose_detector.lm_list[12][2]
-                    if pose_detector.lm_3dlist[16][3] < pose_detector.lm_3dlist[12][3] -0.05:
-                        color = red
-                        # print('Vorne', pose_detector.lm_3dlist[16][3], pose_detector.lm_3dlist[12][3]) #test
-                    else:
-                        color = blue
-                        # print('Hinten',  pose_detector.lm_3dlist[16][3], pose_detector.lm_3dlist[12][3])
+                    # x = pose_detector.lm_list[12][1] 
+                    # y = pose_detector.lm_list[12][2]
+                    # if pose_detector.lm_3dlist[16][3] < pose_detector.lm_3dlist[12][3] -0.05:
+                    #     color = red
+                    #     # print('Vorne', pose_detector.lm_3dlist[16][3], pose_detector.lm_3dlist[12][3]) #test
+                    # else:
+                    #     color = blue
+                    #     # print('Hinten',  pose_detector.lm_3dlist[16][3], pose_detector.lm_3dlist[12][3])
 
-                    cv2.circle(frame,(x,y),20,color,2)
+                    # cv2.circle(frame,(x,y),20,color,2)
 
                     # --------------------------------------------------
                     # azimuth
@@ -426,18 +434,46 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
                     i_shulder = pose_detector.shulder[0]
                     i_hand = pose_detector.hand_center[0]
                     p1_3d = pose_world_landmarks[i_hand][1:]
+                    # spetiel reference point
                     p2_3d = pose_world_landmarks[i_shulder][1:]
-                    p3_3d = pose_world_landmarks[i_shulder][1:]
-                    p3_3d[0]*= -1 # put x to the oposit side of the boddy middel line
+                    p2_2d = shulder.copy()
+
+                    p2_3d_c = get_center_of_landmarks(pose_world_landmarks,[11,12]) # use center instatt
+                    p2_2d_c = get_center_of_landmarks(pose_landmarks,[11,12]) # use center instatt
                     
-                    arm_azimuth = angle_between_points(p1_3d, p2_3d, p3_3d)
-                    if draw_angles:
-                        p3_2d = shulder[:] # coppy the list
-                        if p3_3d[0] > 0:
-                            p3_2d[0] = frame.shape[1] # x = frame size
-                        else:
-                            p3_2d[0] = 0 # x = 0
-                        draw_angle_between_points(frame,arm_azimuth,hand_center,shulder,p3_2d,(50,-50))
+                    ref_point_cam_angle_comp = math.sin(math.radians(cam_angle))
+
+                    for p2_3d, p2_2d , color in [(p2_3d, p2_2d, green), [p2_3d_c, p2_2d_c, blue]]:
+                        p3_3d = p2_3d.copy()
+                        # referenz line to the side (x)
+                        p3_3d[0] = -pose_world_landmarks[i_shulder][1] # put x to the oposit side of the boddy middel line
+                        # ajust z of the hand point by sin(ang) of y, if camera is angled
+                        p1_3d[2] = pose_world_landmarks[i_hand][3] - pose_world_landmarks[i_hand][2]*ref_point_cam_angle_comp 
+
+                        arm_azimuth = angle_between_points(p1_3d[0:3:2], p2_3d[0:3:2], p3_3d[0:3:2]) # take just x and z dimension, not y (hight)
+                        arm_azimuth += -90
+                        if draw_angles:
+                            p3_2d = p2_2d.copy()
+                            p3_2d[0] = pose_landmarks[12 if i_shulder == 11 else 11][1]
+                            # if p3_3d[0] > 0:
+                            #     p3_2d[0] = frame.shaoe[1] # x = frame size
+                            # else:
+                            #     p3_2d[0] = 0 # x = 0
+                            text = str(round(arm_azimuth))+'x'
+                            draw_angle_between_points(frame,text,hand_center,p2_2d,p3_2d,(-10,-10), color)
+
+                        # referenz line to the front (z)
+                        p1_3d = pose_world_landmarks[i_hand][1:]
+                        p3_3d = pose_world_landmarks[i_shulder][1:]
+                        p3_3d[2] = -1 # ajust z
+                        p3_3d[1] = +1*ref_point_cam_angle_comp  # ajust y
+                        
+                        arm_azimuth = angle_between_points(p1_3d[0:3:2], p2_3d[0:3:2], p3_3d[0:3:2]) # take just x and z dimension, not y (hight)
+                        if draw_angles:
+                            p3_2d = p2_2d.copy()
+                            p3_2d[1] = frame.shape[0] # y = frame size
+                            text = str(round(arm_azimuth))+'z'
+                            draw_angle_between_points(frame,text,hand_center,p2_2d,p3_2d,(-10,-50),color)
 
                     # arm_azimuth = angle_between_points()
                     # if show_processing and draw_angles:
@@ -453,14 +489,15 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
                     #     angle3d=_3D,
                     #     draw=show_processing and draw_angles,
                     # )
-                    p3_3d = pose_world_landmarks[i_shulder][1:]
-                    p3_3d[1] = -1 # put y to the very bottom
+                    # p3_3d = pose_world_landmarks[i_shulder][1:]
+                    # p3_3d[1] = 1 # put pm y-wold coordinate one meter to the bottom [(0/0/0) = boddy center]
                     
-                    arm_elovation = angle_between_points(p1_3d, p2_3d, p3_3d)
-                    if draw_angles:
-                        p3_2d = shulder[:] # coppy the list
-                        p3_2d[1] = frame.shape[0] # y = frame size
-                        draw_angle_between_points(frame,arm_elovation ,hand_center,shulder,p3_2d)
+                    # arm_elovation = angle_between_points(p1_3d, p2_3d, p3_3d)
+                    # if draw_angles:
+                    #     p3_2d = shulder[:] # coppy the list
+                    #     p3_2d[1] = frame.shape[0] # y = frame size
+                    #     draw_angle_between_points(frame,arm_elovation ,hand_center,shulder,p3_2d)
+
         # --------------------------------------------------
         # draw glode limelines
         # --------------------------------------------------
@@ -544,10 +581,10 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
         if not paused and process:
             # if no roi_hand is there, no hand schoult be in the frame
             if roi_hand or not _roi_size: 
-                draw_landmarks = True
-                draw_aperture = True
-                draw_roi = True
-                draw_max_distance = True
+                draw_landmarks = False
+                draw_aperture = False
+                draw_roi = False
+                draw_max_distance = False
                
 
 
@@ -978,9 +1015,9 @@ if __name__ == "__main__":
     
     rs = 'realsens'
     # Video file input
-    for v in (v6,v6,v7,v8):
-        for hand_not_found_means in [0,None,]:
-            for skip_hand_move_detection in [False, True]:
+    for v in (v7,v10,v7,v8):
+        for hand_not_found_means in [0,]:
+            for skip_hand_move_detection in [False]:
                 r = main(
                     fps_cap=30,
                     show_fps=True,
