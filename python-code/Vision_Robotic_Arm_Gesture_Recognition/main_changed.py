@@ -9,8 +9,8 @@ import numpy as np
 from datetime import datetime
 
 
-from own_functions import ProcessHandAperture, HandOpenClosedBuffer, ValueBuffer, CSVWriter, tolist, screenshot, close_to, MoveDetector, get_globe_timeline_curvs, angle_between_points, draw_angle_between_points, get_center_of_landmarks
-
+from own_functions import ProcessHandAperture, HandOpenClosedBuffer, ValueBuffer, CSVWriter, tolist, screenshot, close_to, MoveDetector, get_globe_timeline_curvs, angle_between_points, draw_angle_between_points, get_center_of_landmarks, mediapipe_pose_world_to_global
+from main_functions import find_pointing_angle
 
 from HandDetectorModule_changed import HandDetector as hdm
 from PoseDetectorModule_changed import poseDetector as pdm
@@ -58,10 +58,10 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
 
     
     # create variables
-    red = (0, 0, 255)
-    blue = (255, 0, 0)
-    green =(0, 255, 0)
-    white = (250,250,250)
+    red = S.red
+    blue = S.blue
+    green = S.green
+    white = S.white
     return_value = True
 
     window_name = "Hand and Pose Detection"
@@ -166,6 +166,7 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
         # extrace camara angle from discription
         name = source[source.rfind("/")+1:source.rfind(".mp4")]
         cam_angle = float(name[4:name.find('deg')])
+        cam_hight = S.cam_angle_hight[cam_angle]
         video_nr = int(name[1:name.find('_')])
 
     # -------------------------------------------------------
@@ -369,6 +370,12 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
                         draw=False
                     )
 
+                world_coordinats = mediapipe_pose_world_to_global(pose_world_landmarks,cam_angle)
+                world_coordinats = [[i, *p] for i, p in enumerate(world_coordinats)]
+                # for e,i in enumerate(world_coordinats):
+                #     if e in [12,24,16]:
+                #         print(pose_world_landmarks[e],i)#test
+
                 
                 # draw hand points from mediapipe pose landmarks
                 if show_processing and draw_landmarks:
@@ -433,24 +440,26 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
                     # )
                     i_shulder = pose_detector.shulder[0]
                     i_hand = pose_detector.hand_center[0]
-                    p1_3d = pose_world_landmarks[i_hand][1:]
+                    angle_3d_points = world_coordinats
+
+                    p1_3d = angle_3d_points[i_hand][1:]
                     # spetiel reference point
-                    p2_3d = pose_world_landmarks[i_shulder][1:]
+                    p2_3d = angle_3d_points[i_shulder][1:]
                     p2_2d = shulder.copy()
 
-                    p2_3d_c = get_center_of_landmarks(pose_world_landmarks,[11,12]) # use center instatt
+                    p2_3d_c = get_center_of_landmarks(angle_3d_points,[11,12]) # use center instatt
                     p2_2d_c = get_center_of_landmarks(pose_landmarks,[11,12]) # use center instatt
                     
-                    ref_point_cam_angle_comp = math.sin(math.radians(cam_angle))
+                    # ref_point_cam_angle_comp = math.sin(math.radians(cam_angle))
 
                     for p2_3d, p2_2d , color in [(p2_3d, p2_2d, green), [p2_3d_c, p2_2d_c, blue]]:
                         p3_3d = p2_3d.copy()
                         # referenz line to the side (x)
-                        p3_3d[0] = -pose_world_landmarks[i_shulder][1] # put x to the oposit side of the boddy middel line
+                        p3_3d[0] = -angle_3d_points[i_shulder][1] # put x to the oposit side of the boddy middel line
                         # ajust z of the hand point by sin(ang) of y, if camera is angled
-                        p1_3d[2] = pose_world_landmarks[i_hand][3] - pose_world_landmarks[i_hand][2]*ref_point_cam_angle_comp 
+                        # p1_3d[2] = angle_3d_points[i_hand][3] - angle_3d_points[i_hand][2]*ref_point_cam_angle_comp 
 
-                        arm_azimuth = angle_between_points(p1_3d[0:3:2], p2_3d[0:3:2], p3_3d[0:3:2]) # take just x and z dimension, not y (hight)
+                        arm_azimuth = angle_between_points(p1_3d[0:2], p2_3d[0:2], p3_3d[0:2]) # take just x and y dimension, not z (hight)
                         arm_azimuth += -90
                         if draw_angles:
                             p3_2d = p2_2d.copy()
@@ -463,12 +472,12 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
                             draw_angle_between_points(frame,text,hand_center,p2_2d,p3_2d,(-10,-10), color)
 
                         # referenz line to the front (z)
-                        p1_3d = pose_world_landmarks[i_hand][1:]
-                        p3_3d = pose_world_landmarks[i_shulder][1:]
-                        p3_3d[2] = -1 # ajust z
-                        p3_3d[1] = +1*ref_point_cam_angle_comp  # ajust y
+                        # p1_3d = angle_3d_points[i_hand][1:]
+                        p3_3d = p2_3d.copy()
+                        p3_3d[1] = -1 # ajust deepth
+                        # p3_3d[1] = +1*ref_point_cam_angle_comp  # ajust y
                         
-                        arm_azimuth = angle_between_points(p1_3d[0:3:2], p2_3d[0:3:2], p3_3d[0:3:2]) # take just x and z dimension, not y (hight)
+                        arm_azimuth = angle_between_points(p1_3d[0:2], p2_3d[0:2], p3_3d[0:2]) # take just x and y dimension, not z (hight)
                         if draw_angles:
                             p3_2d = p2_2d.copy()
                             p3_2d[1] = frame.shape[0] # y = frame size
@@ -1015,19 +1024,19 @@ if __name__ == "__main__":
     
     rs = 'realsens'
     # Video file input
-    for v in (v7,v10,v7,v8):
+    for v in (v10,v7,v8):
         for hand_not_found_means in [0,]:
             for skip_hand_move_detection in [False]:
                 r = main(
                     fps_cap=30,
                     show_fps=True,
                     source=S.video_folder+v,
-                    pause_frames=501,
+                    pause_frames=None,
                     show_processing=True,
                     capture_status_manually=False,
                     capture_status = False,
                     roi_size = None,
-                    start_frame=100,
+                    start_frame=50,
                     end_frame = None,
                     foto_name='arm winkel perspektieve',
                     foto_frames=None,

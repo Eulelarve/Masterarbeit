@@ -1,7 +1,7 @@
+print('test file')
 import numpy as np
 import mediapipe as mp
 import cv2
-
 def mediapipe_pose_world_to_global(pose_world_landmarks, rvec_cam, tvec_cam):
     """
     Transform MediaPipe pose_world_landmarks into a global/world coordinate system.
@@ -29,7 +29,8 @@ def mediapipe_pose_world_to_global(pose_world_landmarks, rvec_cam, tvec_cam):
     if pts.ndim == 1:
         pts = pts.reshape(1, -1)
 
-    pts = pts[:, :3]
+    if len(pts[0]) > 3: 
+        pts = pts[:, 1:4]
 
     rvec_cam = np.asarray(rvec_cam, dtype=np.float64).reshape(3, 1)
     tvec_cam = np.asarray(tvec_cam, dtype=np.float64).reshape(3, 1)
@@ -61,3 +62,11 @@ global_pts = mediapipe_pose_world_to_global(
 )
 
 print(global_pts)
+
+
+
+i = [[1,2,3],[4,5,6],[7,8,9]]
+for e,ii in enumerate(i):
+    i[e] = [-ii[0],ii[2],ii[1]]    
+
+print(i)
