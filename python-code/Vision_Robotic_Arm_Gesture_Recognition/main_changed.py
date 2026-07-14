@@ -9,17 +9,7 @@ import numpy as np
 from datetime import datetime
 
 
-from own_functions import ProcessHandAperture, HandOpenClosedBuffer, ValueBuffer, CSVWriter, tolist, screenshot, close_to, MoveDetector, get_globe_timeline_curvs, angle_between_points, draw_angle_between_points, get_center_of_landmarks, mediapipe_pose_world_to_global, map_threshold, cv2_mouse_callback, MOUSE_POS
-
-# MOUSE_POS = [0, 0]
-# def cv2_mouse_callback(event, x, y, flags, param):
-#     global MOUSE_POS
-
-#     MOUSE_POS[0] = x
-#     MOUSE_POS[1] = y
-
-#     if event == cv2.EVENT_LBUTTONDOWN:
-#         print("Linksklick:", MOUSE_POS)
+from own_functions import ProcessHandAperture, HandOpenClosedBuffer, ValueBuffer, CSVWriter, tolist, screenshot, close_to, MoveDetector, get_globe_timeline_curvs, angle_between_points, draw_angle_between_points, get_center_of_landmarks, mediapipe_pose_world_to_global, map_threshold, cv2_mouse_callback, MOUSE
 
 from main_functions import find_pointing_angle, GuiOverlay
 
@@ -174,9 +164,6 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
 
     frame_x=frame.shape[1] 
     frame_y=frame.shape[0]
-    cv2.setUseOptimized(True)
-    cv2.namedWindow(window_name)
-    cv2.setMouseCallback(window_name, cv2_mouse_callback)
 
 
     # set to start frame / reset to frame 0
@@ -855,16 +842,19 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
         # draw GUI overlas
         # --------------------------------------------------
         overlay.draw(frame)
-        instrument = overlay.choose_instrument(MOUSE_POS)
+        overlay.pos_interaction(MOUSE.pos)
+        if MOUSE.is_pressed():
+            overlay.grap()
+        elif MOUSE.is_release():
+            overlay.release()
 
-        if instrument is not None:
-            print(instrument.name)
+
         
         # Mausposition anzeigen
-        cv2.circle(frame, MOUSE_POS, 5, (0, 0, 255), -1)
+        cv2.circle(frame, MOUSE.pos, 5, (0, 0, 255), -1)
         cv2.putText(
             frame,
-            f"{MOUSE_POS}",
+            f"{MOUSE.pos}",
             (10, 30),
             cv2.FONT_HERSHEY_SIMPLEX,
             0.8,
