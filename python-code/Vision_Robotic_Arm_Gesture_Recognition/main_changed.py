@@ -198,7 +198,14 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
     # -------------------------------------------------------
 
     while True:
-
+        # --------------------------------------------------
+        # set and reset 
+        # --------------------------------------------------
+        grasped = False
+        released = False
+        pose_found = False
+        hand_found = False
+        hand_stands_still = False
         time_stemp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
         # --------------------------------------------------
@@ -374,9 +381,10 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
                     frame=frame_overlay,
                     draw=show_processing and draw_landmarks
                 )
-                    
-            if len(pose_landmarks) > 0:
-                # pose detected in frame
+            
+            pose_found = True if len(pose_landmarks) > 0 else False
+            
+            if pose_found:
                 frame_counter_pose += 1
 
                 if _3D:
@@ -402,65 +410,64 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
         # --------------------------------------------------
         # get hand center and coresponding shulder and max arm length, relative arm length
         # --------------------------------------------------
-        if not paused and process:
-            if len(pose_landmarks) > 0:
-                # hand and shulder
-                pose_detector.find_specific_points()
-                hand_center = pose_detector.hand_center[1:]
-                shulder = pose_detector.shulder[1:]
-                hip = pose_detector.hip[1:]
-                # arm
-                pose_detector.calibrate_arm_length(time_to_calibrate=2)
-                rel_arm_len = math.dist(hand_center, shulder)
+        if not paused and process and pose_found:
+            # hand and shulder
+            pose_detector.find_specific_points()
+            hand_center = pose_detector.hand_center[1:]
+            shulder = pose_detector.shulder[1:]
+            hip = pose_detector.hip[1:]
+            # arm
+            pose_detector.calibrate_arm_length(time_to_calibrate=2)
+            rel_arm_len = math.dist(hand_center, shulder)
         # --------------------------------------------------
         # hand (pose landmarks) is moving
         # --------------------------------------------------
-        if not paused and process:
-            if len(pose_landmarks) > 0:
-                hand_stands_still = hand_move.stands_still(hand_center)
+        if not paused and process and pose_found:
+            hand_stands_still = hand_move.stands_still(hand_center)
 
         # --------------------------------------------------
         # Analyze arm angle / pointing direction
         # --------------------------------------------------
-        if not paused and process:
-            if len(pose_landmarks) > 0:
-                draw_angles = True
-                if _3D:
-                    # if hasattr(pose_detector,'arm_len'): # if arm length alreaddy calibrated
-                    #     pass
+        if not paused and process and pose_found:
+            draw_angles = True
+            if _3D:
+                # if hasattr(pose_detector,'arm_len'): # if arm length alreaddy calibrated
+                #     pass
 
-                    # --------------------------------------------------
-                    # azimuth
-                    i_shulder = pose_detector.shulder[0]
-                    i_hand = pose_detector.hand_center[0]
-                    angle_3d_points = world_coordinats
-                    pointing_angle = find_pointing_angle(angle_3d_points, i_hand, i_shulder, 
-                                                         frame_overlay, pose_landmarks, draw_angles, mirrow_frame)
-                    pointing_angle = pointing_angle_smoother.add_and_get_average(pointing_angle)
-                    pointing_angle = map_threshold(pointing_angle,(-75,-25,25,75),(-90,-45,0,45,90))
-                    # print('pointing:',pointing_angle,'°')#test
+                # --------------------------------------------------
+                # azimuth
+                i_shulder = pose_detector.shulder[0]
+                i_hand = pose_detector.hand_center[0]
+                angle_3d_points = world_coordinats
+                pointing_angle = find_pointing_angle(angle_3d_points, i_hand, i_shulder, 
+                                                        frame_overlay, pose_landmarks, 
+                                                        draw_angles and show_processing, 
+                                                        mirrow_frame
+                                                    )
+                pointing_angle = pointing_angle_smoother.add_and_get_average(pointing_angle)
+                pointing_angle = map_threshold(pointing_angle,(-75,-25,25,75),(-90,-45,0,45,90))
+                # print('pointing:',pointing_angle,'°')#test
                    
 
         # --------------------------------------------------
         # draw glode limelines
         # --------------------------------------------------
-        if not paused and process:
-            if len(pose_landmarks) > 0:
-                if show_globe:
-                    r = 260
-                    get_globe_timeline_curvs(r,
-                                             *shulder,
-                                             frame=frame_overlay,
-                                             draw=show_globe
-                                             )
-        
+        if not paused and process and pose_found:
+            if show_globe:
+                r = 260
+                get_globe_timeline_curvs(r,
+                                            *shulder,
+                                            frame=frame_overlay,
+                                            draw=show_globe
+                                            )
+    
         # --------------------------------------------------
         # chose ROI for hand detection
         # --------------------------------------------------
         if not paused and process:
             roi_hand = None
             
-            if len(pose_landmarks) > 0:
+            if pose_found:
                 # --------------------------------------------------
                 # just take inmutparameter ROI size 
                 _roi_size = roi_size
@@ -506,7 +513,7 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
         # --------------------------------------------------
         # Hand depth value
         # --------------------------------------------------
-        if not paused and process:
+        if not paused and process and pose_found:
             if roi_hand:
                 if show_depth:
                     cx, cy = hand_center
@@ -521,7 +528,7 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
         # --------------------------------------------------
         # Hand detection
         # --------------------------------------------------
-        if not paused and process:
+        if not paused and process and pose_found:
             hand_status_before = hand_status
             # if no roi_hand is there, no hand schoult be in the frame
             if roi_hand or not _roi_size: 
@@ -543,18 +550,20 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
                 valide_hand =  hand_detector.hand_close_to(hand_center, 
                                                            max_distance=0.03,
                                                            frame=frame_overlay, draw=show_processing and draw_max_distance, hand_index=hand_index)
+                if valide_hand:
+                    hand_landmarks = hand_detector.findHandPosition(
+                        frame=frame_overlay, 
+                        draw=False
+                        )
+                    hand_found = True if len(hand_landmarks) else False
                 # --------------------------------------------------
                 # evaluate/change Hand status only if it is not moving
                 if hand_stands_still or skip_hand_move_detection:
-                    if valide_hand:
+                    if hand_found:
                         # hand detected in frame
                         frame_counter_hand += 1
 
-                        hand_landmarks, _ = hand_detector.findHandPosition(
-                        frame=frame_overlay, 
-                        # hand_num=index, 
-                        draw=False
-                        )
+
 
                         # ---------------------------------------
                         # choose a hand opening detection methode
@@ -596,9 +605,7 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
             
         # --------------------------------------------------
         # hand status grapping
-        if not paused and process:
-            released = False
-            grasped = False   
+        if not paused and process and pose_found:   
             if hand_status_before == 1 and hand_status == 0:
                 grasped = True
                 is_grapping = True
@@ -607,7 +614,7 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
                 is_grapping = False
         # --------------------------------------------------
         # save grap and release angle
-        if not paused and process:
+        if not paused and process and pose_found:   
             if grasped:
                 grasped_angle = pointing_angle
                 released_angle = None
@@ -617,7 +624,7 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
         # --------------------------------------------------
         # draw hand status
         # --------------------------------------------------
-        if not paused and process:
+        if not paused and process and pose_found:
                 
             no_hand_status = {'text':"no hand", 'color':white}
             open_status = {'text':"open", 'color':blue}
@@ -670,9 +677,8 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
         # --------------------------------------------------
         # frame is fully processed 
         # --------------------------------------------------
-        if not paused:
-            if process:
-                frame_counter_processed += 1
+        if not paused and process:
+            frame_counter_processed += 1
         
         # ==================================================
         # Status overlay - end of video processing
@@ -933,6 +939,7 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
     frames_and_moves = moves_dict[hand_methode]
     CSVWriter.write('Move_detection_hand_methode_test.csv',
         frames_and_moves= frames_and_moves,
+        buffer_size=S.hand_status_buffer_size,
         methode= hand_methode,
         video=video_name,
         time = time_stemp,
@@ -965,9 +972,12 @@ if __name__ == "__main__":
     
     rs = 'realsens'
     # Video file input
-    for v in (v7,v8,v10,v11):
-        for hand_not_found_means in [0,]:
-            for hand_methode in ['aperture_len_width__0','aperture_len_width__1.2', 'len_width_thr__1.2' ,  'distance_dif__0.3']:
+    videos = [v7,v8,v10,v11]
+    videos.reverse()
+    for v in videos:
+        for hand_methode in ['aperture_len_width__0','aperture_len_width__1.2', 'len_width_thr__1.2' ,  'distance_dif__0.3', 'distance_dif__0.4']:
+            for buffer_size in [5,10]:
+                S.hand_status_buffer_size = buffer_size
                 r = main(
                     fps_cap=30,
                     show_fps=True,
