@@ -7,6 +7,7 @@ import math
 import pyrealsense2 as rs
 import numpy as np
 from datetime import datetime
+from collections import defaultdict
 
 
 from own_functions import ProcessHandAperture, HandOpenClosedBuffer, ValueBuffer, CSVWriter, tolist, screenshot, close_to, MoveDetector, get_globe_timeline_curvs, angle_between_points, draw_angle_between_points, get_center_of_landmarks, mediapipe_pose_world_to_global, map_threshold, cv2_mouse_callback, MOUSE
@@ -30,8 +31,8 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
          foto_frames:list=None,
          hand_not_found_means=None,
          skip_hand_move_detection=False,
-         show_globe = False
-
+         show_globe = False,
+         hand_methode = 'aperture_len_width__1.2',
          ):
     """
     Video processing entry point.
@@ -75,18 +76,19 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
     frame_counter_processed = 0
     frame_counter_pose = 0
     frame_counter_hand = 0
-    current_frame = start_frame - 1
+    frame_now = start_frame - 1
     size_sum = 0
-    open_closed = None
-    hand_status = None 
+    hand_status:int = None 
+    hand_status_before:int = None
+    is_grapping = False
 
-    hand_status_dict = {'aperture':None, 'aperture_width':None,  'len_width_thr_1.2':None, 'len_width_thr_1.4':None, 'distance_dif_0.3':None,'distance_dif_0.4':None}
-    hand_status_detected = {'aperture':[], 'aperture_width':[],  'len_width_thr_1.2':[], 'len_width_thr_1.4':[], 'distance_dif_0.3':[], 'distance_dif_0.4':[]}
-    hand_status_buffer_dict = {'aperture':HandOpenClosedBuffer(buffer_size=S.hand_status_buffer_size), 'aperture_width':HandOpenClosedBuffer(buffer_size=S.hand_status_buffer_size), 
-                                'len_width_thr_1.2':HandOpenClosedBuffer(buffer_size=S.hand_status_buffer_size), 'len_width_thr_1.4':HandOpenClosedBuffer(buffer_size=S.hand_status_buffer_size), 
-                                'distance_dif_0.3':HandOpenClosedBuffer(buffer_size=1), 'distance_dif_0.4':HandOpenClosedBuffer(buffer_size=1)}
-    
-
+    # hand_status_dict = {'aperture':None, 'aperture_width':None,  'len_width_thr_1.2':None, 'len_width_thr_1.4':None, 'distance_dif_0.3':None,'distance_dif_0.4':None}
+    # hand_status_detected = {'aperture':[], 'aperture_width':[],  'len_width_thr_1.2':[], 'len_width_thr_1.4':[], 'distance_dif_0.3':[], 'distance_dif_0.4':[]}
+    # hand_status_buffer_dict = {'aperture':HandOpenClosedBuffer(buffer_size=S.hand_status_buffer_size), 'aperture_width':HandOpenClosedBuffer(buffer_size=S.hand_status_buffer_size), 
+    #                             'len_width_thr_1.2':HandOpenClosedBuffer(buffer_size=S.hand_status_buffer_size), 'len_width_thr_1.4':HandOpenClosedBuffer(buffer_size=S.hand_status_buffer_size), 
+    #                             'distance_dif_0.3':HandOpenClosedBuffer(buffer_size=1), 'distance_dif_0.4':HandOpenClosedBuffer(buffer_size=1)}
+    moves_dict = defaultdict(list)
+    order_list = []
 
     paused = False
     process = True
@@ -96,7 +98,6 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
     hand_aperture_smoother = ValueBuffer(5)
     pointing_angle_smoother = ValueBuffer(5)
     hand_move = MoveDetector(min_speed=2, max_speed_change=20, buffer_size=5)
-    hand_status_buffer = HandOpenClosedBuffer(buffer_size=S.hand_status_buffer_size)
     open_close_status_capturer = SaveFrameStatus(keys=(ord('1'), ord('2'), ord('3')), status=('hand open', 'hand closed', None))
 
     previous_time = time.perf_counter()
@@ -118,6 +119,7 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
     use_realsense = source in ["realsense", "realsense_depth", "realsense_d"]
     show_depth = source in ["realsense_depth", "realsense_d"]
     is_video_file = isinstance(source, str) and not use_realsense
+    mirrow_frame = not is_video_file
     
     if use_realsense:
 
@@ -174,10 +176,10 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
             video_capture.set(cv2.CAP_PROP_POS_FRAMES, 0)
 
         # extrace camara angle from discription
-        name = source[source.rfind("/")+1:source.rfind(".mp4")]
-        cam_angle = float(name[4:name.find('deg')])
+        video_name = source[source.rfind("/")+1:source.rfind(".mp4")]
+        cam_angle = float(video_name[4:video_name.find('deg')])
         cam_hight = S.cam_angle_hight[cam_angle]
-        video_nr = int(name[1:name.find('_')])
+        video_nr = int(video_name[1:video_name.find('_')])
 
     # -------------------------------------------------------
     # ROI - Define region of interest for video files
@@ -256,25 +258,25 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
                 
                 # A = step back x frame
                 if key == ord('a'):
-                    current_frame = max(0, current_frame- S.skip_frames)
+                    frame_now = max(0, frame_now- S.skip_frames)
 
                 # D = step forward x frame
                 elif key == ord('d'):
-                    current_frame += S.skip_frames
+                    frame_now += S.skip_frames
 
                 # S = step back 1 frames
                 elif key == ord('s'):
-                    current_frame = max(0, current_frame - 1) 
+                    frame_now = max(0, frame_now - 1) 
 
                 # W = step forward 1 frames
                 elif key == ord('w'):
-                    current_frame += 1 
+                    frame_now += 1 
                 
-                current_frame -= 1 # -1 because each loop adds one frame, by it self
+                frame_now -= 1 # -1 because each loop adds one frame, by it self
                 # set frame in video
                 video_capture.set(
                         cv2.CAP_PROP_POS_FRAMES,
-                        current_frame 
+                        frame_now 
                     )
                 
         # --------------------------------------------------
@@ -325,30 +327,32 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
                         )
             else:
 
-                success, frame = video_capture.read()
+                success, frame_raw = video_capture.read()
 
                 if not success:
                     print("End of video stream reached.")
                     break
 
-            if not is_video_file:
-                frame = cv2.flip(frame, 1)
+            if frame_raw is None:
+                continue
+
+            if mirrow_frame:
+                frame_raw = cv2.flip(frame_raw, 1)
             else:                          # define region of intrest (ROI)
                         # frame = frame[
                         #     y_start_pixel: y_end_pixel,
                         #     x_start_pixel: x_end_pixel]
                         pass
+            frame_overlay = frame_raw.copy()
 
-            if frame is None:
-                continue
        
         # --------------------------------------------------
         # currend frame
         # --------------------------------------------------
         if is_video_file:
-            current_frame = int(video_capture.get(cv2.CAP_PROP_POS_FRAMES))
+            frame_now = int(video_capture.get(cv2.CAP_PROP_POS_FRAMES))
         elif not paused: # live stream not paused
-            current_frame += 1
+            frame_now += 1
         
 
         # --------------------------------------------------
@@ -362,12 +366,12 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
             draw_landmarks = False
 
             frame = pose_detector.findPose(
-                frame=frame,
+                frame=frame_raw,
                 draw=show_processing and draw_pose
             )
    
             pose_landmarks = pose_detector.findPosePosition(
-                    frame=frame,
+                    frame=frame_overlay,
                     draw=show_processing and draw_landmarks
                 )
                     
@@ -391,7 +395,7 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
                 if show_processing and draw_landmarks:
                     hands = [15, 21,19,17, 16, 22, 20, 18, ]
                     pose_detector.draw_landmarks(
-                        frame=frame,
+                        frame=frame_overlay,
                         landmark_ids=hands,
                     )
 
@@ -425,17 +429,13 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
                     # if hasattr(pose_detector,'arm_len'): # if arm length alreaddy calibrated
                     #     pass
 
-
-
                     # --------------------------------------------------
                     # azimuth
-
-    
                     i_shulder = pose_detector.shulder[0]
                     i_hand = pose_detector.hand_center[0]
                     angle_3d_points = world_coordinats
                     pointing_angle = find_pointing_angle(angle_3d_points, i_hand, i_shulder, 
-                                                         frame, pose_landmarks, draw_angles)
+                                                         frame_overlay, pose_landmarks, draw_angles, mirrow_frame)
                     pointing_angle = pointing_angle_smoother.add_and_get_average(pointing_angle)
                     pointing_angle = map_threshold(pointing_angle,(-75,-25,25,75),(-90,-45,0,45,90))
                     # print('pointing:',pointing_angle,'°')#test
@@ -450,7 +450,7 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
                     r = 260
                     get_globe_timeline_curvs(r,
                                              *shulder,
-                                             frame=frame,
+                                             frame=frame_overlay,
                                              draw=show_globe
                                              )
         
@@ -475,7 +475,7 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
                 # --------------------------------------------------
                 # hand ROI size from frame size
                 if roi_size:
-                    _roi_size =  frame.shape[0] // roi_size
+                    _roi_size =  frame_raw.shape[0] // roi_size
 
                 # --------------------------------------------------
                 # difine hand ROI area in frame
@@ -494,8 +494,8 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
                     # ensure the ROI is within the frame boundaries
                     start_x = max(0, start_x)
                     start_y = max(0, start_y)
-                    end_x = min(frame.shape[1], end_x)
-                    end_y = min(frame.shape[0], end_y)
+                    end_x = min(frame_raw.shape[1], end_x)
+                    end_y = min(frame_raw.shape[0], end_y)
                     # update width and height based on the adjusted ROI
                     roi_width = end_x - start_x
                     roi_height = end_y - start_y
@@ -522,18 +522,17 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
         # Hand detection
         # --------------------------------------------------
         if not paused and process:
+            hand_status_before = hand_status
             # if no roi_hand is there, no hand schoult be in the frame
             if roi_hand or not _roi_size: 
-                draw_landmarks = False
-                draw_aperture = False
-                draw_roi = False
-                draw_max_distance = False
-               
+                draw = True
+                draw_landmarks = draw and True
+                draw_aperture = draw and True
+                draw_roi = draw and True
+                draw_max_distance = draw and True
 
-
-
-                frame = hand_detector.findHands(
-                    frame=frame,
+                hand_detector.findHands(
+                    frame=frame_raw,
                     roi=roi_hand,
                     draw_landmarks=show_processing and draw_landmarks,
                     draw_roi=show_processing and draw_roi,
@@ -543,112 +542,78 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
                 hand_index = hand_detector.choose_hand("first")
                 valide_hand =  hand_detector.hand_close_to(hand_center, 
                                                            max_distance=0.03,
-                                                           frame=frame, draw=show_processing and draw_max_distance, hand_index=hand_index)
+                                                           frame=frame_overlay, draw=show_processing and draw_max_distance, hand_index=hand_index)
                 # --------------------------------------------------
                 # evaluate/change Hand status only if it is not moving
                 if hand_stands_still or skip_hand_move_detection:
                     if valide_hand:
                         # hand detected in frame
                         frame_counter_hand += 1
-                        
-                        #
-                        # aperture methode
-                        #
-                        hand_landmarks, frame = hand_detector.findHandPosition(
-                        frame=frame, 
+
+                        hand_landmarks, _ = hand_detector.findHandPosition(
+                        frame=frame_overlay, 
                         # hand_num=index, 
                         draw=False
                         )
 
-                        width_factor = 0
-                        frame, aperture = hand_detector.findHandAperture(
-                                frame=frame, 
-                                verbose=True, 
-                                show_aperture=show_processing and draw_aperture,
-                                use_len_if_larger_then_width = width_factor
-                            )
-                        hand_aperture_smoother.add(aperture)
-                        aperture = hand_aperture_smoother.average
-                        if aperture >= 70:
-                            open_closed = 1 # open
-                        elif aperture <= 60:
-                            open_closed = 0 # closed
-                        else:
-                            open_closed = open_closed # stay like it is
-                        hand_status_dict['aperture'] = open_closed
-                        #
-                        # aperture_width methode
-                        #
-                        width_factor = 1.2
-                        frame, aperture = hand_detector.findHandAperture(
-                                frame=frame, 
-                                verbose=True, 
-                                show_aperture=show_processing and draw_aperture,
-                                use_len_if_larger_then_width = width_factor
-                            )
-                        hand_aperture_smoother.add(aperture)
-                        aperture = hand_aperture_smoother.average
-                        if aperture >= 70:
-                            open_closed = 1 # open
-                        elif aperture <= 60:
-                            open_closed = 0 # closed
-                        else:
-                            open_closed = open_closed # stay like it is
-                        hand_status_dict['aperture_width'] = open_closed
-                        #
-                        # len_width_thr_1.2 methode
-                        #
-                        opening_faktor = 1.2
-                        open_closed = hand_detector.open_or_close_len_width_thr(frame, show_processing and draw_aperture, 
-                                                                                    hand_opening_factor=opening_faktor)
-                        hand_status_dict['len_width_thr_1.2'] = open_closed
-                        #
-                        # len_width_thr_1.4 methode
-                        #
-                        opening_faktor = 1.4
-                        open_closed = hand_detector.open_or_close_len_width_thr(frame, show_processing and draw_aperture, 
-                                                                                    hand_opening_factor=opening_faktor)
-                        hand_status_dict['len_width_thr_1.4'] = open_closed
-                        #
-                        # distance_dif_0.3 methode
-                        #
-                        min_distance_difference = 0.3
-                        open_closed = hand_detector.open_or_close_distance_dif(frame, show_processing and draw_aperture, 
-                                                                                   min_distance_difference=min_distance_difference, frame_difference=S.hand_status_buffer_size)
-                        hand_status_dict['distance_dif_0.3'] = open_closed
-                        #
-                        # distance_dif_0.4 methode
-                        #
-                        min_distance_difference = 0.4
-                        open_closed = hand_detector.open_or_close_distance_dif(frame, show_processing and draw_aperture, 
-                                                                                   min_distance_difference=min_distance_difference, frame_difference=S.hand_status_buffer_size)
-                        hand_status_dict['distance_dif_0.4'] = open_closed
+                        # ---------------------------------------
+                        # choose a hand opening detection methode
+                        # hand_methode = 'aperture_len_width__1.2' #  aperture_len_width__1.2   len_width_thr__1.2   distance_dif__0.3
+                        factor = float(hand_methode[hand_methode.find('__')+2:])
+
+                        if 'aperture_len_width' in hand_methode:
+                            hand_status = hand_detector.open_or_close_aperture_thr(
+                                    frame=frame_overlay,
+                                    draw_aperture=show_processing and draw_aperture,
+                                    width_factor = factor
+                                )
+                        elif 'len_width_thr' in hand_methode:
+                            hand_status = hand_detector.open_or_close_len_width_thr(frame_overlay, show_processing and draw_aperture, 
+                                                                                        hand_opening_factor=factor,
+                                                                                        )
+                        elif 'distance_dif' in hand_methode:
+                            hand_status = hand_detector.open_or_close_distance_dif(frame_overlay, show_processing and draw_aperture, 
+                                                                                    min_distance_difference=factor
+                                                                                    )
 
                     else:   
                         # if hand probably there but not found. closed hand are more likly to be not found
-                        open_closed = hand_not_found_means
+                        hand_status = hand_not_found_means
             
-                    # --------------------------------------------------
-                    # smoothing hand status
-                    for methode in hand_status_dict.keys():
-                        status = hand_status_dict[methode]
-                        status = hand_status_buffer_dict[methode].add_and_get(status)
-                        hand_status_detected[methode].append(status)
-                    hand_status = status
                 else:
                     # if hand is moving curently, do not change the hand status
                     hand_status = hand_status
                     hand_detector.buffer_clear()
 
-                    for methode in hand_status_dict.keys():
-                        status = hand_status_buffer_dict[methode].most_frequently
-                        hand_status_detected[methode].append(status)
+                    # for methode in hand_status_dict.keys():
+                    #     status = hand_status_buffer_dict[methode].most_frequently
+                    #     hand_status_detected[methode].append(status)
 
             else:
                 hand_status = None # no hand in frame
-                for methode in hand_status_dict.keys():
-                        hand_status_detected[methode].append(None)
+                # for methode in hand_status_dict.keys():
+                #         hand_status_detected[methode].append(None)
             
+        # --------------------------------------------------
+        # hand status grapping
+        if not paused and process:
+            released = False
+            grasped = False   
+            if hand_status_before == 1 and hand_status == 0:
+                grasped = True
+                is_grapping = True
+            elif is_grapping and hand_status == 1:
+                released = True
+                is_grapping = False
+        # --------------------------------------------------
+        # save grap and release angle
+        if not paused and process:
+            if grasped:
+                grasped_angle = pointing_angle
+                released_angle = None
+            elif released:
+                released_angle = pointing_angle
+                moved_angle = released_angle-grasped_angle
         # --------------------------------------------------
         # draw hand status
         # --------------------------------------------------
@@ -669,7 +634,7 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
 
             # show hand status
             cv2.putText(
-                frame,
+                frame_overlay,
                 text,
                 (10, 200),
                 cv2.FONT_HERSHEY_PLAIN,
@@ -690,7 +655,7 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
         # capture status manually
         # --------------------------------------------------
         if capture_status_manually:
-            wrong_frame = open_close_status_capturer.add(current_frame, key)
+            wrong_frame = open_close_status_capturer.add(frame_now, key)
             if type(wrong_frame) == int:
                 if is_video_file:
                     if paused:
@@ -719,7 +684,7 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
                 x = frame.shape[1] - 170
                 y = 40
                 cv2.putText(
-                    frame,
+                    frame_overlay,
                     f"FPS: {round(fps, 1)}",
                     (x, y),
                     cv2.FONT_HERSHEY_PLAIN,
@@ -734,7 +699,7 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
         status = "LIVE" if not is_video_file else "VIDEO"
 
         cv2.putText(
-            frame,
+            frame_overlay,
             status,
             (10, 80),
             cv2.FONT_HERSHEY_PLAIN,
@@ -748,7 +713,7 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
         
         if paused:
             cv2.putText(
-                frame,
+                frame_overlay,
                 "PAUSED",
                 (120, 80),
                 cv2.FONT_HERSHEY_PLAIN,
@@ -760,14 +725,14 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
         # --------------------------------------------------
         # frame counter overlay
 
-        text = f"Frame: {current_frame}"
+        text = f"Frame: {frame_now}"
 
         if is_video_file:
             text += '/'
             text += str(int(video_capture.get(cv2.CAP_PROP_FRAME_COUNT)))
 
         cv2.putText(
-            frame,
+            frame_overlay,
             text,
             (10, 120),
             cv2.FONT_HERSHEY_PLAIN,
@@ -781,9 +746,9 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
 
         text = "SPACE=Pause | ENTER=processing on/off"
         cv2.putText(
-            frame,
+            frame_overlay,
             text,
-            (10, frame.shape[0] - 10),
+            (10, frame_overlay.shape[0] - 10),
             cv2.FONT_HERSHEY_PLAIN,
             1,
             (0, 255, 0),
@@ -795,32 +760,55 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
             text = "W/S=+/-1 frame | A/D=+/-200 frames"
 
             cv2.putText(
-                frame,
+                frame_overlay,
                 text,
-                (10, frame.shape[0] - 25),
+                (10, frame_overlay.shape[0] - 25),
                 cv2.FONT_HERSHEY_PLAIN,
                 1,
                 (0, 255, 0),
                 1
             )
         
-        # --------------------------------------------------
-        # pause at frame or later if skiped
-        # --------------------------------------------------
-        if pause_frames:
-            pause_frame = min(pause_frames)
-            if current_frame >= pause_frame:
-                if not paused:
-                    print(f"currend frame {current_frame} reached pause frame {pause_frame}")
-                    paused = True
-                    pause_frames.remove(pause_frame)
+
         
+       
         # --------------------------------------------------
-        # pause at frame or later if skiped
+        # draw GUI overlas
+        # --------------------------------------------------
+        overlay.choose_instrument(MOUSE.pos)
+        if MOUSE.is_pressed():
+            overlay.grap()
+        elif MOUSE.is_release():
+            overlay.release()
+        overlay.move(MOUSE.pos)
+        overlay.draw(frame_overlay)
+
+        
+        # Mausposition anzeigen
+        cv2.circle(frame_overlay, MOUSE.pos, 5, (0, 0, 255), -1)
+        cv2.putText(
+            frame_overlay,
+            f"{MOUSE.pos}",
+            (10, 30),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.8,
+            (255, 255, 255),
+            2,
+        )
+        # --------------------------------------------------
+        # print out events 
+        # --------------------------------------------------
+        if not paused and process:
+            if released:
+                print(f'Frame {frame_now}: arm moved {moved_angle}° wich grap at {grasped_angle}° and releas at {released_angle}°')
+                moves_dict[hand_methode].append([frame_now, moved_angle])
+
+        # --------------------------------------------------
+        # foto at frame 
         # --------------------------------------------------
         if foto_frames:
             foto_frame = min(foto_frames)
-            if current_frame == foto_frame:
+            if frame_now == foto_frame:
                 print(f"reached foto frame {foto_frame}")
                 foto_frames.remove(foto_frame)
 
@@ -838,43 +826,31 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
                                     fps_mean,
                                 ]
                            )
-        # --------------------------------------------------
-        # draw GUI overlas
-        # --------------------------------------------------
-        overlay.draw(frame)
-        overlay.pos_interaction(MOUSE.pos)
-        if MOUSE.is_pressed():
-            overlay.grap()
-        elif MOUSE.is_release():
-            overlay.release()
 
-
-        
-        # Mausposition anzeigen
-        cv2.circle(frame, MOUSE.pos, 5, (0, 0, 255), -1)
-        cv2.putText(
-            frame,
-            f"{MOUSE.pos}",
-            (10, 30),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            0.8,
-            (255, 255, 255),
-            2,
-        )
+        # --------------------------------------------------
+        # pause at frame or later if skiped
+        # --------------------------------------------------
+        if pause_frames:
+            pause_frame = min(pause_frames)
+            if frame_now >= pause_frame:
+                if not paused:
+                    print(f"currend frame {frame_now} reached pause frame {pause_frame}")
+                    paused = True
+                    pause_frames.remove(pause_frame)
         # --------------------------------------------------
         # stop if end frame is reached
         # --------------------------------------------------
         if not paused:
             if end_frame is not None:
-                if current_frame >= end_frame:
-                    print(f'currend frame {current_frame} reached end frame {end_frame} -> end this loop')
+                if frame_now >= end_frame:
+                    print(f'currend frame {frame_now} reached end frame {end_frame} -> end this loop')
                     break
 
         # --------------------------------------------------
         # stop if the window is closed
         # --------------------------------------------------
         open_windows = cv2.getWindowProperty(window_name, cv2.WND_PROP_VISIBLE)
-        if current_frame > start_frame + 1: # wate for forst frame, to open up the window
+        if frame_now > start_frame + 1: # wate for forst frame, to open up the window
             if open_windows < 1: # if no wiendow is open
                 print('window closed by user')
                 break # end programm
@@ -884,7 +860,7 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
         # --------------------------------------------------
         cv2.imshow(
             window_name,
-            frame
+            frame_overlay
         )
 
         if show_depth:
@@ -935,11 +911,11 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
 
     # save_list_to_file(f'{source}_hand_pixel_moves.txt',hand_moves)
 
-    if capture_status:
-        for methode in hand_status_dict.keys():
-            status = hand_status_buffer_dict[methode].most_frequently
-            data = hand_status_detected[methode]
-            save_list_to_file(source+f'-hand_detected_{methode}_no_hand_{hand_not_found_means}_no_movedetect_{skip_hand_move_detection}.txt',data)
+    # if capture_status:
+    #     for methode in hand_status_dict.keys():
+    #         status = hand_status_buffer_dict[methode].most_frequently
+    #         data = hand_status_detected[methode]
+    #         save_list_to_file(source+f'-hand_detected_{methode}_no_hand_{hand_not_found_means}_no_movedetect_{skip_hand_move_detection}.txt',data)
 
     CSVWriter.write('HAND_detektionmethod_TEST.csv',
         name=source,
@@ -950,7 +926,16 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
         frame_counter_hand=frame_counter_hand, hand_rate=hand_rate,
         hand_not_found_means=hand_not_found_means,
         skip_hand_move_detection=skip_hand_move_detection,
-        fps_mean=fps_mean
+        fps_mean=fps_mean,
+        time = time_stemp
+    )
+
+    frames_and_moves = moves_dict[hand_methode]
+    CSVWriter.write('Move_detection_hand_methode_test.csv',
+        frames_and_moves= frames_and_moves,
+        methode= hand_methode,
+        video=video_name,
+        time = time_stemp,
     )
     # --------------------------------------------------
     # end mesage
@@ -980,15 +965,15 @@ if __name__ == "__main__":
     
     rs = 'realsens'
     # Video file input
-    for v in (v7,v10,v8,v11):
+    for v in (v7,v8,v10,v11):
         for hand_not_found_means in [0,]:
-            for skip_hand_move_detection in [False]:
+            for hand_methode in ['aperture_len_width__0','aperture_len_width__1.2', 'len_width_thr__1.2' ,  'distance_dif__0.3']:
                 r = main(
                     fps_cap=30,
                     show_fps=True,
                     source=S.video_folder+v,
                     pause_frames=None,
-                    show_processing=True,
+                    show_processing=False,
                     capture_status_manually=False,
                     capture_status = False,
                     roi_size = None,
@@ -996,9 +981,10 @@ if __name__ == "__main__":
                     end_frame = None,
                     foto_name='arm winkel perspektieve',
                     foto_frames=None,
-                    hand_not_found_means=hand_not_found_means,
-                    skip_hand_move_detection=skip_hand_move_detection,
-                    show_globe=False
+                    hand_not_found_means=0,
+                    skip_hand_move_detection=False,
+                    show_globe=False,
+                    hand_methode=hand_methode,
                 )
                 if r == False:break
             if r == False:break

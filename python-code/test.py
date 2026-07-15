@@ -1,3 +1,4 @@
-i=[1,2,3,4]
-i.insert(1,0)
+from collections import defaultdict
+i = defaultdict(type([]))
+i['ä'].append(1)
 print(i)
