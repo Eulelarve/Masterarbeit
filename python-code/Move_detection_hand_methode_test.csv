@@ -1,0 +1,62 @@
+frames_and_moves,buffer_size,methode,video,time
+"[[125, 90], [165, -45], [246, -90], [334, 0], [370, 0], [453, 0]]",5,aperture_len_width__0,v11_32.5deg_640x420p_45deg_grapp_short_sleves,20260715_180609
+"[[125, 90], [165, -45], [246, -90], [334, 0], [370, 0], [453, 0]]",10,aperture_len_width__0,v11_32.5deg_640x420p_45deg_grapp_short_sleves,20260715_180642
+"[[125, 90], [165, -45], [246, -90], [370, -45], [453, -90]]",5,aperture_len_width__1.2,v11_32.5deg_640x420p_45deg_grapp_short_sleves,20260715_180715
+"[[125, 90], [165, -45], [246, -90], [370, -45], [453, -90]]",10,aperture_len_width__1.2,v11_32.5deg_640x420p_45deg_grapp_short_sleves,20260715_180748
+"[[125, 90], [165, -45], [246, -90], [370, -45], [453, -90]]",5,len_width_thr__1.2,v11_32.5deg_640x420p_45deg_grapp_short_sleves,20260715_180821
+"[[125, 90], [165, -45], [246, -90], [370, -45], [453, -90]]",10,len_width_thr__1.2,v11_32.5deg_640x420p_45deg_grapp_short_sleves,20260715_180854
+[],5,distance_dif__0.3,v11_32.5deg_640x420p_45deg_grapp_short_sleves,20260715_180927
+[],10,distance_dif__0.3,v11_32.5deg_640x420p_45deg_grapp_short_sleves,20260715_181000
+[],5,distance_dif__0.4,v11_32.5deg_640x420p_45deg_grapp_short_sleves,20260715_181033
+[],10,distance_dif__0.4,v11_32.5deg_640x420p_45deg_grapp_short_sleves,20260715_181106
+"[[106, 90], [177, -45], [265, -90], [377, 0], [469, 0]]",5,aperture_len_width__0,v10_32.5deg_1280x720p_45deg_grapp_short_sleves,20260715_181134
+"[[106, 90], [177, -45], [265, -90], [377, 0], [469, 0]]",10,aperture_len_width__0,v10_32.5deg_1280x720p_45deg_grapp_short_sleves,20260715_181203
+"[[106, 90], [177, -45], [265, -90], [377, 0], [469, -90]]",5,aperture_len_width__1.2,v10_32.5deg_1280x720p_45deg_grapp_short_sleves,20260715_181231
+"[[106, 90], [177, -45], [265, -90], [377, 0], [469, -90]]",10,aperture_len_width__1.2,v10_32.5deg_1280x720p_45deg_grapp_short_sleves,20260715_181300
+"[[106, 90], [177, -45], [265, -90], [377, 0], [469, -90]]",5,len_width_thr__1.2,v10_32.5deg_1280x720p_45deg_grapp_short_sleves,20260715_181328
+"[[106, 90], [177, -45], [265, -90], [377, 0], [469, -90]]",10,len_width_thr__1.2,v10_32.5deg_1280x720p_45deg_grapp_short_sleves,20260715_181357
+[],5,distance_dif__0.3,v10_32.5deg_1280x720p_45deg_grapp_short_sleves,20260715_181425
+[],10,distance_dif__0.3,v10_32.5deg_1280x720p_45deg_grapp_short_sleves,20260715_181453
+[],5,distance_dif__0.4,v10_32.5deg_1280x720p_45deg_grapp_short_sleves,20260715_181522
+[],10,distance_dif__0.4,v10_32.5deg_1280x720p_45deg_grapp_short_sleves,20260715_181550
+"[[122, -45], [225, -90], [235, 0], [260, 0], [352, -45], [459, -90]]",5,aperture_len_width__0,v08_0deg_640x420p_45deg_grapp_short_sleves,20260715_181625
+"[[122, -45], [225, -90], [235, 0], [260, 0], [352, -45], [459, -90]]",10,aperture_len_width__0,v08_0deg_640x420p_45deg_grapp_short_sleves,20260715_181700
+"[[122, -45], [175, 0], [213, -90], [225, 0], [235, 0], [340, -45], [352, 0], [459, -90]]",5,aperture_len_width__1.2,v08_0deg_640x420p_45deg_grapp_short_sleves,20260715_181736
+"[[122, -45], [175, 0], [213, -90], [225, 0], [235, 0], [340, -45], [352, 0], [459, -90]]",10,aperture_len_width__1.2,v08_0deg_640x420p_45deg_grapp_short_sleves,20260715_181811
+"[[122, -45], [213, -90], [225, 0], [235, 0], [342, -45], [446, -90], [459, 0]]",5,len_width_thr__1.2,v08_0deg_640x420p_45deg_grapp_short_sleves,20260715_181846
+"[[122, -45], [213, -90], [225, 0], [235, 0], [342, -45], [446, -90], [459, 0]]",10,len_width_thr__1.2,v08_0deg_640x420p_45deg_grapp_short_sleves,20260715_181922
+"[[225, 0], [235, 0], [456, 0]]",5,distance_dif__0.3,v08_0deg_640x420p_45deg_grapp_short_sleves,20260715_181957
+"[[225, 0], [235, 0], [456, 0]]",10,distance_dif__0.3,v08_0deg_640x420p_45deg_grapp_short_sleves,20260715_182032
+[],5,distance_dif__0.4,v08_0deg_640x420p_45deg_grapp_short_sleves,20260715_182107
+[],10,distance_dif__0.4,v08_0deg_640x420p_45deg_grapp_short_sleves,20260715_182142
+"[[147, -45], [262, -90], [337, -45], [433, -90]]",5,aperture_len_width__0,v07_0deg_1280x720p_45deg_grapp_short_sleves,20260715_182210
+"[[147, -45], [262, -90], [337, -45], [433, -90]]",10,aperture_len_width__0,v07_0deg_1280x720p_45deg_grapp_short_sleves,20260715_182238
+"[[147, -45], [262, -90], [337, -45], [433, 0]]",5,aperture_len_width__1.2,v07_0deg_1280x720p_45deg_grapp_short_sleves,20260715_182306
+"[[147, -45], [262, -90], [337, -45], [433, 0]]",10,aperture_len_width__1.2,v07_0deg_1280x720p_45deg_grapp_short_sleves,20260715_182334
+"[[147, -45], [262, -90], [337, -45], [433, -90]]",5,len_width_thr__1.2,v07_0deg_1280x720p_45deg_grapp_short_sleves,20260715_182402
+"[[147, -45], [262, -90], [337, -45], [433, -90]]",10,len_width_thr__1.2,v07_0deg_1280x720p_45deg_grapp_short_sleves,20260715_182429
+[],5,distance_dif__0.3,v07_0deg_1280x720p_45deg_grapp_short_sleves,20260715_182457
+[],10,distance_dif__0.3,v07_0deg_1280x720p_45deg_grapp_short_sleves,20260715_182524
+[],5,distance_dif__0.4,v07_0deg_1280x720p_45deg_grapp_short_sleves,20260715_182552
+[],10,distance_dif__0.4,v07_0deg_1280x720p_45deg_grapp_short_sleves,20260715_182620
+"[[125, 90], [165, -45], [246, -90]]",5,aperture_len_width__0,v11_32.5deg_640x420p_45deg_grapp_short_sleves,20260716_120538
+[],10,aperture_len_width__0,v11_32.5deg_640x420p_45deg_grapp_short_sleves,20260716_120540
+"[[147, -45]]",5,aperture_len_width__0,v07_0deg_1280x720p_45deg_grapp_short_sleves,20260716_120603
+[],5,distance_dif__0.4,v07_0deg_1280x720p_45deg_grapp_short_sleves,20260716_125737
+[],5,distance_dif__0.4,v07_0deg_1280x720p_45deg_grapp_short_sleves,20260716_131654
+[],5,distance_dif__0.4,v07_0deg_1280x720p_45deg_grapp_short_sleves,20260716_131958
+[],5,distance_dif__0.4,v07_0deg_1280x720p_45deg_grapp_short_sleves,20260716_132622
+[],5,distance_dif__0.4,v07_0deg_1280x720p_45deg_grapp_short_sleves,20260716_132724
+"[[147, -45]]",5,aperture_len_width__0,v07_0deg_1280x720p_45deg_grapp_short_sleves,20260716_132819
+"[[262, 0]]",5,distance_dif__0.4,v07_0deg_1280x720p_45deg_grapp_short_sleves,20260716_134313
+"[[147, -45], [262, -90], [337, -45], [433, -90]]",5,aperture_len_width__0,v07_0deg_1280x720p_45deg_grapp_short_sleves,20260716_135213
+"[[262, 0]]",5,distance_dif__0.5,v07_0deg_1280x720p_45deg_grapp_short_sleves,20260716_140248
+"[[432, 0]]",5,distance_dif__0.5,v07_0deg_1280x720p_45deg_grapp_short_sleves,20260716_145534
+"[[432, 0]]",5,distance_dif__0.5,v07_0deg_1280x720p_45deg_grapp_short_sleves,20260716_145829
+[],5,distance_dif__0.5,v07_0deg_1280x720p_45deg_grapp_short_sleves,20260716_154908
+[],5,distance_dif__0.5,v07_0deg_1280x720p_45deg_grapp_short_sleves,20260716_155749
+[],5,distance_dif__0.5,v07_0deg_1280x720p_45deg_grapp_short_sleves,20260716_155800
+"[[432, 0]]",5,distance_dif__0.5,v07_0deg_1280x720p_45deg_grapp_short_sleves,20260716_160515
+[],10,distance_dif__0.5,v07_0deg_1280x720p_45deg_grapp_short_sleves,20260716_160520
+[],5,distance_dif__0.5,v07_0deg_1280x720p_45deg_grapp_short_sleves,20260716_160744
+[],5,distance_dif__0.5,v07_0deg_1280x720p_45deg_grapp_short_sleves,20260720_172409

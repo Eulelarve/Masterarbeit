@@ -1,4 +1,6 @@
 from collections import defaultdict
-i = defaultdict(type([]))
-i['ä'].append(1)
-print(i)
+from collections import deque
+
+i = deque(maxlen=5)
+i.append(1)
+print(i.maxlen)

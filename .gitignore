@@ -26,5 +26,5 @@ build/
 venv/
 .venv/
 
-# [gitignore]
-*[gitignore]*
+# gitignore flage
+*(gitignore)*
