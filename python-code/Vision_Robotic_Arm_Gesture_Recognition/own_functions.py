@@ -769,3 +769,43 @@ def insert(list:list, position:int, object)->int:
 
         list.insert(position, object)
         return position
+
+def clamp(value, low, high):
+    return max(low, min(value, high))
+
+def keep_rect_inside(inner_rect, outer_rect):
+    """
+    Clamp an inner rectangle so that it stays fully inside an outer rectangle.
+
+    Parameters
+    ----------
+    inner_rect : tuple
+        (x, y, w, h) of the inner rectangle.
+    outer_rect : tuple
+        Either (width, height) for a screen starting at (0, 0),
+        or (x, y, width, height) for a custom outer rectangle.
+
+    Returns
+    -------
+    tuple
+        Clamped inner rectangle as (x, y, w, h).
+    """
+    if len(outer_rect) == 2:
+        ox, oy = 0, 0
+        ow, oh = outer_rect
+    elif len(outer_rect) == 4:
+        ox, oy, ow, oh = outer_rect
+    else:
+        raise ValueError("outer_rect must be (w, h) or (x, y, w, h)")
+
+    x, y, w, h = inner_rect
+
+    if w > ow:
+        w = ow
+    if h > oh:
+        h = oh
+
+    x = clamp(x, ox, ox + ow - w)
+    y = clamp(y, oy, oy + oh - h)
+
+    return (x, y, w, h)

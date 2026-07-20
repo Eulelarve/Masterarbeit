@@ -9,7 +9,7 @@ import numpy as np
 from datetime import datetime
 from collections import defaultdict
 
-
+from comunication import SendOnChange
 from own_functions import ProcessHandAperture, HandOpenClosedBuffer, ValueBuffer, CSVWriter, tolist, screenshot, close_to, MoveDetector, get_globe_timeline_curvs, angle_between_points, draw_angle_between_points, get_center_of_landmarks, mediapipe_pose_world_to_global, map_threshold, cv2_mouse_callback, MOUSE
 
 from main_functions import find_pointing_angle, GuiOverlay, valide_angle_area
@@ -81,6 +81,7 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
     hand_status:int = None 
     hand_status_before:int = None
     is_grapping = False
+    video_name = ''
 
     # hand_status_dict = {'aperture':None, 'aperture_width':None,  'len_width_thr_1.2':None, 'len_width_thr_1.4':None, 'distance_dif_0.3':None,'distance_dif_0.4':None}
     # hand_status_detected = {'aperture':[], 'aperture_width':[],  'len_width_thr_1.2':[], 'len_width_thr_1.4':[], 'distance_dif_0.3':[], 'distance_dif_0.4':[]}
@@ -109,6 +110,7 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
 
     hand_detector = hdm()
     pose_detector = pdm()
+    communicator = SendOnChange((S.IPv4_audiosystem,S.port),show_processing)
 
     time.sleep(0.5)
 
@@ -179,6 +181,8 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
         cam_angle = float(video_name[4:video_name.find('deg')])
         cam_hight = S.cam_angle_hight[cam_angle]
         video_nr = int(video_name[1:video_name.find('_')])
+    else:
+        cam_angle = S.cam_angle
 
     # -------------------------------------------------------
     # ROI - Define region of interest for video files
@@ -553,7 +557,7 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
                 hand_index = hand_detector.choose_hand("first")
                 # if S.arm_decection_border_top <= hand_center[1]:
                 valide_hand =  hand_detector.hand_close_to(hand_center, 
-                                                        max_distance=0.03,
+                                                        max_distance=_roi_size/3,
                                                         frame=frame_overlay, draw=show_processing and draw_max_distance, hand_index=hand_index)
                 
                 if valide_hand:
@@ -590,7 +594,6 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
                             hand_status = hand_detector.open_or_close_distance_dif(frame_overlay, show_processing and draw_aperture, 
                                                                                     min_distance_difference=factor
                                                                                     )
-                            print('hand',hand_status)#test
 
                     else:   
                         # if hand probably there but not found. closed hand are more likly to be not found
@@ -626,7 +629,11 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
                 released_angle = None
             elif hand_released:
                 released_angle = pointing_angle
-                moved_angle = released_angle-grasped_angle
+                if released_angle is not None and grasped_angle is not None:
+                    moved_angle = released_angle-grasped_angle
+                else:
+                    moved_angle = None
+
 
 
         # --------------------------------------------------
@@ -805,45 +812,43 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
         # draw GUI overlas
         # --------------------------------------------------
         # Mausposition anzeigen
-        cv2.circle(frame_overlay, MOUSE.pos, 5, (0, 0, 255), -1)
-        cv2.putText(
-            frame_overlay,
-            f"{MOUSE.pos}",
-            (10, 30),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            0.8,
-            (255, 255, 255),
-            2,
-        )
         
-        # per mouse 
-        overlay.choose_instrument(MOUSE.pos)
-        if MOUSE.is_pressed():
-            overlay.grap()
+        if is_video_file:
+            # per mouse 
+            overlay.choose_instrument(MOUSE.pos)
+            if MOUSE.is_pressed():
+                overlay.grap()
 
-        overlay.move(MOUSE.pos)
-        if MOUSE.is_release():
-            overlay.release(azimuth=released_angle)
-        overlay.draw(frame_overlay)
-        
-        # # per arm and hand 
-        # overlay.choose_instrument(hand_center)
-        # if hand_grasped:
-        #     overlay.grap()
+            overlay.move(MOUSE.pos)
+            if MOUSE.is_release():
+                overlay.release(azimuth=released_angle)
+            overlay.draw(frame_overlay)
+        else:
+            # per arm and hand 
+            if not paused and process and hand_found:
+                overlay.choose_instrument(hand_center)
+                if hand_grasped:
+                    overlay.grap()
 
-        # overlay.move(hand_center)
-        # if hand_released:
-        #     overlay.release(azimuth=released_angle)
-        # overlay.draw(frame_overlay)
+                overlay.move(hand_center)
+                if hand_released:
+                    overlay.release(azimuth=released_angle)
+
+            overlay.draw(frame_overlay)
         
-        
+        # --------------------------------------------------
+        # comunikation Audiosystem
+        # --------------------------------------------------
+        new_instrument_pos = overlay.get_room_info()
+        if new_instrument_pos:
+            communicator.send(**new_instrument_pos)
         # --------------------------------------------------
         # print out events 
         # --------------------------------------------------
-        if not paused and process:
-            if hand_released:
-                print(f'Frame {frame_now}: arm moved {moved_angle}° wich grap at {grasped_angle}° and releas at {released_angle}°')
-                moves_dict[hand_methode].append([frame_now, moved_angle])
+        # if not paused and process:
+        #     if hand_released:
+        #         print(f'Frame {frame_now}: arm moved {moved_angle}° wich grap at {grasped_angle}° and releas at {released_angle}°')
+        #         moves_dict[hand_methode].append([frame_now, moved_angle])
 
         # --------------------------------------------------
         # foto at frame 
@@ -927,7 +932,7 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
 
     # anti_delay_shift = -int(0.2*fps)
     # lust = open_close_status_capturer.shift_all_by(anti_delay_shift,)
-    name = source+f"_frame_and_open_close_manual_status"
+    name = str(source)+f"_frame_and_open_close_manual_status"
     end = '.txt'
     if capture_status_manually:
         open_close_status_capturer.save_to_file(name+end)
@@ -1011,13 +1016,13 @@ if __name__ == "__main__":
     videos = [v7,v8,v10,v11]
     # videos.reverse()
     for v in videos:
-        for hand_methode in [ 'distance_dif__0.5','aperture_len_width__0','aperture_len_width__1.2', 'len_width_thr__1.2' ,  'distance_dif__0.3', ]:
-            for buffer_size in [5,10]:
-                S.hand_status_buffer_size = buffer_size
+        for hand_methode in ['aperture_len_width__1.2', 'len_width_thr__1.2' ,  'distance_dif__0.3', ]:
+            for buffer_size in [10]:
+                s = S.video_folder+v
                 r = main(
                     fps_cap=30,
                     show_fps=True,
-                    source=S.video_folder+v,
+                    source=1,
                     pause_frames=None,
                     show_processing=True,
                     capture_status_manually=False,

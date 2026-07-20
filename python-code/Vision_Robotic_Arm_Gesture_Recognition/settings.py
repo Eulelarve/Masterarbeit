@@ -1,7 +1,10 @@
+# colors
 red = (0, 0, 255)
 blue = (255, 0, 0)
 green =(0, 255, 0)
 white = (250,250,250)
+yellow = (0, 255, 255)
+# other
 hand_width_factor = 1.2
 hand_opening_factor = 1.3
 skip_frames = 100
@@ -13,3 +16,6 @@ gui_hight = 1/4 # of the frame hight
 arm_decection_border_top = 1/4 # of the frame hight
 arm_decection_border_bot = 3/4 # of the frame hight
 cam_angle_hight = {0:1.70, 32.5:2.60} # if the cam has the angle x° it is mounted in the hight y m
+cam_angle = 0
+port = 5005
+IPv4_audiosystem = "127.0.0.1"
