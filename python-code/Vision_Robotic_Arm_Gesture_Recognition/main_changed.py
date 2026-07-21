@@ -603,7 +603,7 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
                         elif 'distance_dif' in hand_methode:
                             hand_status = hand_detector.open_or_close_distance_dif(frame_overlay, show_processing and draw_aperture, 
                                                                                     min_distance_difference=factor,
-                                                                                    buffer_size=S.hand_status_buffer_size,
+                                                                                    frame_difference=S.hand_status_buffer_size,
                                                                                     )
 
                     else:   
@@ -897,6 +897,12 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
                     print(f"currend frame {frame_now} reached pause frame {pause_frame}")
                     paused = True
                     pause_frames.remove(pause_frame)
+
+        if not paused:
+            if gui_info and gui_info['type'] == 'CloseButton':
+                print('stop loop by GUI CloseButon X')
+                return_value = False
+                break
         # --------------------------------------------------
         # stop if end frame is reached
         # --------------------------------------------------

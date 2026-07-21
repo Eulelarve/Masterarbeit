@@ -4,24 +4,21 @@ import settings as S
 import numpy as np
 
 class GUITile:
-    def __init__(self, name:str, image_path:str|None):
-    
-        self.type = 'GUITile'
+    def __init__(self, name:str, image_path:str|None, type='GUITile'):
+        self.type = type
         self.name = name
         self.icon = None
         self.image = None
         self.show = True
-
         self.rect:list = None
-        # self.group:list = None
-        self.icon_farme_edge = 4
         self.info_dict = {}
-
         self.selected = False
+
+        self.icon_farme_edge = 4
 
         self.set_image(image_path)
         self._adjust_icon()
-    
+
     def get_info(self):
         self.info_dict['name'] = self.name
         self.info_dict['type'] = self.type
@@ -37,14 +34,15 @@ class GUITile:
         self.rect[1] = y - h//2
 
     def collide(self, pos:tuple[int,int]):
-        if self.rect is None:
-            return None
+        if self.show:
+            if self.rect is None:
+                return None
 
-        px, py = pos
-        x, y, w, h = self.rect
+            px, py = pos
+            x, y, w, h = self.rect
 
-        if x <= px <= x + w and y <= py <= y + h:
-            return True
+            if x <= px <= x + w and y <= py <= y + h:
+                return True
         return False
     
     @property
@@ -59,9 +57,13 @@ class GUITile:
         self.group.remove(self)
 
     def draw(self, frame):
-        if self.rect is None:
-            return False
         if self.show:
+
+            if self.rect is None:
+                self.update_rect(frame)
+            if self.rect is None:
+                return False
+        
             edge = self.icon_farme_edge
             fh = frame.shape[0]
             fw = frame.shape[1]
@@ -76,6 +78,9 @@ class GUITile:
             overlay_image(frame,self.icon,(x +edge, y +edge))
             # frame[y +edge : y + h -edge , x +edge : x + w -edge ] = self.icon
         return True
+
+    def update_rect(self, frame):
+        raise "not implemented"
     
     def draw_icon_frame(self, frame, width):
         fh = frame.shape[0]
@@ -101,8 +106,14 @@ class GUITile:
             return True
         return False
     
-    def _create_image(self):
-        raise 'not implemented'
+    def _create_image(self,text:str=None, back_ground_color=(0,0,0,100), text_color=(255,255,255,255),line_size=4,text_outline=1):
+        if self.rect:
+            _, _, w, h = self.rect
+            w -= self.icon_farme_edge*2
+            h -= self.icon_farme_edge*2
+            if text is None:
+                text = self.name
+            self.image = cv2_create_text_image(text, (w,h), back_ground_color, text_color,line_size,text_outline)
     
     def set_image(self, image_path:str|None):
         if image_path:
@@ -142,14 +153,17 @@ class GUITile:
 
 class Instrument(GUITile):
     def __init__(self, name:str, image_path:str|None):
-        super().__init__(name, image_path)
-        self.type = S.type_instrument
-
+        super().__init__(name, image_path, S.type_instrument)
         self.bar_pos:int = None
         self.bar_rect:list = None
         self.elevation:float = None
         self.azimuth:float = None
-        self.volume:int = 50
+        self.volume:float = S.instrument_start_volume
+
+    def update_rect(self, rect):
+        x,y,w,h = rect
+        self.rect = [x,y,w,h]
+        self.bar_rect = [x,y,w,h]
     
     def _create_image(self):
         size = 120
@@ -163,14 +177,14 @@ class Instrument(GUITile):
 
 class VolumeBar(GUITile):
     def __init__(self):
-        super().__init__("volume", None)
-        self.type = 'VolumeBar'
-
-        self.height = 70
-        self.volume = 0.50
         self.width_factor = 0.5  # halbe Bildbreite
+        self.height = 70
+        name = "volume"
+        self.volume = 0.0
+        super().__init__(name, None, 'VolumeBar')
 
     def get_info(self):
+        self.info_dict['volume'] = self.volume
         return super().get_info()
 
     def update_rect(self, frame):
@@ -202,32 +216,57 @@ class VolumeBar(GUITile):
         
     def change_volume(self, new_volume):
         if self.volume != new_volume:
-            self.volume = round(new_volume, 2)
+            self.volume = round(new_volume, S.volume_decimal_place)
             self._create_image()
             self._create_icon()
-
-
-    def draw(self, frame):
-        if self.show:
-            self.update_rect(frame)
-            return super().draw(frame)
-        
-    def collide(self, pos):
-        if self.show:
-            return super().collide(pos)
-        return False
         
     def _create_image(self):
-        if self.rect:
-            x, y, w, h = self.rect
-            text = f"- : : : : : volume {self.volume} : : : : : +"
-            self.image = cv2_create_text_image(text, (w,h))
+        text = f"- : : : : : volume {self.volume:.2f} : : : : : +"
+        super()._create_image(text)
+
+class CloseButton(GUITile):
+    def __init__(self,):
+        name = 'X'
+        super().__init__(name, None, 'CloseButton')
+
+    def update_rect(self, frame):
+        margin = 10
+        w = 120
+        h = 120
+        x = int(frame.shape[1] - w - margin)
+        y = margin
+        self.rect = [x,y,w,h]
+
+    def _create_image(self,):
+        return super()._create_image(back_ground_color=(*S.red, 50))
+
+class ResetInstruments(GUITile):
+    def __init__(self):
+        self.width_factor = 0.2 
+        self.height = 50
+        name = 'reset Instruments'
+        type = 'ResetInstruments'
+        super().__init__(name, None, type)
+        self.show = False # not viseble at the programm start
+
+    def _create_image(self):
+        return super()._create_image(line_size=2)
+    
+    def update_rect(self, frame):
+        margin = 20
+        fh, fw = frame.shape[:2]
+        w = int(fw * self.width_factor)
+        h = self.height
+        x = (fw - w) // 2
+        y = margin
+
+        self.rect = [x, y, w, h]
 
 class GuiOverlay:
 
     def __init__(self, frame=None):
         self.frame = frame
-        self.tile_bar:list[Instrument] =[]
+        self.bar:list[Instrument] =[]
         self.room:list[Instrument] = []
         self.menu:list[GUITile] = []
         self.selected:GUITile = None
@@ -235,62 +274,62 @@ class GuiOverlay:
         self.sel_size = 10
         self.room_size = -30
         self.draw_pos = None
-        self.room_info = {}
+        self.info_dict = {}
         self.volume_bar = VolumeBar()
-        self.volume_bar.show = False
+        self.x = CloseButton()
+        self.reset_btn = ResetInstruments()
 
+        self.volume_bar.show = False
         self.menu.append(self.volume_bar)
+        self.menu.append(self.x)
+        self.menu.append(self.reset_btn)
 
     def add_instrument(self, name, image_path='', position=-1):
         instrument = Instrument(name, image_path)
         self._add_to_bar(instrument, position)
-        
+        self.define_bar_tile_pos_and_size()
     
     def _add_to_bar(self, instrument:Instrument, position:int=None):
-        if instrument in self.tile_bar:
-            instrument.rect = instrument.bar_rect.copy() # get the old position beck
-            return False
+        if instrument.bar_rect:
+            instrument.rect = instrument.bar_rect.copy() # get the old bar position beck
         
         if instrument in self.room:
             self.room.remove(instrument)
 
         if position is None:
             position = instrument.bar_pos
-        insert(self.tile_bar, position, instrument)
-
-        self.define_tile_pos_and_size()
+        insert(self.bar, position, instrument)
 
     def _add_to_room(self, instrument:Instrument):
         if instrument in self.room:
             return False
-        if instrument in self.tile_bar:
-            self.tile_bar.remove(instrument)
+        if instrument in self.bar:
+            self.bar.remove(instrument)
         
         self.selected_size_change(self.room_size)
         self.room.append(instrument)
 
+    def define_bar_tile_pos_and_size(self):
+        tile_max_size = 120
 
-    def define_tile_pos_and_size(self):
-
-        if not self.tile_bar:
+        if not self.bar:
             return False
         if self.frame is None:
             return False
 
         margin = 10
-        n = len(self.tile_bar)
+        n = len(self.bar)
 
         tile_size = min(
-            120,
+            tile_max_size,
             (self.frame.shape[1] - margin * (n - 1)) // n,
         )
         w = n * (tile_size + margin) - margin 
         edge = (self.frame.shape[1] - w) // 2
 
-        for i, inst in enumerate(self.tile_bar):
+        for i, inst in enumerate(self.bar):
             x = edge + i * (tile_size + margin)
-            inst.rect = [x, self.hight, tile_size, tile_size]
-            inst.bar_rect = [x, self.hight, tile_size, tile_size]
+            inst.update_rect([x, self.hight, tile_size, tile_size])
             inst.bar_pos = i
         
         return True
@@ -309,28 +348,29 @@ class GuiOverlay:
         self.hight = int(self.frame.shape[0] * (1 - S.gui_hight))
         self.room_top = int(self.frame.shape[0] * S.arm_decection_border_top)
         self.room_bot = int(self.frame.shape[0] * S.arm_decection_border_bot)
-        self.define_tile_pos_and_size()
+        self.define_bar_tile_pos_and_size()
 
     def draw(self, frame):
         if self.frame is not frame:
             self._set_frame(frame)
 
-        for inst in [*self.menu, *self.tile_bar, *self.room, ]:
+        for inst in [ *self.bar, *self.room, *self.menu,]:
             inst.draw(self.frame)
         
         if self.draw_pos:
             cv2.circle(frame, self.draw_pos, 5, S.red, -1)
-
         
     def select(self, pointer_pos:tuple[int,int]):
         self.draw_pos = None
         if self.grasped:
             self.volume_bar.interaced_with_instrument(self.selected, pointer_pos) 
+            if self.volume_bar.collide(pointer_pos):
+                self.draw_pos = pointer_pos[:] # copy pos
             return self.selected
         else: 
             self.selected = None
 
-            for tile in  [*self.tile_bar, *self.room, *self.menu]:
+            for tile in  [*self.bar, *self.room, *self.menu]:
 
                 tile.selected = False
 
@@ -347,22 +387,41 @@ class GuiOverlay:
             return False
         if self.grasped == False:
             if type(self.selected) is Instrument:
-                self.grasped = True
-                self.volume_bar.show = True
-            if self.selected in self.tile_bar:
+                self._set_grap_mode(True)
+
+            if self.selected in self.bar:
                 self.selected_size_change(-self.sel_size)
             elif self.selected in self.room:
                 self.selected_size_change(self.sel_size)
 
             elif self.selected in self.menu:
-                self.selected.function()
-                self.room_info = self.selected.get_info()
+                self.info_dict = self.selected.get_info()
+                if type(self.selected) is ResetInstruments:
+                    self.reset_instruments()
 
         return True
     
     def selected_size_change(self, size_change:int):
         self.selected.change_size_by(size_change)
-        
+
+    def reset_instruments(self):
+        for inst in [*self.room, *self.bar]:
+            inst.volume = S.instrument_start_volume
+        self.clear_room()
+        self.reset_btn.show = False
+
+    def clear_room(self,):
+        for inst in self.room.copy():
+            self._add_to_bar(inst)
+
+    def _set_grap_mode(self, on:bool):
+        self.grasped = on
+        self.volume_bar.show = on
+        self.x.show = not on
+        if on:
+            self.reset_btn.show = False
+
+
     def release(self, azimuth:float=None, elevation:float=None,)->bool:
         if self.selected is None or self.grasped == False:
             return False
@@ -375,9 +434,12 @@ class GuiOverlay:
             self._add_to_bar(self.selected)
             self.selected_set_angle(azimuth=None, elevation=None)
 
-        self.room_info = self.selected.get_info()
-        self.grasped = False
-        self.volume_bar.show = False
+        self.info_dict = self.selected.get_info()
+        self._set_grap_mode(False)
+        if self.room or [inst for inst in self.bar if inst.volume != S.instrument_start_volume]:
+            self.reset_btn.show = True
+        else:
+            self.reset_btn.show = False
         return True
 
     def move(self, pos:tuple[int,int])-> bool:
@@ -392,27 +454,28 @@ class GuiOverlay:
         self.selected.elevation = elevation
 
     def get_info(self):
-        if self.room_info:
-            r = self.room_info.copy()
-            self.room_info.clear()
+        if self.info_dict:
+            r = self.info_dict.copy()
+            self.info_dict.clear()
             return r
         return None
 
 
-def cv2_create_text_image(text:str, size:tuple[int,int]|int=100):
+def cv2_create_text_image(text:str, size:tuple[int,int]|int=100, back_ground_color = (0, 0, 0, 100), text_color=(255,255,255,255), line_size=4, text_outline=1):
         if type(size) is int:
             x = size
             y = size
         else:
             x,y = size
-        back_ground_color = (255, 255, 255, 0) # alpha = 0 -> invisible
+        if len(back_ground_color) != 4:
+            raise "back_ground_color must be a tuple of 4 ... BGRA"
         img = np.full((y, x, 4), back_ground_color, np.uint8)
-        cv2_set_fitting_text(img, text, True)
+        cv2_set_fitting_text(img, text, text_color,text_outline,line_size)
         return img
 
-def cv2_set_fitting_text(img, text:str, outlined=False, margin = 10, ):
-    line_size = 4
-    color = (255,255,255,255)
+def cv2_set_fitting_text(img, text:str, color=(255,255,255,255), outlined=1, line_size = 4,margin = 10,):
+    if len(color) != 4:
+            raise "color must be a tuple of 4 ... BGRA"
     color_outline = (0,0,0,255)
 
     h, w = img.shape[:2]
@@ -448,7 +511,7 @@ def cv2_set_fitting_text(img, text:str, outlined=False, margin = 10, ):
             cv2.FONT_HERSHEY_SIMPLEX,
             font_scale,
             color_outline,
-            line_size+2,
+            line_size+2*outlined,
             cv2.LINE_AA,
             )
 
