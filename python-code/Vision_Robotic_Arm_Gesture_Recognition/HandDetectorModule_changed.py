@@ -37,6 +37,7 @@ class HandDetector():
         self.mpDraw = mp.solutions.drawing_utils
 
         self.is_hand_open:int = None
+        self.no_hand_counter = 0
 
     ### added methods
     def get_hand_centers(self):
@@ -376,12 +377,13 @@ class HandDetector():
         
         return distance
     
-    def open_or_close_distance_dif(self, frame=None, draw=True, min_distance_difference=0.7, frame_difference=S.hand_status_buffer_size, ):
+    def open_or_close_distance_dif(self, frame=None, draw=True, min_distance_difference=0.7, frame_difference=10, ):
         wrist_finger_tip = (0, 12)
         thump_pinky = (4, 20)
         red = (0, 0, 255)
         blue = (255, 0, 0)
         
+        self.no_hand_counter = 0
         # get distance
         distance = self.get_distance(*wrist_finger_tip) + self.get_distance(*thump_pinky)
         # buffering
@@ -415,19 +417,27 @@ class HandDetector():
         if getattr(self, "dist_smoother", None) is not None:
             self.dist_smoother.clear()
             self.frame_buffer.clear()
-        if getattr(self, "status_smoother", None) is not None:
-            self.status_smoother.clear()
-        
+        # if getattr(self, "status_smoother", None) is not None:
+        #     self.status_smoother.clear()
+    
+    def no_hand_count(self, frames_for_bo_hand:int ,add=1):
+        self.no_hand_counter += add
+        if self.no_hand_counter >= frames_for_bo_hand:
+            return True
+        return False 
 
-    def open_or_close_len_width_thr(self, frame=None, draw=True, use_len_if_larger_then_width=1, hand_opening_factor = 1.4, buffer_size=S.hand_status_buffer_size):
+    def open_or_close_len_width_thr(self, frame=None, draw=True, use_len_if_larger_then_width=1, hand_opening_factor = 1.4, buffer_size=10):
         """ returns: 1: open hand: blue or 0: closed hand: red
         """
         red = (0, 0, 255)
         blue = (255, 0, 0)
         hand_len = (0, 9)
-        hand_width = (5, 17)
+        hand_width = (5, 17) 
         wrist_finger_tip = (0, 12)
-        thump_pinky = (4, 18)
+        thump_pinky = (4, 18) # thump 1-4, pinky 17-20
+
+
+        self.no_hand_counter = 0
 
         # create buffer
         if getattr(self, "status_smoother", None) is None:
@@ -439,8 +449,8 @@ class HandDetector():
         measurments = [
             (hand_len, red,0, hand_opening_factor),                                 # a hand colsed condition
             (hand_width, red,0, hand_opening_factor*use_len_if_larger_then_width),  # a hand colsed condition
-            (wrist_finger_tip, blue,1, 1*use_len_if_larger_then_width),             # a hand opened condition
-            (thump_pinky, blue,1, 1)                                                # a hand opened condition
+            (wrist_finger_tip, blue,1, 1),                                          # a hand opened condition
+            (thump_pinky, blue,1, 1*use_len_if_larger_then_width)                   # a hand opened condition
         ]
 
         show_distance:list = None
@@ -462,7 +472,10 @@ class HandDetector():
         
         return self.is_hand_open
 
-    def open_or_close_aperture_thr(self,frame, width_factor=1.2, thr_open=70, thr_closed = 60, buffer_size=S.hand_status_buffer_size, draw_aperture=False):
+    def open_or_close_aperture_thr(self,frame, width_factor=1.2, thr_open=70, thr_closed = 60, buffer_size=10, draw_aperture=False):
+
+        self.no_hand_counter = 0
+
         # create buffer
         if getattr(self, "status_smoother", None) is None:
             self.status_smoother = ValueBuffer(buffer_size)

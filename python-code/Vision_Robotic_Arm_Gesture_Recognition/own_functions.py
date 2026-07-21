@@ -124,6 +124,7 @@ class MoveDetector:
 
     def is_moving(self, new_pos:list)->bool:
         status = self._is_moving(new_pos)
+
         if status == True :
             return True
         return False
