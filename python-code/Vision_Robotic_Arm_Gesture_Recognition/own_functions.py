@@ -2,6 +2,7 @@ from datetime import datetime
 import cv2
 import math
 import numpy as np
+import settings as S
 
 def angle_between_points(p1:tuple, p2:tuple, p3:tuple)->float:
     """ 
@@ -810,3 +811,8 @@ def keep_rect_inside(inner_rect, outer_rect):
     y = clamp(y, oy, oy + oh - h)
 
     return (x, y, w, h)
+
+
+
+def valide_angle_area(pos:list[int,int], frame_shape):
+    return S.arm_decection_border_top <= pos[1]/frame_shape[0] <= S.arm_decection_border_bot

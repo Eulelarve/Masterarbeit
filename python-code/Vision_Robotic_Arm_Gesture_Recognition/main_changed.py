@@ -10,9 +10,10 @@ from datetime import datetime
 from collections import defaultdict
 
 from comunication import SendOnChange
-from own_functions import ProcessHandAperture, HandOpenClosedBuffer, ValueBuffer, CSVWriter, tolist, screenshot, close_to, MoveDetector, get_globe_timeline_curvs, angle_between_points, draw_angle_between_points, get_center_of_landmarks, mediapipe_pose_world_to_global, map_threshold, cv2_mouse_callback, MOUSE
+from GUI import GuiOverlay
+from own_functions import ProcessHandAperture, HandOpenClosedBuffer, ValueBuffer, CSVWriter, tolist, screenshot, close_to, MoveDetector, get_globe_timeline_curvs, angle_between_points, draw_angle_between_points, get_center_of_landmarks, mediapipe_pose_world_to_global, map_threshold, cv2_mouse_callback, MOUSE, valide_angle_area
 
-from main_functions import find_pointing_angle, GuiOverlay, valide_angle_area
+from main_functions import find_pointing_angle
 
 from HandDetectorModule_changed import HandDetector as hdm
 from PoseDetectorModule_changed import poseDetector as pdm
@@ -71,7 +72,7 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
     overlay.add_instrument("Scalpel")
     overlay.add_instrument("Pinzette")
     overlay.add_instrument("Schere")
-    overlay.add_instrument("violin",r"C:\Users\Ampelman\Desktop\Masterarbeit\icon_geige.png")
+    overlay.add_instrument("violin",r"..\icon_geige.png")
 
     frame_counter_processed = 0
     frame_counter_pose = 0
@@ -827,7 +828,7 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
         
         if is_video_file:
             # per mouse 
-            overlay.choose_instrument(MOUSE.pos)
+            overlay.select(MOUSE.pos)
             if MOUSE.is_pressed():
                 overlay.grap()
 
@@ -838,22 +839,22 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
         else:
             # per arm and hand 
             if not paused and process and hand_found:
-                overlay.choose_instrument(hand_center)
+                overlay.select(hand_center)
                 if hand_grasped:
                     overlay.grap()
 
                 overlay.move(hand_center)
                 if hand_released:
                     overlay.release(azimuth=released_angle)
-
             overlay.draw(frame_overlay)
-        
+        gui_info = overlay.get_info()
         # --------------------------------------------------
         # comunikation Audiosystem
         # --------------------------------------------------
-        new_instrument_pos = overlay.get_room_info()
-        if new_instrument_pos:
-            communicator.send(**new_instrument_pos)
+        if gui_info:
+
+            if gui_info['type'] == S.type_instrument:
+                communicator.send(**gui_info)
         # --------------------------------------------------
         # print out events 
         # --------------------------------------------------

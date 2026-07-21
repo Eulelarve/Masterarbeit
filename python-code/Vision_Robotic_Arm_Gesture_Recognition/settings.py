@@ -3,6 +3,7 @@ red = (0, 0, 255)
 blue = (255, 0, 0)
 green =(0, 255, 0)
 white = (250,250,250)
+black = (0,0,0)
 yellow = (0, 255, 255)
 # other
 live_stream_resulutuin = (1280,720) # (1280,720) or (640,480)
@@ -22,3 +23,4 @@ cam_angle_hight = {0:1.70, 32.5:2.60} # if the cam has the angle x° it is mount
 cam_angle = 0
 port = 5005
 IPv4_audiosystem = "127.0.0.1"
+type_instrument = 'instrument'
