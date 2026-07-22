@@ -11,7 +11,7 @@ from collections import defaultdict
 
 from comunication import SendOnChange
 from GUI import GuiOverlay
-from own_functions import ProcessHandAperture, HandOpenClosedBuffer, ValueBuffer, CSVWriter, tolist, screenshot, close_to, MoveDetector, get_globe_timeline_curvs, angle_between_points, draw_angle_between_points, get_center_of_landmarks, mediapipe_pose_world_to_global, map_threshold, cv2_mouse_callback, MOUSE, valide_angle_area
+from own_functions import ProcessHandAperture, HandOpenClosedBuffer, ValueBuffer, CSVWriter, tolist, screenshot, close_to, MoveDetector, get_globe_timeline_curvs, angle_between_points, draw_angle_between_points, get_center_of_landmarks, mediapipe_pose_world_to_global, map_threshold, cv2_mouse_callback, MOUSE, valide_angle_zone
 
 from main_functions import find_pointing_angle
 
@@ -439,7 +439,7 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
         # Analyze arm angle / pointing direction
         # --------------------------------------------------
         if not paused and process and pose_found:
-            arm_in_angle_area = valide_angle_area(hand_center, frame_raw.shape)
+            arm_in_angle_area = valide_angle_zone(hand_center, frame_raw.shape)
             if  not arm_in_angle_area:
                 pointing_angle = None
             else:
@@ -684,11 +684,11 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
         
         # --------------------------------------------------
         # draw hand status
-        if not paused and process and pose_found:
+        if not paused and process and pose_found and show_processing:
                 
-            no_hand_status = {'text':"no hand", 'color':white}
-            open_status = {'text':"open", 'color':blue}
-            close_status = {'text':"closed", 'color':red}
+            no_hand_status = {'text':"no hand ", 'color':white}
+            open_status = {'text':"open ", 'color':blue}
+            close_status = {'text':"closed ", 'color':red}
             text, color = '', white # default
 
             if hand_status == None and hand_stands_still: # no hand in screen
@@ -698,13 +698,13 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
             elif hand_status == 0: # closed 
                 text, color = close_status['text'], close_status['color']
             if not hand_stands_still: # hand is moving
-                text += ' moving'
+                text += 'moving '
 
             # show hand status
             cv2.putText(
                 frame_overlay,
                 text,
-                (10, 200),
+                (10, 150),
                 cv2.FONT_HERSHEY_PLAIN,
                 2,
                 color,
@@ -712,7 +712,8 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
             )
         # --------------------------------------------------
         # draw arm angle
-        if not paused and process and pose_found:
+
+        if not paused and process and pose_found and show_processing:
             if pointing_angle is None:
                 text = 'angle: out of area'
             else:
@@ -727,11 +728,12 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
                 S.green,
                 2
             )
+        # --------------------------------------------------
         # FPS overlay
-        if not paused:
+        if not paused and show_processing:
             if show_fps:
                 x = frame_overlay.shape[1] - 170
-                y = 40
+                y = 200
                 cv2.putText(
                     frame_overlay,
                     f"FPS: {round(fps, 1)}",
@@ -744,18 +746,17 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
 
         # --------------------------------------------------
         #  video status overlay
-        
-        status = "LIVE" if not is_video_file else "VIDEO"
-
-        cv2.putText(
-            frame_overlay,
-            status,
-            (10, 80),
-            cv2.FONT_HERSHEY_PLAIN,
-            2,
-            (0, 255, 0),
-            2
-        )
+        if show_processing:
+            status = "LIVE" if not is_video_file else "VIDEO"
+            cv2.putText(
+                frame_overlay,
+                status,
+                (10, y),
+                cv2.FONT_HERSHEY_PLAIN,
+                2,
+                (0, 255, 0),
+                2
+            )
         
         # --------------------------------------------------
         # pause status
@@ -764,7 +765,7 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
             cv2.putText(
                 frame_overlay,
                 "PAUSED",
-                (120, 80),
+                (120, y),
                 cv2.FONT_HERSHEY_PLAIN,
                 2,
                 (0, 0, 255),
@@ -773,22 +774,21 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
 
         # --------------------------------------------------
         # frame counter overlay
+        if show_processing:
+            text = f"Frame: {frame_now}"
+            if is_video_file:
+                text += '/'
+                text += str(int(video_capture.get(cv2.CAP_PROP_FRAME_COUNT)))
 
-        text = f"Frame: {frame_now}"
-
-        if is_video_file:
-            text += '/'
-            text += str(int(video_capture.get(cv2.CAP_PROP_FRAME_COUNT)))
-
-        cv2.putText(
-            frame_overlay,
-            text,
-            (10, 120),
-            cv2.FONT_HERSHEY_PLAIN,
-            2,
-            (255, 255, 255),
-            2
-        )
+            cv2.putText(
+                frame_overlay,
+                text,
+                (10, y+100),
+                cv2.FONT_HERSHEY_PLAIN,
+                2,
+                (255, 255, 255),
+                2
+            )
 
         # --------------------------------------------------
         # controls overlay
@@ -854,6 +854,12 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
         if gui_info:
             if gui_info['type'] == S.type_instrument:
                 communicator.send(**gui_info)
+
+        # --------------------------------------------------
+        # show - Change visibility mode
+        # --------------------------------------------------
+        if gui_info and gui_info['type'] == 'ChangeVisibility':
+            show_processing = 'processing' in gui_info['function']
         # --------------------------------------------------
         # print out events 
         # --------------------------------------------------
@@ -898,7 +904,7 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
                     pause_frames.remove(pause_frame)
 
         if not paused:
-            if gui_info and gui_info['type'] == 'CloseButton':
+            if gui_info and gui_info['function'] == 'close application':
                 print('stop loop by GUI CloseButon X')
                 return_value = False
                 break

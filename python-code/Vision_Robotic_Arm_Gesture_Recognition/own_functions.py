@@ -814,5 +814,5 @@ def keep_rect_inside(inner_rect, outer_rect):
 
 
 
-def valide_angle_area(pos:list[int,int], frame_shape):
+def valide_angle_zone(pos:list[int,int], frame_shape):
     return S.arm_decection_border_top <= pos[1]/frame_shape[0] <= S.arm_decection_border_bot
