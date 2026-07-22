@@ -13,6 +13,7 @@ class GUITile:
         self.rect:list = None
         self.info_dict = {}
         self.selected = False
+        self.activated = False
         self._function = 'no function'
 
         self.icon_farme_edge = 4
@@ -27,7 +28,7 @@ class GUITile:
         return self.info_dict.copy()
     
     def function(self, gui:object):
-        raise "not implemented"
+        self.activated = not self.activated
 
     def set_center(self, pos:tuple[int,int]):
         x,y = pos
@@ -88,10 +89,17 @@ class GUITile:
         fh = frame.shape[0]
         fw = frame.shape[1]
         x, y, w, h = keep_rect_inside(self.rect,(fw,fh))
-        color1 = S.yellow if self.selected else S.white
-        color2 = S.yellow if self.selected else S.black
+        color1 = S.white
+        color2 = S.black
+
+        if self.activated:
+            color1 = S.red
+            color2 = S.red
+        elif self.selected:
+            color1 = S.yellow
+            color2 = S.yellow
+
         cv2.rectangle(frame, (x, y), (x+w, y+h), color1, width)
-        # adding smal black frame
         cv2.rectangle(frame, (x , y), (x+w, y+h), color2, 1)
 
     def change_size_by(self, size_change:tuple|int):
@@ -247,6 +255,7 @@ class VolumeBar(GUITile):
             self._create_icon()
 
     def function(self, gui):
+        super().function(gui)
         self.set_volume_from_position(gui.draw_pos)
 
     def _create_image(self):
@@ -271,7 +280,9 @@ class CloseButton(GUITile):
         return super()._create_image(back_ground_color=(*S.red, 50))
 
     def function(self, gui:object):
+        super().function(gui)
         gui.add_info(self.get_info())
+
 
 
     
@@ -299,8 +310,8 @@ class ResetInstruments(GUITile):
         self.rect = [x, y, w, h]
 
     def function(self, gui:object):
+        super().function(gui)
         gui.reset_instruments()
-
 
 class ChangeVisibility(GUITile):
     def __init__(self):
@@ -314,12 +325,16 @@ class ChangeVisibility(GUITile):
         self.mode_counter = 1
 
     def function(self, gui):
-        self.mode_counter += 1
-        nr = self.mode_counter % len(self.modes)
-        self._function = self.modes[nr]
+        super().function(gui)
+        self.next_mode()
         gui.set_gui_show_mode(self._function)
         gui.add_info(self.get_info())
 
+    def next_mode(self):
+        self.mode_counter += 1
+        nr = self.mode_counter % len(self.modes)
+        self._function = self.modes[nr]
+  
     def update_rect(self, frame):
         margin = 10
         fh, fw = frame.shape[:2]
@@ -451,8 +466,9 @@ class GuiOverlay:
             for tile in  [*self.bar, *self.room, *self.menu]:
 
                 tile.selected = False
-
-                if tile.collide(pointer_pos):
+                if not tile.collide(pointer_pos):
+                    tile.activated = False
+                else:
                     self.draw_pos = pointer_pos[:] # copy pos
                     tile.selected = True
                     self.selected = tile
@@ -472,6 +488,7 @@ class GuiOverlay:
         if self.grasped == False:
             if type(self.selected) is Instrument:
                 self._set_grap_mode(True)
+                self.reset_btn.show = False
                 self.selected.turn_on()
 
             if self.selected in self.bar:
@@ -481,6 +498,7 @@ class GuiOverlay:
 
             elif self.selected in self.menu:
                 self.selected.function(self)
+
 
         return True
     
@@ -503,28 +521,30 @@ class GuiOverlay:
         self.grasped = on
         self.volume_bar.show = on
         self.x.show = not on
-        if on:
-            self.reset_btn.show = False
+        self.show.show = not on
+        self.selected.activated = on
 
     def release(self, )->bool:
-        if self.selected is None or self.grasped == False:
+        if self.selected is None:
             return False
         
-        if valide_angle_zone(self.selected.center, self.frame.shape):
-            self.selected_size_change(-self.sel_size)
-            self._add_to_room(self.selected)
-        else:
-            self._add_to_bar(self.selected, True)
-            self.selected.turn_off()
-            self.selected.set_angle(None, None)
-            self.add_info(self.selected.get_info())
+        if self.grasped:
+            if valide_angle_zone(self.selected.center, self.frame.shape):
+                self.selected_size_change(-self.sel_size)
+                self._add_to_room(self.selected)
+            else:
+                self._add_to_bar(self.selected, True)
+                self.selected.turn_off()
+                self.selected.set_angle(None, None)
+                self.add_info(self.selected.get_info())
+
+            self.show_border_zone = False
+            if self.room or [inst for inst in self.bar if inst.volume != S.instrument_start_volume]:
+                self.reset_btn.show = True
+            else:
+                self.reset_btn.show = False
 
         self._set_grap_mode(False)
-        self.show_border_zone = False
-        if self.room or [inst for inst in self.bar if inst.volume != S.instrument_start_volume]:
-            self.reset_btn.show = True
-        else:
-            self.reset_btn.show = False
         return True
 
     def move(self, pos:tuple[int,int], azimuth:float=None, elevation:float=None,)-> bool:
