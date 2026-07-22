@@ -218,7 +218,7 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
         hand_found = False
         hand_stands_still = False
         arm_in_angle_area = False
-        released_angle = None
+        # released_angle = None
         time_stemp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
         # --------------------------------------------------
@@ -635,16 +635,16 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
                 is_grapping = False
         # --------------------------------------------------
         # save grap and release angle
-        if not paused and process and pose_found:   
-            if hand_grasped:
-                grasped_angle = pointing_angle
-                released_angle = None
-            elif hand_released:
-                released_angle = pointing_angle
-                if released_angle is not None and grasped_angle is not None:
-                    moved_angle = released_angle-grasped_angle
-                else:
-                    moved_angle = None
+        # if not paused and process and pose_found:   
+        #     if hand_grasped:
+        #         grasped_angle = pointing_angle
+        #         released_angle = None
+        #     elif hand_released:
+        #         released_angle = pointing_angle
+        #         if released_angle is not None and grasped_angle is not None:
+        #             moved_angle = released_angle-grasped_angle
+        #         else:
+        #             moved_angle = None
 
 
 
@@ -832,27 +832,26 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
             if MOUSE.is_pressed():
                 overlay.grap()
 
-            overlay.move(MOUSE.pos)
+            overlay.move(MOUSE.pos,azimuth=pointing_angle,elevation=None)
             if MOUSE.is_release():
-                overlay.release(azimuth=released_angle)
+                overlay.release()
             overlay.draw(frame_overlay)
         else:
             # per arm and hand 
-            if not paused and process and hand_found:
+            if not paused and process and pose_found:
                 overlay.select(hand_center)
                 if hand_grasped:
                     overlay.grap()
 
-                overlay.move(hand_center)
+                overlay.move(hand_center,azimuth=pointing_angle,elevation=None)
                 if hand_released:
-                    overlay.release(azimuth=released_angle)
+                    overlay.release()
             overlay.draw(frame_overlay)
         gui_info = overlay.get_info()
         # --------------------------------------------------
         # comunikation Audiosystem
         # --------------------------------------------------
         if gui_info:
-
             if gui_info['type'] == S.type_instrument:
                 communicator.send(**gui_info)
         # --------------------------------------------------
@@ -926,7 +925,7 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
         # --------------------------------------------------
         cv2.imshow(
             window_name,
-            frame_overlay
+            cv2.resize(frame_overlay, S.window_size)
         )
 
         if show_depth:

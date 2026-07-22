@@ -159,6 +159,7 @@ class Instrument(GUITile):
         self.elevation:float = None
         self.azimuth:float = None
         self.volume:float = S.instrument_start_volume
+        self.on_off = 0
 
     def update_rect(self, rect):
         x,y,w,h = rect
@@ -172,8 +173,30 @@ class Instrument(GUITile):
     
     def get_info(self):
         self.info_dict['azimuth'] = self.azimuth
+        self.info_dict['elevation'] = self.elevation
         self.info_dict['volume'] = self.volume
+        self.info_dict['on_off'] = self.on_off
         return super().get_info()
+
+    def set_angle(self, azimuth:int|None, elevation:int|None):
+        self.azimuth = azimuth
+        self.elevation = elevation
+
+    def turn_on(self):
+        self.on_off = 1
+
+    def turn_off(self):
+        self.on_off = 0
+
+    def reset(self):
+        self.turn_off()
+        self.set_angle(None, None)
+        self.volume = S.instrument_start_volume
+
+    def set(self, on_off:int, azimuth:int|None, elevation:int|None, volue:float):
+        self.on_off = on_off
+        self.set_angle(azimuth, elevation)
+        self.volume = volue
 
 class VolumeBar(GUITile):
     def __init__(self):
@@ -269,12 +292,12 @@ class GuiOverlay:
         self.bar:list[Instrument] =[]
         self.room:list[Instrument] = []
         self.menu:list[GUITile] = []
-        self.selected:GUITile = None
+        self.selected:GUITile|Instrument = None
         self.grasped = False
         self.sel_size = 10
         self.room_size = -30
         self.draw_pos = None
-        self.info_dict = {}
+        self.info_dict_list:list[dict] = []
         self.volume_bar = VolumeBar()
         self.x = CloseButton()
         self.reset_btn = ResetInstruments()
@@ -388,6 +411,7 @@ class GuiOverlay:
         if self.grasped == False:
             if type(self.selected) is Instrument:
                 self._set_grap_mode(True)
+                self.selected.turn_on()
 
             if self.selected in self.bar:
                 self.selected_size_change(-self.sel_size)
@@ -395,7 +419,7 @@ class GuiOverlay:
                 self.selected_size_change(self.sel_size)
 
             elif self.selected in self.menu:
-                self.info_dict = self.selected.get_info()
+                self.add_info(self.selected.get_info())
                 if type(self.selected) is ResetInstruments:
                     self.reset_instruments()
 
@@ -412,7 +436,9 @@ class GuiOverlay:
 
     def clear_room(self,):
         for inst in self.room.copy():
+            inst.reset()
             self._add_to_bar(inst)
+            self.add_info(inst.get_info())
 
     def _set_grap_mode(self, on:bool):
         self.grasped = on
@@ -421,20 +447,19 @@ class GuiOverlay:
         if on:
             self.reset_btn.show = False
 
-
-    def release(self, azimuth:float=None, elevation:float=None,)->bool:
+    def release(self, )->bool:
         if self.selected is None or self.grasped == False:
             return False
         
         if valide_angle_area(self.selected.center, self.frame.shape):
             self.selected_size_change(-self.sel_size)
             self._add_to_room(self.selected)
-            self.selected_set_angle(azimuth=azimuth, elevation=elevation)
         else:
-            self._add_to_bar(self.selected)
-            self.selected_set_angle(azimuth=None, elevation=None)
+            self._add_to_bar(self.selected, True)
+            self.selected.turn_off()
+            self.selected.set_angle(None, None)
+            self.add_info(self.selected.get_info())
 
-        self.info_dict = self.selected.get_info()
         self._set_grap_mode(False)
         if self.room or [inst for inst in self.bar if inst.volume != S.instrument_start_volume]:
             self.reset_btn.show = True
@@ -442,23 +467,22 @@ class GuiOverlay:
             self.reset_btn.show = False
         return True
 
-    def move(self, pos:tuple[int,int])-> bool:
+    def move(self, pos:tuple[int,int], azimuth:float=None, elevation:float=None,)-> bool:
         if not self.grasped:
             return False
         
+        self.selected.set_angle(azimuth=azimuth, elevation=elevation)
         self.selected.set_center(pos)
+        self.add_info(self.selected.get_info())
         return True
 
-    def selected_set_angle(self, azimuth:float, elevation:float):
-        self.selected.azimuth = azimuth
-        self.selected.elevation = elevation
-
     def get_info(self):
-        if self.info_dict:
-            r = self.info_dict.copy()
-            self.info_dict.clear()
-            return r
+        if self.info_dict_list:
+            return self.info_dict_list.pop(0)
         return None
+
+    def add_info(self, info_dict):
+        self.info_dict_list.append(info_dict)
 
 
 def cv2_create_text_image(text:str, size:tuple[int,int]|int=100, back_ground_color = (0, 0, 0, 100), text_color=(255,255,255,255), line_size=4, text_outline=1):
