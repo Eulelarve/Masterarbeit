@@ -99,8 +99,6 @@ class MoveDetector:
     def __init__(self,min_speed=10, buffer_size=5):
         self.pos = None
         self.speed = None
-        self.pos_buffer_x = ValueBuffer(buffer_size=buffer_size)
-        self.pos_buffer_y = ValueBuffer(buffer_size=buffer_size)
         self.status_buffer = ValueBuffer(buffer_size=buffer_size)
         self.min_speed = min_speed
 
@@ -128,10 +126,6 @@ class MoveDetector:
     def get_speed(self, new_pos):
         if self.pos is None:
             self.pos = new_pos
-
-        x = self.pos_buffer_x.add_and_get_average(new_pos[0])
-        y = self.pos_buffer_y.add_and_get_average(new_pos[1])
-        new_pos = (x, y)
         pos_change = math.dist(new_pos, self.pos)
         self.pos = new_pos
         return pos_change
@@ -351,6 +345,29 @@ class ValueBuffer:
     
     def index(self, value):
         return self.values.index(value)
+
+class ListAverager:
+    def __init__(self, buffer_size=5, list_len=2):
+        self.buffer_list = []
+        for _ in range(list_len):
+            self.buffer_list.append(ValueBuffer(buffer_size))
+
+    def add(self, list:tuple):
+        for i, value in enumerate(list):
+            self.buffer_list[i].add(value)
+
+    def get(self, rounded=False)->list:
+        r = []
+        for buffer in self.buffer_list:
+            value = buffer.average
+            if rounded:
+                value = round(value)
+            r.append(value)
+        return r
+
+    def add_and_gat(self, list:tuple, rounded = False)->list:
+        self.add(list)
+        return self.get(rounded)
 
 class HandOpenClosedBuffer(ValueBuffer):
     """_summary_

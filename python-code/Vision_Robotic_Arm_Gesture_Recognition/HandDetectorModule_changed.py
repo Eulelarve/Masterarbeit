@@ -40,7 +40,7 @@ class HandDetector():
         self.no_hand_counter = 0
 
     ### added methods
-    def get_hand_centers(self):
+    def get_hand_centers(self, frame=None):
         used_marks = [5,17]
         if self.results.multi_hand_landmarks:
             hands_center = []
@@ -49,7 +49,12 @@ class HandDetector():
                 y_coords = [hand_landmarks.landmark[i].y for i in used_marks]
                 center_x = sum(x_coords) / len(x_coords)
                 center_y = sum(y_coords) / len(y_coords)
+                if frame is not None:
+                    center_x *= frame.shape[1]
+                    center_y *= frame.shape[0]
+                    
                 hands_center.append((center_x, center_y))
+
             return hands_center
         
     def hand_close_to(self, should_pos:list, max_distance, frame, hand_index:int=0, draw=False):

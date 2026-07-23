@@ -11,7 +11,7 @@ from collections import defaultdict
 
 from comunication import SendOnChange
 from GUI import GuiOverlay
-from own_functions import ProcessHandAperture, HandOpenClosedBuffer, ValueBuffer, CSVWriter, tolist, screenshot, close_to, MoveDetector, get_globe_timeline_curvs, angle_between_points, draw_angle_between_points, get_center_of_landmarks, mediapipe_pose_world_to_global, map_threshold, cv2_mouse_callback, MOUSE, valide_angle_zone
+from own_functions import ProcessHandAperture, HandOpenClosedBuffer, ValueBuffer,ListAverager, CSVWriter, tolist, screenshot, close_to, MoveDetector, get_globe_timeline_curvs, angle_between_points, draw_angle_between_points, get_center_of_landmarks, mediapipe_pose_world_to_global, map_threshold, cv2_mouse_callback, MOUSE, valide_angle_zone
 
 from main_functions import find_pointing_angle
 
@@ -99,6 +99,7 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
     upper_body_size = ValueBuffer(40)
     hand_aperture_smoother = ValueBuffer(5)
     pointing_angle_smoother = ValueBuffer(5)
+    hand_center_smoother = ListAverager(5)
     hand_move = MoveDetector(min_speed=S.moving_speed, buffer_size=S.moving_buffer_size)
     open_close_status_capturer = SaveFrameStatus(keys=(ord('1'), ord('2'), ord('3')), status=('hand open', 'hand closed', None))
 
@@ -423,57 +424,14 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
         if not paused and process and pose_found:
             # hand and shulder
             pose_detector.find_specific_points()
-            hand_center = pose_detector.hand_center[1:]
+            center = pose_detector.hand_center[1:]
+            hand_center = hand_center_smoother.add_and_gat(center,True)
             shulder = pose_detector.shulder[1:]
             hip = pose_detector.hip[1:]
             # arm
             pose_detector.calibrate_arm_length(time_to_calibrate=2)
             rel_arm_len = math.dist(hand_center, shulder)
-        # --------------------------------------------------
-        # hand (hand in pose landmarks) is moving
-        # --------------------------------------------------
-        if not paused and process and pose_found:
-            hand_stands_still = hand_move.stands_still(hand_center)
-
-        # --------------------------------------------------
-        # Analyze arm angle / pointing direction
-        # --------------------------------------------------
-        if not paused and process and pose_found:
-            arm_in_angle_area = valide_angle_zone(hand_center, frame_raw.shape)
-            if  not arm_in_angle_area:
-                pointing_angle = None
-            else:
-                draw_angles = True
-                if _3D:
-                    # if hasattr(pose_detector,'arm_len'): # if arm length alreaddy calibrated
-                    #     pass
-
-                    # --------------------------------------------------
-                    # azimuth
-                    i_shulder = pose_detector.shulder[0]
-                    i_hand = pose_detector.hand_center[0]
-                    angle_3d_points = world_coordinats
-                    pointing_angle = find_pointing_angle(angle_3d_points, i_hand, i_shulder, 
-                                                            frame_overlay, pose_landmarks, 
-                                                            draw_angles and show_processing, 
-                                                            mirrow_frame
-                                                        )
-                    pointing_angle = pointing_angle_smoother.add_and_get_average(pointing_angle)
-                    pointing_angle = map_threshold(pointing_angle,(-75,-25,25,75),(-90,-45,0,45,90))
-                    # print('pointing:',pointing_angle,'°')#test
-                   
-
-        # --------------------------------------------------
-        # draw glode limelines
-        # --------------------------------------------------
-        if not paused and process and pose_found:
-            if show_globe:
-                r = 260
-                get_globe_timeline_curvs(r,
-                                            *shulder,
-                                            frame=frame_overlay,
-                                            draw=show_globe
-                                            )
+       
     
         # --------------------------------------------------
         # chose ROI for hand detection
@@ -543,6 +501,7 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
         # Hand detection
         # --------------------------------------------------
         if not paused and process and pose_found:
+
             hand_status_before = hand_status
             # if no roi_hand is there, no hand schoult be in the frame
             if roi_hand or not _roi_size: 
@@ -573,8 +532,66 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
                         draw=False
                         )
                     hand_found = len(hand_landmarks) > 0
-                # --------------------------------------------------
-                # evaluate/change Hand status only if it is not moving
+        # --------------------------------------------------
+        # middle the Hand center of pose and hand detection
+        # --------------------------------------------------
+        if not paused and process and pose_found and hand_found:
+            center = hand_detector.get_hand_centers(frame_overlay)[0]
+            hand_center = hand_center_smoother.add_and_gat(center,True)
+            
+
+        # --------------------------------------------------
+        # hand (hand in pose landmarks) is moving
+        # --------------------------------------------------
+        if not paused and process and pose_found:
+                hand_stands_still = hand_move.stands_still(hand_center)
+        
+        # --------------------------------------------------
+        # Analyze arm angle / pointing direction
+        # --------------------------------------------------
+        if not paused and process and pose_found:
+            arm_in_angle_area = valide_angle_zone(hand_center, frame_raw.shape)
+            if  not arm_in_angle_area:
+                pointing_angle = None
+            else:
+                draw_angles = True
+                if _3D:
+                    # if hasattr(pose_detector,'arm_len'): # if arm length alreaddy calibrated
+                    #     pass
+
+                    # --------------------------------------------------
+                    # azimuth
+                    i_shulder = pose_detector.shulder[0]
+                    i_hand = pose_detector.hand_center[0]
+                    angle_3d_points = world_coordinats
+                    pointing_angle = find_pointing_angle(angle_3d_points, i_hand, i_shulder, 
+                                                            frame_overlay, pose_landmarks, 
+                                                            draw_angles and show_processing, 
+                                                            mirrow_frame
+                                                        )
+                    pointing_angle = pointing_angle_smoother.add_and_get_average(pointing_angle)
+                    pointing_angle = map_threshold(pointing_angle,(-75,-25,25,75),(-90,-45,0,45,90))
+                    # print('pointing:',pointing_angle,'°')#test
+                           
+        
+        # --------------------------------------------------
+        # draw glode limelines
+        # --------------------------------------------------
+        if not paused and process and pose_found:
+            if show_globe:
+                r = 260
+                get_globe_timeline_curvs(r,
+                                            *shulder,
+                                            frame=frame_overlay,
+                                            draw=show_globe
+                                            )
+                        
+
+        # --------------------------------------------------
+        # evaluate/change Hand status only if it is not moving
+        # --------------------------------------------------
+        if not paused and process and pose_found:
+            if roi_hand or not _roi_size:
                 if hand_stands_still or skip_hand_move_detection:
                     if hand_found:
                         # hand detected in frame
@@ -1040,7 +1057,7 @@ if __name__ == "__main__":
     videos = [v7,v8,v10,v11]
     # videos.reverse()
     for v in videos:
-        for hand_methode in [ 'distance_dif__0.7','len_width_thr__1.5' ,  'aperture_len_width__1.2', ]:
+        for hand_methode in [ 'aperture_len_width__1.2','distance_dif__0.7','len_width_thr__1.5' ,   ]:
             for buffer_size in [10]:
                 s = S.video_folder+v
                 r = main(
