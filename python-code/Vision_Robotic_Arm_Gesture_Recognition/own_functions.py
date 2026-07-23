@@ -96,13 +96,13 @@ def get_globe_timeline_curvs(r, cx=0, cy=0, deg_steps=15, line_steps=50, frame=N
     return timelines
 
 class MoveDetector:
-    def __init__(self,min_speed=2, max_speed_change = 20, buffer_size=5):
+    def __init__(self,min_speed=10, buffer_size=5):
         self.pos = None
-        self.pos_change = None
-        self.speed_buffer = ValueBuffer(buffer_size=buffer_size)
+        self.speed = None
+        self.pos_buffer_x = ValueBuffer(buffer_size=buffer_size)
+        self.pos_buffer_y = ValueBuffer(buffer_size=buffer_size)
         self.status_buffer = ValueBuffer(buffer_size=buffer_size)
         self.min_speed = min_speed
-        self.max_speed_change = max_speed_change
 
     def _is_moving_no_buffer(self, new_pos:list):
         if self.is_jumping(new_pos) == False:
@@ -112,59 +112,39 @@ class MoveDetector:
         return None
 
     
-    def _is_moving(self, new_pos:list)->bool|None:
-        if self.is_jumping(new_pos) == False:
-            self.speed_buffer.add(self.pos_change)
-            speed = self.speed_buffer.average
-            if speed >= self.min_speed:
-                self.status_buffer.add(True)
-            else:
-                self.status_buffer.add(False)
-            return self.status_buffer.most_frequently
-        return None
-
-    def is_moving(self, new_pos:list)->bool:
-        status = self._is_moving(new_pos)
-
-        if status == True :
+    def is_moving(self, new_pos:list)->bool|None:
+        speed = self.get_speed(new_pos)
+        if speed >= self.min_speed:
             return True
         return False
+
+    def is_moving_status_buffered(self, new_pos:list)->bool:
+        self.status_buffer.add(self.is_moving(new_pos))
+        return self.status_buffer.most_frequently
     
     def stands_still(self, new_pos:list)->bool:
-        status = self._is_moving(new_pos)
-        if status == False: 
-            return True
-        return False
+        return not self.is_moving(new_pos)
 
-    def valide_move(self, new_pos:list)->bool:
+    def get_speed(self, new_pos):
         if self.pos is None:
             self.pos = new_pos
-            return False
 
-        if self.pos_change is None:
-            self.pos_change = math.dist(new_pos, self.pos)
-            return False
-        
-        return True
-
-    def get_changes(self, new_pos):
+        x = self.pos_buffer_x.add_and_get_average(new_pos[0])
+        y = self.pos_buffer_y.add_and_get_average(new_pos[1])
+        new_pos = (x, y)
         pos_change = math.dist(new_pos, self.pos)
         self.pos = new_pos
+        return pos_change
 
-        speed_change = abs(self.pos_change - pos_change)
-        self.pos_change = pos_change
+    # def is_jumping(self, new_pos):
+    #     if self.valide_move(new_pos):
+    #         _, speed_change = self.get_changes(new_pos)
 
-        return pos_change, speed_change
-
-    def is_jumping(self, new_pos):
-        if self.valide_move(new_pos):
-            _, speed_change = self.get_changes(new_pos)
-
-            if speed_change > self.max_speed_change:
-                return True
-            return False
+    #         if speed_change > self.max_speed_change:
+    #             return True
+    #         return False
         
-        return None
+    #     return None
 
 def fit_roi_landmarks_to_frame(landmarks, pixel_frame_size, pixel_region_x_y_w_h):
     """ change the landmark coordinates to fit the region in the frame, if the region is not the whole frame.

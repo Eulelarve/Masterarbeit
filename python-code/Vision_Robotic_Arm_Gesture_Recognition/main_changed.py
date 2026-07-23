@@ -99,7 +99,7 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
     upper_body_size = ValueBuffer(40)
     hand_aperture_smoother = ValueBuffer(5)
     pointing_angle_smoother = ValueBuffer(5)
-    hand_move = MoveDetector(min_speed=S.moving_speed, max_speed_change=S.max_speed_change, buffer_size=S.moving_buffer_size)
+    hand_move = MoveDetector(min_speed=S.moving_speed, buffer_size=S.moving_buffer_size)
     open_close_status_capturer = SaveFrameStatus(keys=(ord('1'), ord('2'), ord('3')), status=('hand open', 'hand closed', None))
 
     previous_time = time.perf_counter()
@@ -1040,7 +1040,7 @@ if __name__ == "__main__":
     videos = [v7,v8,v10,v11]
     # videos.reverse()
     for v in videos:
-        for hand_methode in ['len_width_thr__1.5' ,  'distance_dif__0.3', 'aperture_len_width__1.2', ]:
+        for hand_methode in [ 'distance_dif__0.7','len_width_thr__1.5' ,  'aperture_len_width__1.2', ]:
             for buffer_size in [10]:
                 s = S.video_folder+v
                 r = main(

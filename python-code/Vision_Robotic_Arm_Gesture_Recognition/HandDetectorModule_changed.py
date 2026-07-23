@@ -389,7 +389,7 @@ class HandDetector():
         # buffering
         if getattr(self, "dist_smoother", None) is None:
             self.dist_smoother = ValueBuffer(frame_difference)
-            self.frame_buffer = ValueBuffer(frame_difference+1)
+            self.frame_buffer = ValueBuffer(frame_difference*2)
             self.is_hand_open = 1 # initialisie with hand opening
         distance = self.dist_smoother.add_and_get_average(distance)
         self.frame_buffer.add(distance)

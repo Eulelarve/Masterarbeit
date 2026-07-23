@@ -16,7 +16,6 @@ hand_status_buffer_size = 10
 no_hand_frame_count = 30 # by 30 FPS are 30 frames = one secund not hand, to get the no_hand status
 video_folder = r'..\test_videos (gitignore)/'
 moving_speed = 10 # pixel per frame, min needed to be detected as moving hand, choose between 2-20
-max_speed_change = 300 # if the hand speed change quicker if is asoomt as a jumping between the hands. enter a big number (>100) to tirn this function off
 moving_buffer_size = 5 # frames the pixel moves are buffert over
 gui_hight = 1/5 # of the frame hight
 arm_decection_border_top = 1/4 # of the frame hight
