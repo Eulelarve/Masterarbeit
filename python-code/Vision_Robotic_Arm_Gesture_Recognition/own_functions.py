@@ -568,6 +568,8 @@ def tolist(list_or_not, keep_None=True):
         return None if keep_None else []
     if isinstance(list_or_not, list):
         return list_or_not
+    if isinstance(list_or_not, str):
+        return [list_or_not]
     try:
         return list(list_or_not)
     except TypeError:
