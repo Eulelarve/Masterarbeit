@@ -607,32 +607,8 @@ def screenshot(frame,
 
 
 def mediapipe_pose_world_to_global(pose_world_landmarks, cam_angle):
-    """
-    Transform MediaPipe pose_world_landmarks into a global/world coordinate system.
 
-    Parameters
-    ----------
-    pose_world_landmarks : array-like, shape (N, 3) or (N, 4)
-        MediaPipe 3D pose landmarks in meters. Only x, y, z are used. while +x frame to the right, +y frame to down, +z away from the cam
-        The coordinates are assumed to be expressed in the MediaPipe pose world frame
-        (origin near the center between the hips).
-    rvec_cam : array-like, shape (3,)
-        Camera rotation vector (Rodrigues) that describes the camera orientation
-        in the global/world coordinate system.
-    tvec_cam : array-like, shape (3,)
-        Camera translation vector that describes the camera position in the
-        global/world coordinate system.
-
-    Returns
-    -------
-    np.ndarray
-        Landmarks transformed into the global/world coordinate system, shape (N, 3). with +x right, +y beck und +z upin the room
-    """
     pts = np.asarray(pose_world_landmarks, dtype=np.float64)
-    # rad = np.deg2rad(cam_angle)
-    # sin = np.sin(rad)
-    # cos = np.cos(rad)
-    # tan = sin/cos
     if pts.ndim == 1:
         pts = pts.reshape(1, -1)
 
@@ -644,21 +620,7 @@ def mediapipe_pose_world_to_global(pose_world_landmarks, cam_angle):
         xn = xa
         yn = za
         zn = -ya 
-        pts[i] = [xn,yn,zn]   
-    
-    # # kreitz einfluss von höhe und tiefe
-    # for i,(xn,yn,zn) in enumerate(pts):
-    #     x0 = xn
-    #     y0 = yn - zn*tan # perspektiviche senkung eusgleichen
-    #     z0 = zn + yn*tan # perspektivicher zoom ausgleichen
-    #     pts[i] = [x0,y0,z0]   
-
-    # # flache perspektivische entzerung
-    # for i,(x0,y0,z0) in enumerate(pts):
-    #     x = x0
-    #     y = y0 / cos
-    #     z = z0 * cos
-    #     pts[i] = [x,y,z]   
+        pts[i] = [xn,yn,zn]    
 
     theta = np.deg2rad(cam_angle)
 
