@@ -2,8 +2,11 @@ from datetime import datetime
 import cv2
 import math
 import numpy as np
-import settings as S
-
+try:
+    import settings as S
+except:
+    import Vision_Robotic_Arm_Gesture_Recognition.settings as S
+    
 def angle_between_points(p1:tuple, p2:tuple, p3:tuple)->float:
     """ 
         calcumates the angle between 2 vectors given by 3 points (2D or 3D)
