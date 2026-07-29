@@ -122,42 +122,51 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
 
     use_realsense = source in ["realsense", "realsense_depth", "realsense_d"]
     show_depth = source in ["realsense_depth", "realsense_d"]
-    is_video_file = isinstance(source, str) and not use_realsense
-    mirrow_frame = not is_video_file
+    is_playback = isinstance(source, str) and not use_realsense
+    mirrow_frame = not is_playback
+    if is_playback:
+        if source[-4:] == '.db3':
+            use_realsense = True
+            show_depth = True
     
     if use_realsense:
 
         pipeline = rs.pipeline()
         config = rs.config()
 
-        config.enable_stream(
-            rs.stream.color,
-            *S.live_stream_resulutuin,
-            rs.format.bgr8,
-            30
-        )
-
-        if show_depth:
+        if is_playback:
+            print('test1')
+            config.enable_device_from_file(source, repeat_playback=False)
+            print('test2')
+        else:
             config.enable_stream(
-                rs.stream.depth,
+                rs.stream.color,
                 *S.live_stream_resulutuin,
-                rs.format.z16,
+                rs.format.bgr8,
                 30
             )
+
+            if show_depth:
+                config.enable_stream(
+                    rs.stream.depth,
+                    *S.live_stream_resulutuin,
+                    rs.format.z16,
+                    30
+                )
 
         pipeline.start(config)
 
         frames = pipeline.wait_for_frames()
         color_frame = frames.get_color_frame()
 
-        frame = np.asanyarray(color_frame.get_data())
+        frame_test = np.asanyarray(color_frame.get_data())
 
         success = True
 
     else: # other webcams or video input
 
         video_capture = cv2.VideoCapture(source)
-        if not is_video_file:
+        if not is_playback:
             video_capture.set(cv2.CAP_PROP_FRAME_WIDTH, S.live_stream_resulutuin[0])
             video_capture.set(cv2.CAP_PROP_FRAME_HEIGHT, S.live_stream_resulutuin[1])
 
@@ -173,7 +182,7 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
 
 
     # set to start frame / reset to frame 0
-    if is_video_file:
+    if is_playback:
         if start_frame > 1:
             video_capture.set(cv2.CAP_PROP_POS_FRAMES, start_frame -1)
         else:
@@ -195,7 +204,7 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
     # -------------------------------------------------------
     # ROI - Define region of interest for video files
     # -------------------------------------------------------
-    # if is_video_file:
+    # if is_playback:
     #     print(f"Processing video file: {source}")
     #     y_start_pixel, y_end_pixel = int(0.1 * frame.shape[0]), int(0.75 * frame.shape[0])
     #     x_start_pixel, x_end_pixel = int(0.3 * frame.shape[1]), int(0.7 * frame.shape[1])
@@ -272,7 +281,7 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
         # Video frame navigation
         # --------------------------------------------------
 
-        if is_video_file:
+        if is_playback and not use_realsense:
             if chr(key) in 'wasd':
                 if paused:
                     process_ones = True
@@ -366,7 +375,7 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
         # --------------------------------------------------
         # currend frame
         # --------------------------------------------------
-        if is_video_file:
+        if is_playback:
             frame_now = int(video_capture.get(cv2.CAP_PROP_POS_FRAMES))
         elif not paused: # live stream not paused
             frame_now += 1
@@ -679,7 +688,7 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
         if capture_status_manually:
             wrong_frame = open_close_status_capturer.add(frame_now, key)
             if type(wrong_frame) == int:
-                if is_video_file:
+                if is_playback:
                     if paused:
                         process_ones = True
             
@@ -764,7 +773,7 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
         # --------------------------------------------------
         #  video status overlay
         if show_processing:
-            status = "LIVE" if not is_video_file else "VIDEO"
+            status = "LIVE" if not is_playback else "VIDEO"
             cv2.putText(
                 frame_overlay,
                 status,
@@ -793,7 +802,7 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
         # frame counter overlay
         if show_processing:
             text = f"Frame: {frame_now}"
-            if is_video_file:
+            if is_playback:
                 text += '/'
                 text += str(int(video_capture.get(cv2.CAP_PROP_FRAME_COUNT)))
 
@@ -822,7 +831,7 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
         )
 
         # video file controls
-        if is_video_file:
+        if is_playback:
             text = "W/S=+/-1 frame | A/D=+/-200 frames"
 
             cv2.putText(
@@ -843,7 +852,7 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
         # --------------------------------------------------
         # Mausposition anzeigen
         
-        if is_video_file:
+        if is_playback:
             # per mouse 
             overlay.select(MOUSE.pos)
             if MOUSE.is_pressed():
@@ -1038,7 +1047,7 @@ if __name__ == "__main__":
     # Webcam input
     # main(source=0)
     videos = find_files(S.video_folder, ending=('.mp4', '.avi', '.mov'),names_only=True)
-    
+    db3s = find_files(S.video_folder, ending='.db3',names_only=True)
     # v1-11
     v1 = videos[0]
     v2 = videos[1]
@@ -1051,19 +1060,25 @@ if __name__ == "__main__":
     v9 = videos[8]
     v10 = videos[9]
     v11 = videos[10]
-    
-    rs = 'realsens'
+    #d1-d6
+    d1 = db3s[0]
+    d2 = db3s[1]
+    d3 = db3s[2]
+    d4 = db3s[3]
+    d5 = db3s[4]
+    d6 = db3s[5]
+    rs_ = 'realsens'
     # Video file input
     videos = [v7,v8,v10,v11]
     # videos.reverse()
-    for v in videos:
+    for v in db3s:
         for hand_methode in [ 'aperture_len_width__1.2','distance_dif__0.7','len_width_thr__1.5' ,   ]:
             for buffer_size in [10]:
                 s = S.video_folder+v
                 r = main(
                     fps_cap=30,
                     show_fps=True,
-                    source=1,
+                    source=s,
                     pause_frames=None,
                     show_processing=True,
                     capture_status_manually=False,
@@ -1078,6 +1093,7 @@ if __name__ == "__main__":
                     show_globe=False,
                     hand_methode=hand_methode,
                 )
+                r = False
                 if r == False:break
             if r == False:break
         if r == False:break

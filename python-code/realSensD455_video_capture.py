@@ -5,13 +5,12 @@ from datetime import datetime
 from Vision_Robotic_Arm_Gesture_Recognition.analyse import find_files
 
 
-
 ### settings
-capture = True
-replay = False
+capture = False
+replay = True
 time_stemp =True
 video_formet = 1280,720
-video_name = "d1_0_deg_1280x720p_15_deg_grapoing_left"
+video_name = "d1"
 save_folder ="../test_videos (gitignore)/"
 ending = '.db3'
 ###
