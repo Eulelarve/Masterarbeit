@@ -94,6 +94,7 @@ class poseDetector():
         if self.results.pose_landmarks:
             pose = self.results.pose_landmarks
             for id_point, lm in enumerate(pose.landmark):
+
                 cx, cy = int(lm.x * w), int(lm.y * h)
                 if additional_info:
                     cz = lm.z
@@ -109,7 +110,6 @@ class poseDetector():
 
     def find_specific_points(self):
         landmarks = self.lm_list
-
         hand_points = self.get_hand_points('top')
         self.hand_center = get_center_of_landmarks(landmarks,hand_points[1:3]) # just take 17, 19 (left) or 18, 20 (right) to get the hand center
         self.hand_center.insert(0, hand_points[0]) # [15 or 16, x, y]  while 15 left, 16 right hand center

@@ -135,9 +135,7 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
         config = rs.config()
 
         if is_playback:
-            print('test1')
             config.enable_device_from_file(source, repeat_playback=False)
-            print('test2')
         else:
             config.enable_stream(
                 rs.stream.color,
@@ -154,7 +152,9 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
                     30
                 )
 
-        pipeline.start(config)
+        profile = pipeline.start(config)
+        if is_playback:
+            profile.get_device().as_playback().set_real_time(False)
 
         frames = pipeline.wait_for_frames()
         color_frame = frames.get_color_frame()
@@ -183,10 +183,11 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
 
     # set to start frame / reset to frame 0
     if is_playback:
-        if start_frame > 1:
-            video_capture.set(cv2.CAP_PROP_POS_FRAMES, start_frame -1)
-        else:
-            video_capture.set(cv2.CAP_PROP_POS_FRAMES, 0)
+        if not use_realsense:
+            if start_frame > 1:
+                video_capture.set(cv2.CAP_PROP_POS_FRAMES, start_frame -1)
+            else:
+                video_capture.set(cv2.CAP_PROP_POS_FRAMES, 0)
 
         # extrace camara angle from discription
         video_name = source[source.rfind("/")+1:source.rfind(".mp4")]
@@ -369,14 +370,13 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
             if mirrow_frame:
                 frame_raw = cv2.flip(frame_raw, 1)
 
-            frame_overlay = frame_raw.copy()
+        frame_overlay = frame_raw.copy()
 
-       
         # --------------------------------------------------
         # currend frame
         # --------------------------------------------------
         if is_playback:
-            frame_now = int(video_capture.get(cv2.CAP_PROP_POS_FRAMES))
+            frame_now = frames.get_frame_number() if use_realsense else int(video_capture.get(cv2.CAP_PROP_POS_FRAMES))
         elif not paused: # live stream not paused
             frame_now += 1
         
@@ -498,13 +498,13 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
             if roi_hand:
                 if show_depth:
                     cx, cy = hand_center
+                    if cx > frame_x and cy < frame_y:
+                        distance_m = depth_frame.get_distance(
+                            int(cx),
+                            int(cy)
+                        )
 
-                    distance_m = depth_frame.get_distance(
-                        int(cx),
-                        int(cy)
-                    )
-
-                    print(f"Distance: {distance_m:.3f} m")
+                        print(f"Distance: {distance_m:.3f} m")
 
         # --------------------------------------------------
         # Hand detection
@@ -804,7 +804,12 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
             text = f"Frame: {frame_now}"
             if is_playback:
                 text += '/'
-                text += str(int(video_capture.get(cv2.CAP_PROP_FRAME_COUNT)))
+                if use_realsense:
+                    play_time = profile.get_device().as_playback().get_duration().total_seconds()
+                    fps_db3 = profile.get_stream(rs.stream.color).as_video_stream_profile().fps()
+                    text += str(int(fps_db3*play_time))
+                else:
+                    text += str(int(video_capture.get(cv2.CAP_PROP_FRAME_COUNT)))
 
             cv2.putText(
                 frame_overlay,
@@ -854,11 +859,12 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
         
         if is_playback:
             # per mouse 
-            overlay.select(MOUSE.pos)
+            mouse_pos = np.int16(np.array(MOUSE.pos)*S.live_stream_resulutuin/S.window_size)
+            overlay.select(mouse_pos)
             if MOUSE.is_pressed():
-                overlay.grap()
+                overlay.grap()  
 
-            overlay.move(MOUSE.pos,azimuth=pointing_angle,elevation=None)
+            overlay.move(mouse_pos,azimuth=pointing_angle,elevation=None)
             if MOUSE.is_release():
                 overlay.release()
             overlay.draw(frame_overlay)
