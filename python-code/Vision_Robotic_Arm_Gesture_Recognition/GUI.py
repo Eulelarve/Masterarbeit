@@ -451,7 +451,6 @@ class GuiOverlay:
             inst.draw(self.frame)
         
         if self.draw_pos is not None:
-            print('draw_pos',self.draw_pos)#test
             cv2.circle(frame, self.draw_pos, 5, S.red, -1)
         
     def select(self, pointer_pos:tuple[int,int]):

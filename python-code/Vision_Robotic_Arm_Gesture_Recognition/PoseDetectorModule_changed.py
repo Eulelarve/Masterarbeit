@@ -5,7 +5,8 @@ import cv2
 import time
 import math
 
-from own_functions import get_center_of_landmarks, ValueBuffer, close_to, angle_between_points, draw_angle_between_points
+from own_functions import ValueBuffer, close_to
+from coordinates_handler import get_center_of_landmarks, angle_between_points, draw_angle_between_points
 
 class poseDetector():
     def __init__(self, mode=False, modCompl=1, upBody=False, smooth=True, segm=False, smooth_seg=True, detCon=0.5, trackCon=0.5):

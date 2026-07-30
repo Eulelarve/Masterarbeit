@@ -7,39 +7,6 @@ try:
 except:
     import Vision_Robotic_Arm_Gesture_Recognition.settings as S
     
-def angle_between_points(p1:tuple, p2:tuple, p3:tuple)->float:
-    """ 
-        calcumates the angle between 2 vectors given by 3 points (2D or 3D)
-        p2 is the mittel point / angle point / shared point of the voctors
-    """
-    v1 = np.array(p1) - np.array(p2)
-    v2 = np.array(p3) - np.array(p2)
-
-    angle = np.arccos(
-        np.dot(v1, v2) /
-        (np.linalg.norm(v1) * np.linalg.norm(v2))
-    )
-
-    return np.degrees(angle)
-
-def draw_angle_between_points(frame, text:str, p1:list[int,int] ,p2:list[int,int] ,p3:list[int,int] , text_pos=(-50,+50), color=(255, 255, 255)):
-        """ 
-            draw lines between points and are angle number next to p2
-        """
-        cx1, cy1 = p1
-        cx2, cy2 = p2
-        cx3, cy3 = p3
-        
-        cv2.circle(frame, (cx1, cy1), 5, (255, 0, 255), -1)
-        cv2.circle(frame, (cx2, cy2), 5, (255, 0, 255), -1)
-        cv2.circle(frame, (cx2, cy2), 10, (255, 0, 255), 1)
-        cv2.circle(frame, (cx3, cy3), 5, (255, 0, 255), -1)
-        
-        cv2.line(frame, (cx2, cy2), (cx3, cy3), color, 2)
-        cv2.line(frame, (cx2, cy2), (cx1, cy1), color, 2)
-        
-        cv2.putText(frame, text, (cx2 + text_pos[0], cy2 + text_pos[1]),
-                    cv2.FONT_HERSHEY_PLAIN, 1, color, 2, cv2.LINE_AA)
             
 def get_globe_timeline_curv(r=200,deg=-90,cx=0,cy=0, steps=50):
 
@@ -97,6 +64,7 @@ def get_globe_timeline_curvs(r, cx=0, cy=0, deg_steps=15, line_steps=50, frame=N
         color = (0, 0, 255)
         cv2.circle(frame,[cx,cy],width+2,color,-1)
     return timelines
+
 
 class MoveDetector:
     def __init__(self,min_speed=10, buffer_size=5):
@@ -167,67 +135,6 @@ def fit_roi_landmarks_to_frame(landmarks, pixel_frame_size, pixel_region_x_y_w_h
         lm.y = lm.y * factor_y + offset_y
 
 
-def offset_landmarks(landmarks, dx=0, dy=0, dz=0):
-    """
-    Verschiebt MediaPipe-Landmarks.
-    will change the inputed objece!
-
-    input can be:
-        results.pose_landmarks.landmark
-        results.multi_hand_landmarks[i].landmark
-    not just:
-        results.pose_landmarks
-        results.multi_hand_landmarks[i]
-
-
-    """
-    # landmarks_copy = deepcopy(pose_or_hand_landmarks)
-
-    # # Überprüfen, ob es das übergeordnete Landmark-Objekt ist oder bereits die Liste der Landmark-Objekte
-    # if hasattr(pose_or_hand_landmarks, 'landmark'):
-    #     landmarks = pose_or_hand_landmarks.landmark
-    # else:
-    #     landmarks = pose_or_hand_landmarks
-    
-    for lm in landmarks:
-
-        if dx:
-            lm.x += dx
-        if dy:
-            lm.y += dy
-        if dz:
-            lm.z += dz
-
-
-def get_center_of_landmarks(pose_landmarks, landmark_indices, round_to_int=True):
-    """ calculate the center of the given landmarks
-    Args:
-        pose_landmarks: list of pose landmarks
-        landmark_indices: list of indices of the landmarks to calculate the center from
-        round_to_int: whether to round the center coordinates to integers
-    Returns:
-        center: the center as a tuple (x, y) or (x,y,z)
-    """
-    x_sum = sum([pose_landmarks[i][1] for i in landmark_indices])
-    y_sum = sum([pose_landmarks[i][2] for i in landmark_indices])
-    center_x = x_sum / len(landmark_indices)
-    center_y = y_sum / len(landmark_indices)
-
-    if round_to_int:
-        center_x = round(center_x)
-        center_y = round(center_y)
-
-    try:
-        z_sum = sum([pose_landmarks[i][3] for i in landmark_indices])
-        center_z = z_sum / len(landmark_indices)
-        if round_to_int:
-            center_z = round(center_z)
-
-        return [center_x, center_y, center_z]
-    except:
-        return [center_x, center_y]
-
-
 
 from collections import deque
 
@@ -240,7 +147,9 @@ class ValueBuffer:
         self.values = deque(maxlen=buffer_size)
         self.last_majority = None # saves the last value that was the majority in the buffer, so that it can be returned if there is no majority in the current buffer
 
-    def add(self, value, update_majority=False):
+    def add(self, value, update_majority=False, ignore_none=False):
+        if ignore_none and value is None:
+            return
         self.values.append(value)
         if update_majority:
             self.majority
@@ -256,8 +165,8 @@ class ValueBuffer:
             self.values.append(value)
         self.add(value, update_majority=True)
 
-    def add_and_get_average(self, value):
-        self.add(value, update_majority=False)
+    def add_and_get_average(self, value, ignore_none=False):
+        self.add(value, update_majority=False,ignore_none=ignore_none)
         return self.average
     
     def add_and_get_mojority(self, value):
@@ -609,37 +518,6 @@ def screenshot(frame,
     return success
 
 
-def mediapipe_pose_world_to_global(pose_world_landmarks, cam_angle):
-
-    pts = np.asarray(pose_world_landmarks, dtype=np.float64)
-    if pts.ndim == 1:
-        pts = pts.reshape(1, -1)
-
-    if len(pts[0]) > 3: 
-        pts = pts[:, 1:4]
-    
-    # change coordinates: +x = rechts, +z  = oben , +y = hinten
-    for i,(xa,ya,za) in enumerate(pts):
-        xn = xa
-        yn = za
-        zn = -ya 
-        pts[i] = [xn,yn,zn]    
-
-    theta = np.deg2rad(cam_angle)
-
-    x = pts[:, 0]
-    y = pts[:, 1]
-    z = pts[:, 2]
-
-    y0 = y*np.cos(theta) + z*np.sin(theta)
-    z0 = -y*np.sin(theta) + z*np.cos(theta)
-
-    y0 += 2 # so y = 0 is ruffly at the camera position if person stants in the room center
-    z0 += 1 # so z = 0 ruffly on the flore hight
-
-    pts = np.column_stack((x, y0, z0))
-    return pts
-
 def map_threshold(value, thresholds, outputs):
     """
     Mappt einen Wert anhand von Schwellwerten auf einen Ausgabewert.
@@ -697,7 +575,7 @@ def cv2_mouse_callback(event, x, y, flags, param):
 
     if event == cv2.EVENT_LBUTTONDOWN:
         MOUSE.pressed = True
-        print("Linksklick:", MOUSE)
+        print("Linksklick:", MOUSE.get_pos())
 
     elif event == cv2.EVENT_LBUTTONUP:
         MOUSE.release = True

@@ -10,7 +10,7 @@ capture = False
 replay = True
 time_stemp =True
 video_formet = 1280,720
-video_name = "d1"
+video_name = "d01"
 save_folder ="../test_videos (gitignore)/"
 ending = '.db3'
 ###
@@ -64,10 +64,14 @@ if replay:
     config.enable_device_from_file(path, repeat_playback=False)
 
     pipeline.start(config)
+    align = rs.align(rs.stream.color)
+
 
     try:
         while True:
             frames = pipeline.wait_for_frames()
+            # frames = align.process(frames)
+
 
             color_frame = frames.get_color_frame()
             depth_frame = frames.get_depth_frame()

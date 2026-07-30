@@ -11,8 +11,8 @@ from collections import defaultdict
 
 from comunication import SendOnChange
 from GUI import GuiOverlay
-from own_functions import ProcessHandAperture, HandOpenClosedBuffer, ValueBuffer,ListAverager, CSVWriter, tolist, screenshot, close_to, MoveDetector, get_globe_timeline_curvs, angle_between_points, draw_angle_between_points, get_center_of_landmarks, mediapipe_pose_world_to_global, map_threshold, cv2_mouse_callback, MOUSE, valide_angle_zone
-
+from own_functions import ValueBuffer,ListAverager, CSVWriter, tolist, screenshot, close_to, MoveDetector, get_globe_timeline_curvs , map_threshold, cv2_mouse_callback, MOUSE, valide_angle_zone
+from coordinates_handler import mediapipe_pose_world_to_3d, angle_between_points, draw_angle_between_points, rs_pixel_list_to_3d, get_center_of_landmarks
 from main_functions import find_pointing_angle
 
 from HandDetectorModule_changed import HandDetector as hdm
@@ -74,6 +74,7 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
     overlay.add_instrument("Schere")
     overlay.add_instrument("violin",r"..\icon_geige.png")
 
+    pointing_angle:float = None
     frame_counter_processed = 0
     frame_counter_pose = 0
     frame_counter_hand = 0
@@ -121,13 +122,13 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
     cv2.setMouseCallback(window_name, cv2_mouse_callback)
 
     use_realsense = source in ["realsense", "realsense_depth", "realsense_d"]
-    show_depth = source in ["realsense_depth", "realsense_d"]
+    use_rs_depth = source in ["realsense_depth", "realsense_d"]
     is_playback = isinstance(source, str) and not use_realsense
     mirrow_frame = not is_playback
     if is_playback:
         if source[-4:] == '.db3':
             use_realsense = True
-            show_depth = True
+            use_rs_depth = True
     
     if use_realsense:
 
@@ -144,7 +145,7 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
                 30
             )
 
-            if show_depth:
+            if use_rs_depth:
                 config.enable_stream(
                     rs.stream.depth,
                     *S.live_stream_resulutuin,
@@ -153,11 +154,16 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
                 )
 
         profile = pipeline.start(config)
+        if use_rs_depth:
+            align = rs.align(rs.stream.color)
         if is_playback:
-            profile.get_device().as_playback().set_real_time(False)
+            device = profile.get_device()
+            playback = device.as_playback()
+            playback.set_real_time(False)
 
         frames = pipeline.wait_for_frames()
         color_frame = frames.get_color_frame()
+        rs_intrinsics = color_frame.profile.as_video_stream_profile().get_intrinsics()
 
         frame_test = np.asanyarray(color_frame.get_data())
 
@@ -176,9 +182,6 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
         if not video_capture.isOpened():
             print(f"Cannot open source: {source}")
             return
-
-
-
 
 
     # set to start frame / reset to frame 0
@@ -332,6 +335,9 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
 
                 frames = pipeline.wait_for_frames()
 
+                # if use_rs_depth:
+                #     frames = align.process(frames) # das alighnment geht noch nicht
+
                 color_frame = frames.get_color_frame()
 
                 if not color_frame:
@@ -339,7 +345,7 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
 
                 frame_raw = np.asanyarray(color_frame.get_data())
 
-                if show_depth:
+                if use_rs_depth:
 
                     depth_frame = frames.get_depth_frame()
 
@@ -356,6 +362,7 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
                             ),
                             cv2.COLORMAP_JET
                         )
+
             else:
 
                 success, frame_raw = video_capture.read()
@@ -370,7 +377,7 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
             if mirrow_frame:
                 frame_raw = cv2.flip(frame_raw, 1)
 
-        frame_overlay = frame_raw.copy()
+            frame_overlay = frame_raw.copy()
 
         # --------------------------------------------------
         # currend frame
@@ -388,7 +395,7 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
 
             # choose between 2D and 3D pose estimation
             _3D = True 
-            draw_pose = False
+            draw_pose = False 
             draw_landmarks = False
 
             pose_detector.findPose(
@@ -407,19 +414,21 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
             if pose_found:
                 frame_counter_pose += 1
 
-                if _3D:
-                    pose_world_landmarks = pose_detector.find3DPosePosition(
-                        draw=False
-                    )
+                if _3D and not use_rs_depth:
+                    pose_world_landmarks = pose_detector.find3DPosePosition(draw=False)
 
-                world_coordinats = mediapipe_pose_world_to_global(pose_world_landmarks,cam_angle)
-                world_coordinats = [[i, *p] for i, p in enumerate(world_coordinats)]
-                # for e,i in enumerate(world_coordinats):
-                #     if e in [12,24,16]:
-                #         print(pose_world_landmarks[e],i)#test
+                if use_rs_depth:
+                    pose_room_coordinats = rs_pixel_list_to_3d(depth_frame,rs_intrinsics,pose_landmarks,cam_angle)
+                    for p in pose_room_coordinats:
+                        print(p)#test
+                else:
+                    pose_room_coordinats = mediapipe_pose_world_to_3d(pose_world_landmarks,cam_angle)
+                    # for e,i in enumerate(pose_room_coordinats):
+                    #     if e in [12,24,16]:
+                    #         print(pose_world_landmarks[e],i)#test
 
                 
-                # draw hand points from mediapipe pose landmarks
+                # draw hand points from mediapipe pose landmarks 
                 if show_processing and draw_landmarks:
                     hands = [15, 21,19,17, 16, 22, 20, 18, ]
                     pose_detector.draw_landmarks(
@@ -431,12 +440,25 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
         # get hand center and coresponding shulder and max arm length, relative arm length
         # --------------------------------------------------
         if not paused and process and pose_found:
+            draw_hand_center = True
             # hand and shulder
             pose_detector.find_specific_points()
             center = pose_detector.hand_center[1:]
             hand_center = hand_center_smoother.add_and_gat(center,True)
             shulder = pose_detector.shulder[1:]
             hip = pose_detector.hip[1:]
+            if show_processing and draw_hand_center:
+                x,y = hand_center
+                y += 30
+                cv2.putText(
+                    frame_overlay,
+                    str(hand_center),
+                    (x, y),
+                    cv2.FONT_HERSHEY_PLAIN,
+                    1,
+                    (0, 255, 0),
+                    1
+                )
             # arm
             pose_detector.calibrate_arm_length(time_to_calibrate=2)
             rel_arm_len = math.dist(hand_center, shulder)
@@ -496,7 +518,7 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
         # --------------------------------------------------
         if not paused and process and pose_found:
             if roi_hand:
-                if show_depth:
+                if use_rs_depth:
                     cx, cy = hand_center
                     if cx > frame_x and cy < frame_y:
                         distance_m = depth_frame.get_distance(
@@ -572,14 +594,16 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
                     # azimuth
                     i_shulder = pose_detector.shulder[0]
                     i_hand = pose_detector.hand_center[0]
-                    angle_3d_points = world_coordinats
+                    angle_3d_points = pose_room_coordinats
                     pointing_angle = find_pointing_angle(angle_3d_points, i_hand, i_shulder, 
                                                             frame_overlay, pose_landmarks, 
                                                             draw_angles and show_processing, 
                                                             mirrow_frame
                                                         )
-                    pointing_angle = pointing_angle_smoother.add_and_get_average(pointing_angle)
-                    pointing_angle = map_threshold(pointing_angle,(-75,-25,25,75),(-90,-45,0,45,90))
+                    pointing_angle = pointing_angle_smoother.add_and_get_average(pointing_angle,True)
+
+                    if not use_rs_depth:
+                        pointing_angle = map_threshold(pointing_angle,(-75,-25,25,75),(-90,-45,0,45,90))
                     # print('pointing:',pointing_angle,'°')#test
                            
         
@@ -805,7 +829,7 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
             if is_playback:
                 text += '/'
                 if use_realsense:
-                    play_time = profile.get_device().as_playback().get_duration().total_seconds()
+                    play_time = playback.get_duration().total_seconds()
                     fps_db3 = profile.get_stream(rs.stream.color).as_video_stream_profile().fps()
                     text += str(int(fps_db3*play_time))
                 else:
@@ -966,7 +990,7 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
             cv2.resize(frame_overlay, S.window_size)
         )
 
-        if show_depth:
+        if use_rs_depth:
             cv2.imshow(
                 "Depth",
                 depth_colormap

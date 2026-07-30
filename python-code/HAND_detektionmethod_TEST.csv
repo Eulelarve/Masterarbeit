@@ -194,3 +194,24 @@ name,frame_x,frame_y,roi_size,frame_counter_processed,frame_counter_pose,pose_ra
 ..\test_videos (gitignore)/d01_0deg_1280x720p_15deg_steps_right_20260729.db3,1280,720,166,237,237,100.0,160,67.5,,False,14.6,20260730_122208
 ..\test_videos (gitignore)/d01_0deg_1280x720p_15deg_steps_right_20260729.db3,1280,720,205,47,47,100.0,15,31.9,,False,14.2,20260730_122223
 ..\test_videos (gitignore)/d01_0deg_1280x720p_15deg_steps_right_20260729.db3,1280,720,177,116,116,100.0,57,49.1,,False,15.0,20260730_122359
+1,1280,720,407,2810,2810,100.0,1690,60.1,,False,15.2,20260730_131010
+1,1280,720,489,261,261,100.0,69,26.4,,False,15.9,20260730_134333
+1,1280,720,437,349,349,100.0,190,54.4,,False,16.3,20260730_135019
+..\test_videos (gitignore)/d01_0deg_1280x720p_15deg_steps_right_20260729.db3,1280,720,160,348,348,100.0,243,69.8,,False,14.1,20260730_142217
+..\test_videos (gitignore)/d01_0deg_1280x720p_15deg_steps_right_20260729.db3,1280,720,208,39,39,100.0,7,17.9,,False,14.2,20260730_142321
+..\test_videos (gitignore)/d01_0deg_1280x720p_15deg_steps_right_20260729.db3,1280,720,155,551,551,100.0,375,68.1,,False,13.2,20260730_143136
+..\test_videos (gitignore)/d01_0deg_1280x720p_15deg_steps_right_20260729.db3,1280,720,166,224,224,100.0,147,65.6,,False,13.3,20260730_144039
+..\test_videos (gitignore)/d01_0deg_1280x720p_15deg_steps_right_20260729.db3,1280,720,204,22,22,100.0,0,0.0,,False,13.2,20260730_145906
+..\test_videos (gitignore)/d01_0deg_1280x720p_15deg_steps_right_20260729.db3,1280,720,193,58,58,100.0,21,36.2,,False,12.6,20260730_145936
+..\test_videos (gitignore)/d01_0deg_1280x720p_15deg_steps_right_20260729.db3,1280,720,178,97,97,100.0,43,44.3,,False,12.8,20260730_150012
+..\test_videos (gitignore)/d01_0deg_1280x720p_15deg_steps_right_20260729.db3,1280,720,176,105,105,100.0,51,48.6,,False,12.6,20260730_150111
+..\test_videos (gitignore)/d01_0deg_1280x720p_15deg_steps_right_20260729.db3,1280,720,191,62,62,100.0,21,33.9,,False,12.5,20260730_150432
+..\test_videos (gitignore)/d01_0deg_1280x720p_15deg_steps_right_20260729.db3,1280,720,202,29,29,100.0,0,0.0,,False,12.3,20260730_150445
+..\test_videos (gitignore)/d01_0deg_1280x720p_15deg_steps_right_20260729.db3,1280,720,203,28,28,100.0,0,0.0,,False,13.3,20260730_150455
+..\test_videos (gitignore)/d01_0deg_1280x720p_15deg_steps_right_20260729.db3,1280,720,0,326,0,0.0,0,0.0,,False,20.9,20260730_152237
+..\test_videos (gitignore)/d01_0deg_1280x720p_15deg_steps_right_20260729.db3,1280,720,198,61,61,100.0,21,34.4,,False,13.1,20260730_152613
+..\test_videos (gitignore)/d01_0deg_1280x720p_15deg_steps_right_20260729.db3,1280,720,175,126,126,100.0,67,53.2,,False,14.1,20260730_155955
+..\test_videos (gitignore)/d01_0deg_1280x720p_15deg_steps_right_20260729.db3,1280,720,175,125,125,100.0,66,52.8,,False,14.0,20260730_160223
+..\test_videos (gitignore)/d01_0deg_1280x720p_15deg_steps_right_20260729.db3,1280,720,180,105,105,100.0,49,46.7,,False,13.9,20260730_160656
+..\test_videos (gitignore)/d01_0deg_1280x720p_15deg_steps_right_20260729.db3,1280,720,179,109,109,100.0,53,48.6,,False,13.7,20260730_160843
+..\test_videos (gitignore)/d01_0deg_1280x720p_15deg_steps_right_20260729.db3,1280,720,177,114,114,100.0,55,48.2,,False,12.5,20260730_160928
