@@ -544,7 +544,6 @@ def map_threshold(value, thresholds, outputs):
 
     return outputs[-1]
 
-
 class Mouse:
     def __init__(self):
         self.pos = (0,0)

@@ -135,7 +135,7 @@ def mediapipe_pose_world_to_3d(pose_world_landmarks, cam_angle):
     pts = np.column_stack((i, x, y0, z0))
     return pts
 
-def rs_pixel_to_3d(depth_frame, intrinsics, px:int, py:int):
+def rs_pixel_to_3d(depth_frame, intrinsics, px:int, py:int, mirrowed_frame=False):
     """
     px, py: Pixelkoordinaten im Colorbild
     Rückgabe: np.array([X,Y,Z]) in Metern
@@ -144,6 +144,8 @@ def rs_pixel_to_3d(depth_frame, intrinsics, px:int, py:int):
     w = depth_frame.get_width()
     x = int(px)
     y = int(py)
+    if mirrowed_frame:
+        x = w - x
 
     # Out-of-range prüfen
     if x < 0 or x >= w or y < 0 or y >= h:
@@ -152,28 +154,18 @@ def rs_pixel_to_3d(depth_frame, intrinsics, px:int, py:int):
 
     if depth <= 0:
         return None
-    print('v')#test
-    print('i',intrinsics)#test
-    print('---------------')
-    print('width',intrinsics.width)
-    print('height',intrinsics.height)
-    print('fx',intrinsics.fx)
-    print('fy',intrinsics.fy)
-    print('ppx',intrinsics.ppx)
-    print('ppy',intrinsics.ppy)
-    print('model',intrinsics.model)
-    print('coeffs',intrinsics.coeffs)
-    print('---------------')
     point = rs.rs2_deproject_pixel_to_point(
         intrinsics,
         [x, y],
         depth
     )
-    print('r',point)#test
+    if mirrowed_frame:
+        point[0] = w - point[0]
+        
     return np.array(point)
 
 
-def rs_pixel_list_to_3d(depth_frame, intrinsics,pixel_coords_list:tuple, cam_angle:float):
+def rs_pixel_list_to_3d(depth_frame, intrinsics,pixel_coords_list:tuple, cam_angle:float, mirrowed_frame = False):
     """ 
         returns a np.array with i,x,y,z
          i: index
@@ -193,8 +185,7 @@ def rs_pixel_list_to_3d(depth_frame, intrinsics,pixel_coords_list:tuple, cam_ang
 
     pts_3d = []
     for i ,(x,y) in enumerate(pts):
-        print('s',i,x,y)#test
-        p3d = rs_pixel_to_3d(depth_frame, intrinsics, x, y)
+        p3d = rs_pixel_to_3d(depth_frame, intrinsics, x, y,mirrowed_frame)
         if p3d is None:
             pts_3d.append(None)
             continue

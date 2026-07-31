@@ -11,9 +11,9 @@ from collections import defaultdict
 
 from comunication import SendOnChange
 from GUI import GuiOverlay
-from own_functions import ValueBuffer,ListAverager, CSVWriter, tolist, screenshot, close_to, MoveDetector, get_globe_timeline_curvs , map_threshold, cv2_mouse_callback, MOUSE, valide_angle_zone
+from own_functions import ValueBuffer,ListAverager, CSVWriter, tolist, screenshot, close_to, MoveDetector, get_globe_timeline_curvs , cv2_mouse_callback, MOUSE, valide_angle_zone, map_threshold
 from coordinates_handler import mediapipe_pose_world_to_3d, angle_between_points, draw_angle_between_points, rs_pixel_list_to_3d, get_center_of_landmarks
-from main_functions import find_pointing_angle
+from pointing_angle import find_pointing_angle, correct_pointing_angle, clip_pointing_angle
 
 from HandDetectorModule_changed import HandDetector as hdm
 from PoseDetectorModule_changed import poseDetector as pdm
@@ -121,15 +121,27 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
     cv2.namedWindow(window_name)
     cv2.setMouseCallback(window_name, cv2_mouse_callback)
 
-    use_realsense = source in ["realsense", "realsense_depth", "realsense_d"]
-    use_rs_depth = source in ["realsense_depth", "realsense_d"]
-    is_playback = isinstance(source, str) and not use_realsense
-    mirrow_frame = not is_playback
-    if is_playback:
+    print('--SOURCE--')
+    if type(source) is int:
+        is_playback = False
+        print('livestream cam nr.:', source)
+    elif source.lower() in ["rs", "depth", "rs_depth"]:
+        is_playback = False
+        use_realsense = True
+        use_rs_depth = True
+        print(source,'means using realsens depth cam', )
+    else:
+        is_playback = True
+        mirrow_frame = not is_playback
         if source[-4:] == S.rs_save_type:
             use_realsense = True
             use_rs_depth = True
-    
+            print('playback realsens file:', source)
+        else:
+            print('playback:', source)
+
+    mirrow_frame = not is_playback
+
     if use_realsense:
 
         pipeline = rs.pipeline()
@@ -208,8 +220,6 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
         video_nr = int(video_name[1:video_name.find('_')])
     else: # live stream
         cam_angle = S.cam_angle
-        video_capture.set(cv2.CAP_PROP_FRAME_WIDTH, S.live_stream_resulutuin[0])
-        video_capture.set(cv2.CAP_PROP_FRAME_HEIGHT, S.live_stream_resulutuin[1])
 
     frame_x=frame_test.shape[1] 
     frame_y=frame_test.shape[0]
@@ -229,7 +239,6 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
     # -------------------------------------------------------
     # Main processing loop
     # -------------------------------------------------------
-
     while True:
         # --------------------------------------------------
         # set and reset 
@@ -342,7 +351,11 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
             
             if use_realsense:
 
-                frames = pipeline.wait_for_frames()
+                try:
+                    frames = pipeline.wait_for_frames(timeout_ms=2000)
+                except RuntimeError:
+                    print(f"{S.rs_save_type.upper()}-Datei beendet")
+                    break
 
                 if use_rs_depth and align_depth:
                     frames = aligner.process(frames) # das alighnment geht noch nicht
@@ -384,6 +397,8 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
 
             if mirrow_frame:
                 frame_raw = cv2.flip(frame_raw, 1)
+                if use_rs_depth:
+                    depth_colormap = cv2.flip(depth_colormap, 1)
 
             frame_overlay = frame_raw.copy()
 
@@ -426,7 +441,7 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
                     pose_world_landmarks = pose_detector.find3DPosePosition(draw=False)
 
                 if use_rs_depth:
-                    pose_room_coordinats = rs_pixel_list_to_3d(depth_frame,depth_intrinsics,pose_landmarks,cam_angle)
+                    pose_room_coordinats = rs_pixel_list_to_3d(depth_frame,depth_intrinsics,pose_landmarks,cam_angle,mirrow_frame)
                 else:
                     pose_room_coordinats = mediapipe_pose_world_to_3d(pose_world_landmarks,cam_angle)
                     # for e,i in enumerate(pose_room_coordinats):
@@ -453,6 +468,7 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
             hand_center = hand_center_smoother.add_and_gat(center,True)
             shulder = pose_detector.shulder[1:]
             hip = pose_detector.hip[1:]
+            hand_side = pose_detector.hand_side
             if show_processing and draw_hand_center:
                 x,y = hand_center
                 y += 30
@@ -601,16 +617,16 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
                     i_shulder = pose_detector.shulder[0]
                     i_hand = pose_detector.hand_center[0]
                     angle_3d_points = pose_room_coordinats
-                    pointing_angle = find_pointing_angle(angle_3d_points, i_hand, i_shulder, 
-                                                            frame_overlay, pose_landmarks, 
-                                                            draw_angles and show_processing, 
-                                                            mirrow_frame
+                    pointing_angle = find_pointing_angle(angle_3d_points, i_hand, i_shulder, S.zero_degree_distance,
+                                                            frame_overlay, pose_landmarks,
+                                                            draw_angles and show_processing,
+                                                            mirrow_frame, 
                                                         )
                     pointing_angle = pointing_angle_smoother.add_and_get_average(pointing_angle,True)
+                    pointing_angle = correct_pointing_angle(pointing_angle, hand_side, mirrow_frame)
+                    pointing_angle = clip_pointing_angle(pointing_angle, use_rs_depth)
 
-                    if not use_rs_depth:
-                        pointing_angle = map_threshold(pointing_angle,(-75,-25,25,75),(-90,-45,0,45,90))
-                    # print('pointing:',pointing_angle,'°')#test
+
                            
         
         # --------------------------------------------------
@@ -670,7 +686,7 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
                 else:
                     # if hand is moving curently, do not change the hand status
                     hand_status = hand_status
-                    hand_detector.buffer_clear() #test
+                    hand_detector.buffer_clear() #test ?
 
                     # for methode in hand_status_dict.keys():
                     #     status = hand_status_buffer_dict[methode].most_frequently
@@ -737,6 +753,7 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
         # ==================================================
         # Status overlay - end of video processing
         # ==================================================
+
         
         # --------------------------------------------------
         # draw hand status
@@ -991,6 +1008,7 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
         # --------------------------------------------------
         # Display the processed frame - opens a window 
         # --------------------------------------------------
+
         cv2.imshow(
             window_name,
             cv2.resize(frame_overlay, S.window_size)
@@ -1103,12 +1121,11 @@ if __name__ == "__main__":
     # d4 = bags[3]
     # d5 = bags[4]
     # d6 = bags[5]
-    rs_ = 'realsens'
     # Video file input
     videos = [v7,v8,v10,v11]
     # videos.reverse()
     for v in bags:
-        for hand_methode in [ 'aperture_len_width__1.2','distance_dif__0.7','len_width_thr__1.5' ,   ]:
+        for hand_methode in [ 'aperture_len_width__1.2']: #,'distance_dif__0.7','len_width_thr__1.5' ,   ]:
             for buffer_size in [10]:
                 s = S.video_folder+v
                 r = main(
@@ -1129,7 +1146,6 @@ if __name__ == "__main__":
                     show_globe=False,
                     hand_methode=hand_methode,
                 )
-                r = False
                 if r == False:break
             if r == False:break
         if r == False:break

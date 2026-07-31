@@ -117,11 +117,12 @@ class poseDetector():
         if 15 in hand_points: # left hand
             self.shulder = landmarks[11] # left shulder
             self.hip = landmarks[23]
+            self.hand_side = 'left'
         elif 16 in hand_points: # right hand
             self.shulder = landmarks[12] # right shulder
             self.hip = landmarks[24]
+            self.hand_side = 'right'
 
-        
     
     def calibrate_arm_length(self,time_to_calibrate=2.0, max_rel_hight_diff=1/4):
         left_hand_center = get_center_of_landmarks(self.lm_list,[17,19])

@@ -8,7 +8,7 @@ yellow = (0, 255, 255)
 
 # other
 live_stream_resulutuin = (1280,720) # (1280,720) or (640,480)
-window_size = (1920, 1080)
+window_size = (1280,720)#(1920, 1080)
 hand_width_factor = 1.2
 hand_opening_factor = 1.3
 skip_frames = 100
@@ -28,3 +28,5 @@ IPv4_audiosystem = "127.0.0.1"
 type_instrument = 'instrument'
 instrument_start_volume = 0.5 # sound volume is between 0 and 1
 rs_save_type = '.bag'
+zero_degree_distance = 0.10 # in meters
+real_depth_angle_resulutuin = 15

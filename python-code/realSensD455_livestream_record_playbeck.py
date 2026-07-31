@@ -7,7 +7,7 @@ from importlib.metadata import version
 
 print(version("pyrealsense2"))
 ### settings
-capture = False
+capture = True
 live_stream = False
 replay = True
 show_depth = True
@@ -16,7 +16,7 @@ align = True
 mirrowed = True
 realtime = False
 video_formet = 1280,720
-video_name = "d01_0deg_1280x720p_15deg_steps_right"
+video_name = "d03_0deg_1280x720p_15deg_grapping_left"
 save_folder ="../test_videos (gitignore)/"
 ending = '.bag' # db3 or dag datei depens on rs version, >=2.57 -> db3
 time_stemp = False
