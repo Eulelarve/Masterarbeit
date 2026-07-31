@@ -58,7 +58,7 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
     if start_frame is None:
         start_frame = 0
     
-
+    align_depth = True
     
     # create variables
     red = S.red
@@ -126,7 +126,7 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
     is_playback = isinstance(source, str) and not use_realsense
     mirrow_frame = not is_playback
     if is_playback:
-        if source[-4:] == '.db3':
+        if source[-4:] == S.rs_save_type:
             use_realsense = True
             use_rs_depth = True
     
@@ -152,18 +152,27 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
                     rs.format.z16,
                     30
                 )
-
         profile = pipeline.start(config)
-        if use_rs_depth:
-            align = rs.align(rs.stream.color)
+
+        if use_rs_depth and align_depth:
+            aligner = rs.align(rs.stream.color)
         if is_playback:
             device = profile.get_device()
             playback = device.as_playback()
             playback.set_real_time(False)
 
         frames = pipeline.wait_for_frames()
+        if use_rs_depth and align_depth:
+            frames = aligner.process(frames) # das alighnment geht noch nicht
+
         color_frame = frames.get_color_frame()
-        rs_intrinsics = color_frame.profile.as_video_stream_profile().get_intrinsics()
+        depth_frame = frames.get_depth_frame()
+        depth_intrinsics = depth_frame.profile.as_video_stream_profile().intrinsics
+
+        # print('depth_intrinsics', depth_intrinsics)#test
+        # depth_intrinsics = color_frame.profile.as_video_stream_profile().intrinsics
+        # print('depth_intrinsics', depth_intrinsics)#test
+        # return
 
         frame_test = np.asanyarray(color_frame.get_data())
 
@@ -335,8 +344,8 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
 
                 frames = pipeline.wait_for_frames()
 
-                # if use_rs_depth:
-                #     frames = align.process(frames) # das alighnment geht noch nicht
+                if use_rs_depth and align_depth:
+                    frames = aligner.process(frames) # das alighnment geht noch nicht
 
                 color_frame = frames.get_color_frame()
 
@@ -417,7 +426,7 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
                     pose_world_landmarks = pose_detector.find3DPosePosition(draw=False)
 
                 if use_rs_depth:
-                    pose_room_coordinats = rs_pixel_list_to_3d(depth_frame,rs_intrinsics,pose_landmarks,cam_angle)
+                    pose_room_coordinats = rs_pixel_list_to_3d(depth_frame,depth_intrinsics,pose_landmarks,cam_angle)
                 else:
                     pose_room_coordinats = mediapipe_pose_world_to_3d(pose_world_landmarks,cam_angle)
                     # for e,i in enumerate(pose_room_coordinats):
@@ -1074,7 +1083,7 @@ if __name__ == "__main__":
     # Webcam input
     # main(source=0)
     videos = find_files(S.video_folder, ending=('.mp4', '.avi', '.mov'),names_only=True)
-    db3s = find_files(S.video_folder, ending='.db3',names_only=True)
+    bags = find_files(S.video_folder, ending=S.rs_save_type ,names_only=True)
     # v1-11
     v1 = videos[0]
     v2 = videos[1]
@@ -1088,17 +1097,17 @@ if __name__ == "__main__":
     v10 = videos[9]
     v11 = videos[10]
     #d1-d6
-    d1 = db3s[0]
-    d2 = db3s[1]
-    d3 = db3s[2]
-    d4 = db3s[3]
-    d5 = db3s[4]
-    d6 = db3s[5]
+    d1 = bags[0]
+    # d2 = bags[1]
+    # d3 = bags[2]
+    # d4 = bags[3]
+    # d5 = bags[4]
+    # d6 = bags[5]
     rs_ = 'realsens'
     # Video file input
     videos = [v7,v8,v10,v11]
     # videos.reverse()
-    for v in db3s:
+    for v in bags:
         for hand_methode in [ 'aperture_len_width__1.2','distance_dif__0.7','len_width_thr__1.5' ,   ]:
             for buffer_size in [10]:
                 s = S.video_folder+v

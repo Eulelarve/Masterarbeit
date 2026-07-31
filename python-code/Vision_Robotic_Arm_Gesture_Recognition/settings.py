@@ -27,3 +27,4 @@ port = 5005
 IPv4_audiosystem = "127.0.0.1"
 type_instrument = 'instrument'
 instrument_start_volume = 0.5 # sound volume is between 0 and 1
+rs_save_type = '.bag'

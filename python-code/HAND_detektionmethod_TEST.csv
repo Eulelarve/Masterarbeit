@@ -217,3 +217,7 @@ name,frame_x,frame_y,roi_size,frame_counter_processed,frame_counter_pose,pose_ra
 ..\test_videos (gitignore)/d01_0deg_1280x720p_15deg_steps_right_20260729.db3,1280,720,177,114,114,100.0,55,48.2,,False,12.5,20260730_160928
 ..\test_videos (gitignore)/d01_0deg_1280x720p_15deg_steps_right_20260729.db3,1280,720,182,98,98,100.0,42,42.9,,False,13.3,20260731_111244
 ..\test_videos (gitignore)/d01_0deg_1280x720p_15deg_steps_right_20260729.db3,1280,720,181,100,100,100.0,44,44.0,,False,12.2,20260731_111551
+..\test_videos (gitignore)/d01_0deg_1280x720p_15deg_steps_right_20260729.db3,1280,720,204,48,48,100.0,16,33.3,,False,24.6,20260731_142532
+..\test_videos (gitignore)/d01_0deg_1280x720p_15deg_steps_right_20260729.db3,1280,720,0,99,0,0.0,0,0.0,,False,29.1,20260731_143138
+..\test_videos (gitignore)/d01_0deg_1280x720p_15deg_steps_right_20260729.db3,1280,720,202,52,52,100.0,17,32.7,,False,25.7,20260731_143256
+..\test_videos (gitignore)/d01_0deg_1280x720p_15deg_steps_right.bag,1280,720,159,570,570,100.0,406,71.2,,False,22.1,20260731_151214
