@@ -215,3 +215,5 @@ name,frame_x,frame_y,roi_size,frame_counter_processed,frame_counter_pose,pose_ra
 ..\test_videos (gitignore)/d01_0deg_1280x720p_15deg_steps_right_20260729.db3,1280,720,180,105,105,100.0,49,46.7,,False,13.9,20260730_160656
 ..\test_videos (gitignore)/d01_0deg_1280x720p_15deg_steps_right_20260729.db3,1280,720,179,109,109,100.0,53,48.6,,False,13.7,20260730_160843
 ..\test_videos (gitignore)/d01_0deg_1280x720p_15deg_steps_right_20260729.db3,1280,720,177,114,114,100.0,55,48.2,,False,12.5,20260730_160928
+..\test_videos (gitignore)/d01_0deg_1280x720p_15deg_steps_right_20260729.db3,1280,720,182,98,98,100.0,42,42.9,,False,13.3,20260731_111244
+..\test_videos (gitignore)/d01_0deg_1280x720p_15deg_steps_right_20260729.db3,1280,720,181,100,100,100.0,44,44.0,,False,12.2,20260731_111551

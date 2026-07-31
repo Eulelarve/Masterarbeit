@@ -350,7 +350,6 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
                     depth_frame = frames.get_depth_frame()
 
                     if depth_frame:
-
                         depth_image = np.asanyarray(
                             depth_frame.get_data()
                         )
@@ -419,8 +418,6 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
 
                 if use_rs_depth:
                     pose_room_coordinats = rs_pixel_list_to_3d(depth_frame,rs_intrinsics,pose_landmarks,cam_angle)
-                    for p in pose_room_coordinats:
-                        print(p)#test
                 else:
                     pose_room_coordinats = mediapipe_pose_world_to_3d(pose_world_landmarks,cam_angle)
                     # for e,i in enumerate(pose_room_coordinats):

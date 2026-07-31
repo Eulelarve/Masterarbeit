@@ -154,12 +154,22 @@ def rs_pixel_to_3d(depth_frame, intrinsics, px:int, py:int):
         return None
     print('v')#test
     print('i',intrinsics)#test
+    print('---------------')
+    print('width',intrinsics.width)
+    print('height',intrinsics.height)
+    print('fx',intrinsics.fx)
+    print('fy',intrinsics.fy)
+    print('ppx',intrinsics.ppx)
+    print('ppy',intrinsics.ppy)
+    print('model',intrinsics.model)
+    print('coeffs',intrinsics.coeffs)
+    print('---------------')
     point = rs.rs2_deproject_pixel_to_point(
         intrinsics,
         [x, y],
         depth
     )
-    print(point)#test
+    print('r',point)#test
     return np.array(point)
 
 
@@ -183,15 +193,15 @@ def rs_pixel_list_to_3d(depth_frame, intrinsics,pixel_coords_list:tuple, cam_ang
 
     pts_3d = []
     for i ,(x,y) in enumerate(pts):
-        print(i,x,y)#test
+        print('s',i,x,y)#test
         p3d = rs_pixel_to_3d(depth_frame, intrinsics, x, y)
         if p3d is None:
             pts_3d.append(None)
             continue
         x,y,z = p3d
         # angle compensation
-        y = y*np.cos(theta) + z*np.sin(theta)
-        z = -y*np.sin(theta) + z*np.cos(theta)
+        y = z*np.sin(theta) + y*np.cos(theta)
+        z = z*np.cos(theta) + -y*np.sin(theta)
         pts_3d.append([i,x,y,z])
 
     return pts_3d
