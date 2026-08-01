@@ -13,7 +13,7 @@ from comunication import SendOnChange
 from GUI import GuiOverlay
 from own_functions import ValueBuffer,ListAverager, CSVWriter, tolist, screenshot, close_to, MoveDetector, get_globe_timeline_curvs , cv2_mouse_callback, MOUSE, valide_angle_zone, map_threshold
 from coordinates_handler import mediapipe_pose_world_to_3d, angle_between_points, draw_angle_between_points, rs_pixel_list_to_3d, get_center_of_landmarks
-from pointing_angle import find_pointing_angle, correct_pointing_angle, clip_pointing_angle
+from pointing_angle import find_pointing_angle, correct_pointing_angle, clip_pointing_angle , find_pointing_angle2
 
 from HandDetectorModule_changed import HandDetector as hdm
 from PoseDetectorModule_changed import poseDetector as pdm
@@ -74,7 +74,6 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
     overlay.add_instrument("Schere")
     overlay.add_instrument("violin",r"..\icon_geige.png")
 
-    pointing_angle:float = None
     frame_counter_processed = 0
     frame_counter_pose = 0
     frame_counter_hand = 0
@@ -122,17 +121,17 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
     cv2.setMouseCallback(window_name, cv2_mouse_callback)
 
     print('--SOURCE--')
+    is_playback = False
+    use_realsense = False
+    use_rs_depth = False
     if type(source) is int:
-        is_playback = False
         print('livestream cam nr.:', source)
     elif source.lower() in ["rs", "depth", "rs_depth"]:
-        is_playback = False
         use_realsense = True
         use_rs_depth = True
         print(source,'means using realsens depth cam', )
     else:
         is_playback = True
-        mirrow_frame = not is_playback
         if source[-4:] == S.rs_save_type:
             use_realsense = True
             use_rs_depth = True
@@ -352,7 +351,7 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
             if use_realsense:
 
                 try:
-                    frames = pipeline.wait_for_frames(timeout_ms=2000)
+                    frames = pipeline.wait_for_frames(timeout_ms=1000)
                 except RuntimeError:
                     print(f"{S.rs_save_type.upper()}-Datei beendet")
                     break
@@ -605,7 +604,7 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
         if not paused and process and pose_found:
             arm_in_angle_area = valide_angle_zone(hand_center, frame_raw.shape)
             if  not arm_in_angle_area:
-                pointing_angle = None
+                pointing_azimuth = None
             else:
                 draw_angles = True
                 if _3D:
@@ -617,14 +616,23 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
                     i_shulder = pose_detector.shulder[0]
                     i_hand = pose_detector.hand_center[0]
                     angle_3d_points = pose_room_coordinats
-                    pointing_angle = find_pointing_angle(angle_3d_points, i_hand, i_shulder, S.zero_degree_distance,
-                                                            frame_overlay, pose_landmarks,
-                                                            draw_angles and show_processing,
-                                                            mirrow_frame, 
-                                                        )
-                    pointing_angle = pointing_angle_smoother.add_and_get_average(pointing_angle,True)
-                    pointing_angle = correct_pointing_angle(pointing_angle, hand_side, mirrow_frame)
-                    pointing_angle = clip_pointing_angle(pointing_angle, use_rs_depth)
+                    if use_rs_depth and False:
+                        pointing_azimuth, pointing_elevation = find_pointing_angle2(angle_3d_points, i_hand, i_shulder,
+                                                                                    frame_overlay, pose_landmarks,
+                                                                                    draw_angles and show_processing,
+                                                                                    mirrow_frame, 
+                                                                                    )
+                        pointing_azimuth = pointing_angle_smoother.add_and_get_average(pointing_azimuth,True)
+                        
+                    else:
+                        pointing_azimuth, pointing_elevation = find_pointing_angle(angle_3d_points, i_hand, i_shulder,
+                                                                frame_overlay, pose_landmarks,
+                                                                draw_angles and show_processing,
+                                                                mirrow_frame,
+                                                                )
+                        pointing_azimuth = pointing_angle_smoother.add_and_get_average(pointing_azimuth,True)
+                        pointing_azimuth = correct_pointing_angle(pointing_azimuth, hand_side, mirrow_frame)
+                        pointing_azimuth = clip_pointing_angle(pointing_azimuth, use_rs_depth)
 
 
                            
@@ -787,10 +795,10 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
         # draw arm angle
 
         if not paused and process and pose_found and show_processing:
-            if pointing_angle is None:
+            if pointing_azimuth is None:
                 text = 'angle: out of area'
             else:
-                text = f'angle: {pointing_angle}'
+                text = f'angle: {pointing_azimuth}'
 
             cv2.putText(
                 frame_overlay,
@@ -911,7 +919,7 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
             if MOUSE.is_pressed():
                 overlay.grap()  
 
-            overlay.move(mouse_pos,azimuth=pointing_angle,elevation=None)
+            overlay.move(mouse_pos,azimuth=None,elevation=None)
             if MOUSE.is_release():
                 overlay.release()
             overlay.draw(frame_overlay)
@@ -922,7 +930,7 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
                 if hand_grasped:
                     overlay.grap()
 
-                overlay.move(hand_center,azimuth=pointing_angle,elevation=None)
+                overlay.move(hand_center,azimuth=pointing_azimuth,elevation=None)
                 if hand_released:
                     overlay.release()
             overlay.draw(frame_overlay)

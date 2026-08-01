@@ -249,3 +249,13 @@ rs,1280,720,231,2709,2709,100.0,1818,67.1,,False,25.3,20260731_175208
 ..\test_videos (gitignore)/d01_0deg_1280x720p_15deg_steps_right.bag,1280,720,173,216,216,100.0,156,72.2,,False,27.7,20260731_180616
 ..\test_videos (gitignore)/d02_0deg_1280x720p_15deg_steps_right_cross.bag,1280,720,181,493,491,99.6,331,67.1,,False,28.9,20260731_180634
 ..\test_videos (gitignore)/d03_0deg_1280x720p_15deg_steps_left.bag,1280,720,188,512,510,99.6,319,62.3,,False,28.8,20260731_180655
+..\test_videos (gitignore)/d01_0deg_1280x720p_15deg_steps_right.bag,1280,720,291,15,15,100.0,0,0.0,,False,12.8,20260801_181415
+1,1280,720,447,783,763,97.4,381,48.7,,False,17.0,20260801_182328
+..\test_videos (gitignore)/d01_0deg_1280x720p_15deg_steps_right.bag,1280,720,159,581,581,100.0,406,69.9,,False,15.8,20260801_183340
+..\test_videos (gitignore)/d01_0deg_1280x720p_15deg_steps_right.bag,1280,720,247,51,51,100.0,22,43.1,,False,14.8,20260801_183515
+..\test_videos (gitignore)/d02_0deg_1280x720p_15deg_steps_right_cross.bag,1280,720,181,493,491,99.6,332,67.3,,False,15.5,20260801_183549
+..\test_videos (gitignore)/d03_0deg_1280x720p_15deg_steps_left.bag,1280,720,188,443,441,99.5,294,66.4,,False,15.0,20260801_183623
+..\test_videos (gitignore)/d01_0deg_1280x720p_15deg_steps_right.bag,1280,720,159,581,581,100.0,406,69.9,,False,15.8,20260801_183727
+..\test_videos (gitignore)/d02_0deg_1280x720p_15deg_steps_right_cross.bag,1280,720,181,491,489,99.6,332,67.6,,False,15.8,20260801_183801
+..\test_videos (gitignore)/d01_0deg_1280x720p_15deg_steps_right.bag,1280,720,159,569,569,100.0,406,71.4,,False,15.9,20260801_184004
+..\test_videos (gitignore)/d01_0deg_1280x720p_15deg_steps_right.bag,1280,720,167,292,292,100.0,221,75.7,,False,15.5,20260801_184401
