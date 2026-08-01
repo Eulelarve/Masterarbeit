@@ -142,20 +142,20 @@ def main(fps_cap=S.fps, show_fps=True, show_processing=True,source=0,
     mirrow_frame = not is_playback
 
     # get d455 intrinsics
-    try:
-        pipeline = rs.pipeline()
-        config = rs.config()
-        if is_playback:
-            config.enable_device_from_file(source, repeat_playback=False)
-        else:
-            config.enable_stream(rs.stream.color, *S.live_stream_resulutuin, rs.format.bgr8, S.fps)
-        profile = pipeline.start(config)
-        frames = pipeline.wait_for_frames()
-        cam_intrinsics = frames.get_color_frame().profile.as_video_stream_profile().intrinsics
-        pipeline.stop()
-    except:
-        cam_intrinsics = S.cam_intrinsics
-    print(cam_intrinsics)#test
+    # try:
+    #     pipeline = rs.pipeline()
+    #     config = rs.config()
+    #     if is_playback:
+    #         config.enable_device_from_file(source, repeat_playback=False)
+    #     else:
+    #         config.enable_stream(rs.stream.color, *S.live_stream_resulutuin, rs.format.bgr8, S.fps)
+    #     profile = pipeline.start(config)
+    #     frames = pipeline.wait_for_frames()
+    #     cam_intrinsics = frames.get_color_frame().profile.as_video_stream_profile().intrinsics
+    #     pipeline.stop()
+    # except:
+    #     cam_intrinsics = S.cam_intrinsics
+    # print(cam_intrinsics)#test
     
 
     if use_realsense:
@@ -196,6 +196,7 @@ def main(fps_cap=S.fps, show_fps=True, show_processing=True,source=0,
 
         color_frame = frames.get_color_frame()
         depth_frame = frames.get_depth_frame()
+        cam_intrinsics = frames.get_color_frame().profile.as_video_stream_profile().intrinsics
 
         frame_test = np.asanyarray(color_frame.get_data())
 
@@ -1151,7 +1152,7 @@ if __name__ == "__main__":
                 r = main(
                     fps_cap=S.fps,
                     show_fps=True,
-                    source=s,
+                    source=1,#s,
                     pause_frames=None,
                     show_processing=True,
                     capture_status_manually=False,

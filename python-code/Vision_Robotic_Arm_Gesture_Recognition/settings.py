@@ -34,7 +34,7 @@ real_depth_angle_resulutuin = 15
 room_size = (4.0, 2.7, 4.0)   # xyz <- width, hight, depth in meters
 room_origin = (2.0, 1.5, 2.0) # xyz <- width, hight, depth in meters, (0,0,0) is bottom, left, front corner
 step_size_to_find_pointing_angle = 0.1 # in meters
-cam_intrinsics = xxx
+cam_intrinsics = 'xxx'
 
 # d455 intrinsiks color frame:              [ 1280x720  p[638.568 367.388]  f[640.329 638.932]  Inverse Brown Conrady [-0.055931 0.0683116 -0.000836038 0.000658576 -0.0223113] ]
 # d455 intrinsiks depth frame (unaligned):  [ 1280x720  p[643.714 366.77]  f[653.798 653.798]  Brown Conrady [0 0 0 0 0] ]
