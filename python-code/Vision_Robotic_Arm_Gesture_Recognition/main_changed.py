@@ -21,7 +21,7 @@ from analyse import SaveFrameStatus, save_list_to_file, find_files
 
 import settings as S
 
-def main(fps_cap=30, show_fps=True, show_processing=True,source=0, 
+def main(fps_cap=S.fps, show_fps=True, show_processing=True,source=0, 
          pause_frames:list=None, 
          capture_status_manually:bool=False, 
          capture_status:bool=False,
@@ -141,6 +141,23 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
 
     mirrow_frame = not is_playback
 
+    # get d455 intrinsics
+    try:
+        pipeline = rs.pipeline()
+        config = rs.config()
+        if is_playback:
+            config.enable_device_from_file(source, repeat_playback=False)
+        else:
+            config.enable_stream(rs.stream.color, *S.live_stream_resulutuin, rs.format.bgr8, S.fps)
+        profile = pipeline.start(config)
+        frames = pipeline.wait_for_frames()
+        cam_intrinsics = frames.get_color_frame().profile.as_video_stream_profile().intrinsics
+        pipeline.stop()
+    except:
+        cam_intrinsics = S.cam_intrinsics
+    print(cam_intrinsics)#test
+    
+
     if use_realsense:
 
         pipeline = rs.pipeline()
@@ -153,7 +170,7 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
                 rs.stream.color,
                 *S.live_stream_resulutuin,
                 rs.format.bgr8,
-                30
+                S.fps
             )
 
             if use_rs_depth:
@@ -161,7 +178,7 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
                     rs.stream.depth,
                     *S.live_stream_resulutuin,
                     rs.format.z16,
-                    30
+                    S.fps
                 )
         profile = pipeline.start(config)
 
@@ -172,18 +189,13 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
             playback = device.as_playback()
             playback.set_real_time(False)
 
+        profile = pipeline.start(config)
         frames = pipeline.wait_for_frames()
         if use_rs_depth and align_depth:
             frames = aligner.process(frames) # das alighnment geht noch nicht
 
         color_frame = frames.get_color_frame()
         depth_frame = frames.get_depth_frame()
-        depth_intrinsics = depth_frame.profile.as_video_stream_profile().intrinsics
-
-        # print('depth_intrinsics', depth_intrinsics)#test
-        # depth_intrinsics = color_frame.profile.as_video_stream_profile().intrinsics
-        # print('depth_intrinsics', depth_intrinsics)#test
-        # return
 
         frame_test = np.asanyarray(color_frame.get_data())
 
@@ -440,7 +452,7 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
                     pose_world_landmarks = pose_detector.find3DPosePosition(draw=False)
 
                 if use_rs_depth:
-                    pose_room_coordinats = rs_pixel_list_to_3d(depth_frame,depth_intrinsics,pose_landmarks,cam_angle,mirrow_frame)
+                    pose_room_coordinats = rs_pixel_list_to_3d(depth_frame,cam_intrinsics,pose_landmarks,cam_angle,mirrow_frame)
                 else:
                     pose_room_coordinats = mediapipe_pose_world_to_3d(pose_world_landmarks,cam_angle)
                     # for e,i in enumerate(pose_room_coordinats):
@@ -1137,7 +1149,7 @@ if __name__ == "__main__":
             for buffer_size in [10]:
                 s = S.video_folder+v
                 r = main(
-                    fps_cap=30,
+                    fps_cap=S.fps,
                     show_fps=True,
                     source=s,
                     pause_frames=None,
