@@ -19,24 +19,82 @@ from analyse import SaveFrameStatus, save_list_to_file, find_files
 
 import settings as S
 
+def find_pointing_angle2(angle_3d_points,i_hand,i_shulder, zero_degree_distance:int, frame ,drawing_2d_points, draw, left_is_minus,
+                        room_size:tuple,origin:tuple, start_point:tuple, resulution:float ):
+    arm_azimuth = find_arm_angle(angle_3d_points,i_hand,i_shulder, zero_degree_distance, left_is_minus, )
+    if draw:
+        draw_arm_angle(frame,i_hand,i_shulder, drawing_2d_points, arm_azimuth)
+    p1 = origin
+    p2 = get_room_wall_projection_point(room_size,origin, start_point, arm_azimuth, None, resulution)
+    pointing_azimut = angle_between_points()
+    return pointing_azimut
+
+def get_room_wall_projection_point(room_size:tuple,origin:tuple, start_point:tuple, azimuth_angle:float, elevation_angle:float, resulution:float)->list:
+    """
+    follow a slope (ray tracing) in a room on till it hits one wall
+    returns the hitting point
+    Args:
+        room_size (tuple): size of the room in x,y,z direction
+        origin (tuple): coordinate origin of the room in x,y,z direction, (0,0,0) is the room bottom left front corner
+        start_point (tuple): starting point of the ray tracing, real in x,y,z direction, (0,0,0) is the origin point
+        azimuth_angle (float): azimuth angle in degrees
+        elevation_angle (float): elevation angle in degrees
+        resulution (int): step size of the ray tracing, 
+    """
+    # input check
+    if resulution == 0:
+        raise ValueError("Resolution cannot be zero")
+    # declatagion of needed values
+    right_wall = room_size[0] - origin[0]
+    left_wall = - origin[0]
+    ceiling = room_size[1] - origin[1]
+    floor = - origin[1]
+    back_wall = room_size[2] - origin[2]
+    front_wall = - origin[2]
+    x = origin[0] + start_point[0]
+    y = origin[1] + start_point[1]
+    z = origin[2] + start_point[2]
+    step = resulution
+    # ray tracing
+    room_diagonal = math.hypot(*room_size)
+    max_steps = math.ceil(room_diagonal/step)
+    for _ in max_steps:
+        # follow slope
+        x += math.sin(math.radians(azimuth_angle)) * step
+        y += (math.sin(math.radians(elevation_angle)) * step) if elevation_angle else 0
+        z += math.cos(math.radians(azimuth_angle)) * step
+        # checking room borders
+        if x >= right_wall:
+            x = right_wall
+            return [x,y,z]
+        elif x <= left_wall:
+            x = left_wall
+            return [x,y,z]
+        elif y >= ceiling:
+            y = ceiling
+            return [x,y,z]
+        elif y <= floor:
+            y = floor
+            return [x,y,z]
+        elif z >= back_wall:
+            z = back_wall
+            return [x,y,z]
+        elif z <= front_wall:
+            z = front_wall
+            return [x,y,z]
+    # not valide
+    return None
+
 def find_pointing_angle(angle_3d_points,i_hand,i_shulder, zero_degree_distance:int, frame=None ,drawing_2d_points=None, draw=False, left_is_minus=True, ):
     
-    arm_azimuth = _find_pointing_angle(angle_3d_points,i_hand,i_shulder, zero_degree_distance, left_is_minus, )
+    arm_azimuth = find_arm_angle(angle_3d_points,i_hand,i_shulder, zero_degree_distance, left_is_minus, )
 
     if draw:
-        p1_2d = drawing_2d_points[i_hand][1:3]
-        p2_2d = drawing_2d_points[i_shulder][1:3]
-        p3_2d = p2_2d.copy()
-        p3_2d[1] += 100 # draw in y direction
-        try:
-            text = str(round(arm_azimuth)) 
-        except:
-            text = 'None'
-        draw_angle_between_points(frame,text,p1_2d,p2_2d,p3_2d,(-10,-10), S.green)
+        draw_arm_angle(frame,i_hand,i_shulder, drawing_2d_points, arm_azimuth)
     
     return arm_azimuth
 
-def _find_pointing_angle(angle_3d_points,i_hand,i_shulder, zero_degree_distance:int, left_is_minus:bool):
+def find_arm_angle(angle_3d_points,i_hand,i_shulder, zero_degree_distance:int, left_is_minus:bool):
     hand = angle_3d_points[i_hand]
     shulder = angle_3d_points[i_shulder]
     if None in [hand ,shulder]:
@@ -60,6 +118,16 @@ def _find_pointing_angle(angle_3d_points,i_hand,i_shulder, zero_degree_distance:
         arm_azimuth *= -1 +2*left_is_minus 
     return arm_azimuth
 
+def draw_arm_angle(frame,i_hand,i_shulder, drawing_2d_points, arm_azimuth):
+    p1_2d = drawing_2d_points[i_hand][1:3]
+    p2_2d = drawing_2d_points[i_shulder][1:3]
+    p3_2d = p2_2d.copy()
+    p3_2d[1] += 100 # draw in y direction
+    try:
+        text = str(round(arm_azimuth)) 
+    except:
+        text = 'None'
+    draw_angle_between_points(frame,text,p1_2d,p2_2d,p3_2d,(-10,-10), S.green)
 
 def correct_pointing_angle(angle:float,hand_side:str,mirrowed_frame:bool):
     if angle is None:

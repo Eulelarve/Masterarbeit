@@ -3,4 +3,5 @@ from collections import deque
 import numpy as np
 
 
-print(list('wer'))
+import math
+print(math.hypot(*(1,1)))
