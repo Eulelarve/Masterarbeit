@@ -14,7 +14,6 @@ from analyse import SaveFrameStatus, save_list_to_file, find_files
 
 import settings as S
 
-    
 def angle_between_points(p1:tuple, p2:tuple, p3:tuple)->float:
     """ 
         calcumates the angle between 2 vectors given by 3 points (2D or 3D)
@@ -62,6 +61,7 @@ def find_pointing_angle2(angle_3d_points,i_hand,i_shulder, frame ,drawing_2d_poi
         origin = S.room_origin  
         zero_degree_distance = S.zero_degree_distance
         start_point = shoulder[1:]
+        start_point[2] += -S.dist_cam_to_room_center
         # arm angle
         arm_azimuth = find_arm_angle(angle_3d_points,i_hand,i_shulder, zero_degree_distance, left_is_minus, )
         # room angle (pointing angle)
@@ -72,6 +72,11 @@ def find_pointing_angle2(angle_3d_points,i_hand,i_shulder, frame ,drawing_2d_poi
 
 def find_room_angles(room_size:tuple,origin:tuple, start_point:tuple, azimuth_angle:float, elevation_angle:float, resulution:float, left_is_minus:bool) ->tuple[float,float]:
     p1 = rey_tracing_to_room_border(room_size,origin, start_point, azimuth_angle, elevation_angle, resulution)
+
+    # x = origin[0] + start_point[0]
+    # y = origin[1] + start_point[1]
+    # z = origin[2] + start_point[2]
+    # print(origin,p1,x,y,z)#test
     room_azimuth = find_azimuth_angle(p1 ,origin, left_is_minus)
     room_elevation = None
     return room_azimuth, room_elevation
@@ -87,6 +92,8 @@ def rey_tracing_to_room_border(room_size:tuple,origin:tuple, start_point:tuple, 
         azimuth_angle (float): azimuth angle in degrees
         elevation_angle (float): elevation angle in degrees
         resulution (int): step size of the ray tracing, 
+    return: 
+        (list) x,y,z room coordinats in meter, between (0.0, 0.0, 0.0) and rome_size
     """
     # input check
     if resulution == 0:
@@ -94,12 +101,12 @@ def rey_tracing_to_room_border(room_size:tuple,origin:tuple, start_point:tuple, 
     if azimuth_angle is None:
         return None
     # declatagion of needed values
-    right_wall = room_size[0] - origin[0]
-    left_wall = - origin[0]
-    ceiling = room_size[1] - origin[1]
-    floor = - origin[1]
-    back_wall = room_size[2] - origin[2]
-    front_wall = - origin[2]
+    right_wall = room_size[0]
+    left_wall = 0
+    ceiling = room_size[1]
+    floor = 0
+    back_wall = room_size[2]
+    front_wall = 0
     x = origin[0] + start_point[0]
     y = origin[1] + start_point[1]
     z = origin[2] + start_point[2]
@@ -109,9 +116,9 @@ def rey_tracing_to_room_border(room_size:tuple,origin:tuple, start_point:tuple, 
     max_steps = math.ceil(room_diagonal/step)
     for _ in range(max_steps):
         # follow slope
-        x += math.sin(math.radians(azimuth_angle)) * step
+        x -= math.sin(math.radians(azimuth_angle)) * step
         y += (math.sin(math.radians(elevation_angle)) * step) if elevation_angle else 0
-        z += math.cos(math.radians(azimuth_angle)) * step
+        z -= math.cos(math.radians(azimuth_angle)) * step
         # checking room borders
         if x >= right_wall:
             x = right_wall
@@ -211,12 +218,18 @@ def correct_pointing_angle(angle:float,hand_side:str,mirrowed_frame:bool):
     return new_angle
 
 def clip_pointing_angle(angle, real_depth):
-    res = S.real_depth_angle_resulutuin
     if angle is None:
           return None
     if real_depth:
-        angle = round(angle/res)*res
+        angle = round_angle_to_resulution(angle)
         angle = np.clip(angle, -90, +90)
     else:                 
         angle = map_threshold(angle,(-75,-25,25,75),(-90,-45,0,45,90))
     return angle
+
+def round_angle_to_resulution(angle:float)->int:
+    if angle is None:
+        return None
+    res = S.real_depth_angle_resulutuin
+    return round(angle/res)*res
+

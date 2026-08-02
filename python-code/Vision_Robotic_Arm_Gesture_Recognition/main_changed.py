@@ -12,7 +12,7 @@ from collections import defaultdict
 from comunication import SendOnChange
 from GUI import GuiOverlay
 from own_functions import ValueBuffer,ListAverager, CSVWriter, tolist, screenshot, close_to, MoveDetector, get_globe_timeline_curvs , cv2_mouse_callback, MOUSE, valide_angle_zone, map_threshold
-from coordinates_handler import mediapipe_pose_world_to_3d, rs_pixel_list_to_3d, get_center_of_landmarks
+from coordinates_handler import mediapipe_pose_world_to_3d, rs_pixel_list_to_3d, get_center_of_landmarks, mediapipe_pose_to_3d
 from angle_handler import find_pointing_angle, correct_pointing_angle, clip_pointing_angle , find_pointing_angle2, angle_between_points,draw_angle_between_points, find_azimuth_angle
 
 from HandDetectorModule_changed import HandDetector as hdm
@@ -110,6 +110,7 @@ def main(fps_cap=S.fps, show_fps=True, show_processing=True,source=0,
     frame_interval = 1.0 / fps_limit
     fps_sum = 0
     align_depth = S.align_depth
+    cam_intrinsics = None
 
     hand_detector = hdm()
     pose_detector = pdm()
@@ -466,7 +467,11 @@ def main(fps_cap=S.fps, show_fps=True, show_processing=True,source=0,
                     #         print(pose_room_coordinats[e],i)#test
                   
                 else:
-                    pose_room_coordinats = mediapipe_pose_world_to_3d(pose_world_landmarks,cam_angle)
+                    if cam_intrinsics is None:
+                        pose_room_coordinats = mediapipe_pose_world_to_3d(pose_world_landmarks,cam_angle)
+                    else:
+                        pose_room_coordinats = mediapipe_pose_to_3d(pose_landmarks ,pose_world_landmarks, cam_angle)
+
         
                 
                 # draw hand points from mediapipe pose landmarks 
@@ -637,7 +642,7 @@ def main(fps_cap=S.fps, show_fps=True, show_processing=True,source=0,
                     i_shulder = pose_detector.shulder[0]
                     i_hand = pose_detector.hand_center[0]
                     angle_3d_points = pose_room_coordinats
-                    if use_rs_depth and False:
+                    if use_rs_depth or cam_intrinsics and True:
                         pointing_azimuth, pointing_elevation = find_pointing_angle2(angle_3d_points, i_hand, i_shulder,
                                                                                     frame_overlay, pose_landmarks,
                                                                                     draw_angles and show_processing,
@@ -653,11 +658,9 @@ def main(fps_cap=S.fps, show_fps=True, show_processing=True,source=0,
                                                                 )
                         pointing_azimuth = pointing_angle_smoother.add_and_get_average(pointing_azimuth,True)
                         pointing_azimuth = correct_pointing_angle(pointing_azimuth, hand_side, mirrow_frame)
-                        pointing_azimuth = clip_pointing_angle(pointing_azimuth, use_rs_depth)
 
+                    pointing_azimuth = clip_pointing_angle(pointing_azimuth, use_rs_depth)
 
-                           
-        
         # --------------------------------------------------
         # draw glode limelines
         # --------------------------------------------------

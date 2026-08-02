@@ -70,36 +70,50 @@ def get_center_of_landmarks(pose_landmarks, landmark_indices, round_to_int=True)
         return [center_x, center_y]
 
 
-def mediapipe_pose_world_to_3d(pose_world_landmarks, cam_angle):
+def mediapipe_pose_world_to_3d(pose_world_landmarks:tuple, cam_angle:float)->list:
+    pts = compensate_cam_angle(pose_world_landmarks,cam_angle)
+    pts = add_estimated_cam_distance(pts)
+    for (i,x,y,z) in pts:
+        pts[i][2] = y + 0.5 # so y = 0 ruffly in the frame middle
 
-    pts = np.asarray(pose_world_landmarks, dtype=np.float64)
-    if pts.ndim == 1:
-        pts = pts.reshape(1, -1)
+    return pts
 
-    if len(pts[0]) > 3: 
-        pts = pts[:, 1:4]
-    
-    # change coordinates: +x = rechts, +y  = unten , +z = vorne (weg von der kamera)
-    # for i,(xa,ya,za) in enumerate(pts):
-    #     xn = xa
-    #     yn = ya
-    #     zn = za 
-    #     pts[i] = [xn,yn,zn]    
+def add_estimated_cam_distance(landmarks_3d:tuple)->list:
+    pts = []
+    for (i,x,y,z) in landmarks_3d:
+        z0 = z + S.dist_cam_to_room_center # so z = 0 is ruffly at the camera position if person stants in the room center
+        ixyz = [i,x,y,z0]
+        pts.append(ixyz)
+    return pts
 
+def compensate_cam_angle(landmarks_3d:tuple, cam_angle:float)->list:
     theta = np.deg2rad(cam_angle)
+    pts = []
+    for p in landmarks_3d:
+        i = p[0]
+        x = p[1]
+        y = p[2]
+        z = p[3]
+        y0 = y*math.cos(theta) + z*math.sin(theta)
+        z0 = -y*math.sin(theta) + z*math.cos(theta)
+        ixyz = [i,x,y0,z0]
+        pts.append(ixyz)
+    return pts
 
-    x = pts[:, 0]
-    y = pts[:, 1]
-    z = pts[:, 2]
 
-    y0 = y*np.cos(theta) + z*np.sin(theta)
-    z0 = -y*np.sin(theta) + z*np.cos(theta)
-
-    y0 += 2 # so y = 0 is ruffly at the camera position if person stants in the room center
-    z0 += 1 # so z = 0 ruffly on the flore hight
-
-    i = range(len(x))
-    pts = np.column_stack((i, x, y0, z0))
+def mediapipe_pose_to_3d(pose_landmarks:tuple[int], pose_wold_landmarks, intrinsics, cam_angle:float)->list:
+    pts = []
+    for (i,x,y) in pose_landmarks:
+        depth = pose_wold_landmarks[i][3]
+        xyz = rs.rs2_deproject_pixel_to_point(
+            intrinsics,
+            [x, y],
+            depth
+        )
+        ixyz = (i,*xyz)
+        pts.append(ixyz)
+    pts = compensate_cam_angle(pts, cam_angle)
+    pts = add_estimated_cam_distance(pts)
     return pts
 
 def rs_pixel_to_3d(depth_frame, intrinsics, px:int, py:int, mirrowed_frame=False):

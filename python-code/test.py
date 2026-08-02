@@ -4,4 +4,9 @@ import numpy as np
 
 
 import math
-print(math.hypot(*(1,1)))
+t = [(1,2,3),(3,4,5)]
+for i in t:
+    i = [i[1:]]
+    print(i)
+
+print(t)
