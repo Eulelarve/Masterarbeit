@@ -12,8 +12,8 @@ from collections import defaultdict
 from comunication import SendOnChange
 from GUI import GuiOverlay
 from own_functions import ValueBuffer,ListAverager, CSVWriter, tolist, screenshot, close_to, MoveDetector, get_globe_timeline_curvs , cv2_mouse_callback, MOUSE, valide_angle_zone, map_threshold
-from coordinates_handler import mediapipe_pose_world_to_3d, angle_between_points, draw_angle_between_points, rs_pixel_list_to_3d, get_center_of_landmarks
-from pointing_angle import find_pointing_angle, correct_pointing_angle, clip_pointing_angle , find_pointing_angle2
+from coordinates_handler import mediapipe_pose_world_to_3d, rs_pixel_list_to_3d, get_center_of_landmarks
+from angle_handler import find_pointing_angle, correct_pointing_angle, clip_pointing_angle , find_pointing_angle2, angle_between_points,draw_angle_between_points, find_azimuth_angle
 
 from HandDetectorModule_changed import HandDetector as hdm
 from PoseDetectorModule_changed import poseDetector as pdm
@@ -58,7 +58,7 @@ def main(fps_cap=S.fps, show_fps=True, show_processing=True,source=0,
     if start_frame is None:
         start_frame = 0
     
-    align_depth = True
+
     
     # create variables
     red = S.red
@@ -109,6 +109,7 @@ def main(fps_cap=S.fps, show_fps=True, show_processing=True,source=0,
     fps_limit = fps_cap
     frame_interval = 1.0 / fps_limit
     fps_sum = 0
+    align_depth = S.align_depth
 
     hand_detector = hdm()
     pose_detector = pdm()
@@ -189,6 +190,11 @@ def main(fps_cap=S.fps, show_fps=True, show_processing=True,source=0,
             playback = device.as_playback()
             playback.set_real_time(False)
 
+        try:
+            pipeline.stop()
+            print('pyrealsense2 was not firmly clossed')
+        except:
+            pass
         profile = pipeline.start(config)
         frames = pipeline.wait_for_frames()
         if use_rs_depth and align_depth:
@@ -454,12 +460,14 @@ def main(fps_cap=S.fps, show_fps=True, show_processing=True,source=0,
 
                 if use_rs_depth:
                     pose_room_coordinats = rs_pixel_list_to_3d(depth_frame,cam_intrinsics,pose_landmarks,cam_angle,mirrow_frame)
-                else:
-                    pose_room_coordinats = mediapipe_pose_world_to_3d(pose_world_landmarks,cam_angle)
+                    # print('right')
                     # for e,i in enumerate(pose_room_coordinats):
                     #     if e in [12,24,16]:
-                    #         print(pose_world_landmarks[e],i)#test
-
+                    #         print(pose_room_coordinats[e],i)#test
+                  
+                else:
+                    pose_room_coordinats = mediapipe_pose_world_to_3d(pose_world_landmarks,cam_angle)
+        
                 
                 # draw hand points from mediapipe pose landmarks 
                 if show_processing and draw_landmarks:
@@ -1048,8 +1056,11 @@ def main(fps_cap=S.fps, show_fps=True, show_processing=True,source=0,
     # closing cv2 or realsens 
     if use_realsense:
         pipeline.stop()
+        print('pyrealsense2 colsed')
     else:
         video_capture.release()
+        print('cv2 colsed')
+
     cv2.destroyAllWindows()
 
     # --------------------------------------------------
@@ -1152,7 +1163,7 @@ if __name__ == "__main__":
                 r = main(
                     fps_cap=S.fps,
                     show_fps=True,
-                    source=1,#s,
+                    source=s,
                     pause_frames=None,
                     show_processing=True,
                     capture_status_manually=False,

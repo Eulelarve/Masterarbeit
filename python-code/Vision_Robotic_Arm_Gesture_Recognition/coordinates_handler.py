@@ -7,40 +7,7 @@ try:
     import settings as S
 except:
     import Vision_Robotic_Arm_Gesture_Recognition.settings as S
-    
-def angle_between_points(p1:tuple, p2:tuple, p3:tuple)->float:
-    """ 
-        calcumates the angle between 2 vectors given by 3 points (2D or 3D)
-        p2 is the mittel point / angle point / shared point of the voctors
-    """
-    v1 = np.array(p1) - np.array(p2)
-    v2 = np.array(p3) - np.array(p2)
 
-    angle = np.arccos(
-        np.dot(v1, v2) /
-        (np.linalg.norm(v1) * np.linalg.norm(v2))
-    )
-
-    return np.degrees(angle)
-
-def draw_angle_between_points(frame, text:str, p1:list[int,int] ,p2:list[int,int] ,p3:list[int,int] , text_pos=(-50,+50), color=(255, 255, 255)):
-        """ 
-            draw lines between points and are angle number next to p2
-        """
-        cx1, cy1 = p1
-        cx2, cy2 = p2
-        cx3, cy3 = p3
-        
-        cv2.circle(frame, (cx1, cy1), 5, (255, 0, 255), -1)
-        cv2.circle(frame, (cx2, cy2), 5, (255, 0, 255), -1)
-        cv2.circle(frame, (cx2, cy2), 10, (255, 0, 255), 1)
-        cv2.circle(frame, (cx3, cy3), 5, (255, 0, 255), -1)
-        
-        cv2.line(frame, (cx2, cy2), (cx3, cy3), color, 2)
-        cv2.line(frame, (cx2, cy2), (cx1, cy1), color, 2)
-        
-        cv2.putText(frame, text, (cx2 + text_pos[0], cy2 + text_pos[1]),
-                    cv2.FONT_HERSHEY_PLAIN, 1, color, 2, cv2.LINE_AA)
             
 
 def offset_landmarks(landmarks, dx=0, dy=0, dz=0):
