@@ -63,7 +63,7 @@ def find_pointing_angle2(angle_3d_points,i_hand,i_shulder, frame ,drawing_2d_poi
         start_point = shoulder[1:]
         start_point[2] += -S.dist_cam_to_room_center
         # arm angle
-        arm_azimuth = find_arm_angle(angle_3d_points,i_hand,i_shulder, zero_degree_distance, left_is_minus, )
+        arm_azimuth, arm_elevation = find_arm_angles(angle_3d_points,i_hand,i_shulder, zero_degree_distance, left_is_minus, )
         # room angle (pointing angle)
         pointing_azimut ,pointing_elevation = find_room_angles(room_size,origin, start_point, arm_azimuth, arm_elevation, resulution, left_is_minus)
     if draw:
@@ -72,13 +72,12 @@ def find_pointing_angle2(angle_3d_points,i_hand,i_shulder, frame ,drawing_2d_poi
 
 def find_room_angles(room_size:tuple,origin:tuple, start_point:tuple, azimuth_angle:float, elevation_angle:float, resulution:float, left_is_minus:bool) ->tuple[float,float]:
     p1 = rey_tracing_to_room_border(room_size,origin, start_point, azimuth_angle, elevation_angle, resulution)
-
-    # x = origin[0] + start_point[0]
-    # y = origin[1] + start_point[1]
-    # z = origin[2] + start_point[2]
-    # print(origin,p1,x,y,z)#test
+    x = origin[0] + start_point[0]
+    y = origin[1] + start_point[1]
+    z = origin[2] + start_point[2]
+    print(origin,p1,x,y,z)#test
     room_azimuth = find_azimuth_angle(p1 ,origin, left_is_minus)
-    room_elevation = None
+    room_elevation = find_elevation_angle(p1, origin, zero_is_horizontal=True,down_is_y_minus=True)
     return room_azimuth, room_elevation
 
 def rey_tracing_to_room_border(room_size:tuple,origin:tuple, start_point:tuple, azimuth_angle:float, elevation_angle:float, resulution:float)->list:
@@ -143,26 +142,46 @@ def rey_tracing_to_room_border(room_size:tuple,origin:tuple, start_point:tuple, 
 
 def find_pointing_angle(angle_3d_points,i_hand,i_shulder, frame=None ,drawing_2d_points=None, draw=False, left_is_minus=True, ):
     zero_degree_distance = S.zero_degree_distance
-    arm_azimuth = find_arm_angle(angle_3d_points,i_hand,i_shulder, zero_degree_distance, left_is_minus, )
-    arm_elevation = None
+    arm_azimuth, arm_elevation = find_arm_angles(angle_3d_points,i_hand,i_shulder, zero_degree_distance, left_is_minus, )
     if draw:
         draw_arm_angles(frame,i_hand,i_shulder, drawing_2d_points, arm_azimuth, arm_elevation)
     
     return arm_azimuth ,arm_elevation
 
-def find_arm_angle(angle_3d_points,i_hand,i_shulder, zero_degree_distance:int, left_is_minus:bool)->float|None:
+def find_arm_angles(angle_3d_points,i_hand,i_shulder, zero_degree_distance:int, left_is_minus:bool)->float|None:
     hand = angle_3d_points[i_hand]
     shulder = angle_3d_points[i_shulder]
     if hand is None or shulder is None:
-        return None
+        return None, None
     
     p1 = hand[1:] 
     p2 = shulder[1:] 
     hand_shulder_dist = math.dist(p1, p2) # if shoulder and hand are overlapping in the frame
     if zero_degree_distance >= hand_shulder_dist:
-        return  0
+        return  0, 0
     
-    return find_azimuth_angle(p1,p2,left_is_minus)
+    arm_azimuth = find_azimuth_angle(p1,p2,left_is_minus)
+    arm_elevation = find_elevation_angle(p1,p2, zero_is_horizontal=True, down_is_y_minus=False)
+    return arm_azimuth, arm_elevation
+
+def find_elevation_angle(p1:tuple,p2_angle_point:tuple, zero_is_horizontal:bool=True, down_is_y_minus:bool=True):
+    if p1 is None or p2_angle_point is None:
+        return None
+
+    # p3 room refference point, should be p2 shifted by one meter down
+    p3 = list(p2_angle_point)
+    if down_is_y_minus:
+        p3[1] -= 1
+    else:
+        p3[1] += 1
+
+    elevation = angle_between_points(p1, p2_angle_point, p3) # take just x and y dimension, not z (hight)
+
+    # decide the angle 0 degree position
+    if zero_is_horizontal:
+        elevation -= 90
+
+    return elevation
 
 def find_azimuth_angle(p1:tuple,p2_angle_point:tuple,left_is_minus:bool=True)->float:
     if p1 is None or p2_angle_point is None:
@@ -176,13 +195,13 @@ def find_azimuth_angle(p1:tuple,p2_angle_point:tuple,left_is_minus:bool=True)->f
     # p3 room refference point
     x3 = x2
     z3 = z2 -1
-    arm_azimuth = angle_between_points((x1,z1), (x2,z2), (x3,z3)) # take just x and y dimension, not z (hight)
+    azimuth = angle_between_points((x1,z1), (x2,z2), (x3,z3)) # take just x and y dimension, not z (hight)
     # decide the angle directions
     if x1 < x2: # p1 nach links side (-x) of the angle point
-        arm_azimuth *= 1 -2*left_is_minus  
+        azimuth *= 1 -2*left_is_minus  
     else:
-        arm_azimuth *= -1 +2*left_is_minus 
-    return arm_azimuth
+        azimuth *= -1 +2*left_is_minus 
+    return azimuth
 
 
 def draw_arm_angles(frame,i_hand,i_shulder, drawing_2d_points, arm_azimuth, arm_elevation):

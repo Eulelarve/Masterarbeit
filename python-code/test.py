@@ -4,9 +4,10 @@ import numpy as np
 
 
 import math
-t = [(1,2,3),(3,4,5)]
-for i in t:
-    i = [i[1:]]
-    print(i)
-
-print(t)
+def f(p):
+    p = p[:]
+    p[0] = 100
+    return p
+p = [0,1,2]
+t = f(p)
+print(p,t)

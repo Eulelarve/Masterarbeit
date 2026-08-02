@@ -98,7 +98,7 @@ def main(fps_cap=S.fps, show_fps=True, show_processing=True,source=0,
     process_ones = False
     upper_body_size = ValueBuffer(40)
     hand_aperture_smoother = ValueBuffer(5)
-    pointing_angle_smoother = ValueBuffer(5)
+    pointing_angle_smoother = ListAverager(5)
     hand_center_smoother = ListAverager(5)
     hand_move = MoveDetector(min_speed=S.moving_speed, buffer_size=S.moving_buffer_size)
     open_close_status_capturer = SaveFrameStatus(keys=(ord('1'), ord('2'), ord('3')), status=('hand open', 'hand closed', None))
@@ -490,7 +490,7 @@ def main(fps_cap=S.fps, show_fps=True, show_processing=True,source=0,
             # hand and shulder
             pose_detector.find_specific_points()
             center = pose_detector.hand_center[1:]
-            hand_center = hand_center_smoother.add_and_gat(center,True)
+            hand_center = hand_center_smoother.add_and_get(center,True)
             shulder = pose_detector.shulder[1:]
             hip = pose_detector.hip[1:]
             hand_side = pose_detector.hand_side
@@ -615,7 +615,7 @@ def main(fps_cap=S.fps, show_fps=True, show_processing=True,source=0,
         # --------------------------------------------------
         if not paused and process and pose_found and hand_found:
             center = hand_detector.get_hand_centers(frame_overlay)[0]
-            hand_center = hand_center_smoother.add_and_gat(center,True)
+            hand_center = hand_center_smoother.add_and_get(center,True)
             
 
         # --------------------------------------------------
@@ -648,7 +648,10 @@ def main(fps_cap=S.fps, show_fps=True, show_processing=True,source=0,
                                                                                     draw_angles and show_processing,
                                                                                     mirrow_frame, 
                                                                                     )
-                        pointing_azimuth = pointing_angle_smoother.add_and_get_average(pointing_azimuth,True)
+                        pointing_azimuth, pointing_elevation = pointing_angle_smoother.add_and_get(
+                            (pointing_azimuth,pointing_elevation),
+                            ignore_none=True
+                            )
                         
                     else:
                         pointing_azimuth, pointing_elevation = find_pointing_angle(angle_3d_points, i_hand, i_shulder,
@@ -656,10 +659,14 @@ def main(fps_cap=S.fps, show_fps=True, show_processing=True,source=0,
                                                                 draw_angles and show_processing,
                                                                 mirrow_frame,
                                                                 )
-                        pointing_azimuth = pointing_angle_smoother.add_and_get_average(pointing_azimuth,True)
+                        pointing_azimuth, pointing_elevation = pointing_angle_smoother.add_and_get(
+                            (pointing_azimuth,pointing_elevation),
+                            ignore_none=True
+                            )
                         pointing_azimuth = correct_pointing_angle(pointing_azimuth, hand_side, mirrow_frame)
 
                     pointing_azimuth = clip_pointing_angle(pointing_azimuth, use_rs_depth)
+                    pointing_elevation = clip_pointing_angle(pointing_elevation, use_rs_depth)
 
         # --------------------------------------------------
         # draw glode limelines
@@ -822,7 +829,7 @@ def main(fps_cap=S.fps, show_fps=True, show_processing=True,source=0,
             if pointing_azimuth is None:
                 text = 'angle: out of area'
             else:
-                text = f'angle: {pointing_azimuth}'
+                text = f'a/e: {pointing_azimuth}/{pointing_elevation}'
 
             cv2.putText(
                 frame_overlay,
@@ -954,7 +961,7 @@ def main(fps_cap=S.fps, show_fps=True, show_processing=True,source=0,
                 if hand_grasped:
                     overlay.grap()
 
-                overlay.move(hand_center,azimuth=pointing_azimuth,elevation=None)
+                overlay.move(hand_center,azimuth=pointing_azimuth,elevation=pointing_elevation)
                 if hand_released:
                     overlay.release()
             overlay.draw(frame_overlay)

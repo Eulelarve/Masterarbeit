@@ -115,7 +115,7 @@ class poseDetector():
         landmarks = self.lm_list
         hand_points = self.get_hand_points('top')
         self.hand_center = get_center_of_landmarks(landmarks,hand_points[1:3]) # just take 17, 19 (left) or 18, 20 (right) to get the hand center
-        self.hand_center.insert(0, hand_points[0]) # [15 or 16, x, y]  while 15 left, 16 right hand center
+        self.hand_center.insert(0, hand_points[2]) # [hand_point_index , x, y]  while 15,17,19 or 21 for left, 16, 18, 20 or 22 for right hand
         if 15 in hand_points: # left hand
             self.shulder = landmarks[11] # left shulder
             self.hip = landmarks[23]

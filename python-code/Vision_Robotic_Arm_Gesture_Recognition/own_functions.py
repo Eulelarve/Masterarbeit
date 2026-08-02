@@ -264,8 +264,10 @@ class ListAverager:
         for _ in range(list_len):
             self.buffer_list.append(ValueBuffer(buffer_size))
 
-    def add(self, list:tuple):
+    def add(self, list:tuple, ignore_none=False):
         for i, value in enumerate(list):
+            if value is None and ignore_none:
+                continue
             self.buffer_list[i].add(value)
 
     def get(self, rounded=False)->list:
@@ -277,8 +279,8 @@ class ListAverager:
             r.append(value)
         return r
 
-    def add_and_gat(self, list:tuple, rounded = False)->list:
-        self.add(list)
+    def add_and_get(self, list:tuple, rounded = False, ignore_none=False)->list:
+        self.add(list,ignore_none)
         return self.get(rounded)
 
 class HandOpenClosedBuffer(ValueBuffer):
