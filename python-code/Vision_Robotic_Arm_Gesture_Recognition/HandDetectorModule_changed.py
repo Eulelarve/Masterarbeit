@@ -6,7 +6,7 @@ import math
 
 import time
 
-from own_functions import fit_roi_landmarks_to_frame, ValueBuffer, close_to
+from own_functions import fit_roi_landmarks_to_frame, ValueBuffer, close_to, ListAverager
 import settings as S
 
 class HandDetector():
@@ -24,6 +24,7 @@ class HandDetector():
             
             trackCon (float, optional): Minimum confidence value ([0.0, 1.0]) from the landmark-tracking model for the hand landmarks to be considered tracked successfully, or otherwise hand detection will be invoked automatically on the next input image. Setting it to a higher value can increase robustness of the solution, at the expense of a higher latency. Ignored if static_image_mode is true, where hand detection simply runs on every image. Default to 0.5.
         """
+        self.lm_range = range(21)
         self.mode = mode  # static image mode,
         self.maxHands = maxHands  # max number of hands to track
         self.modCompl = modCompl  # complexity of the model (can be 0 or 1)
@@ -36,6 +37,9 @@ class HandDetector():
                                         min_detection_confidence=self.detCon,
                                         min_tracking_confidence=self.trackCon)
         self.mpDraw = mp.solutions.drawing_utils
+
+        self.pixel_pos_averagers = [ListAverager(S.position_buffer_size) for _ in self.lm_range]
+
 
         self.is_hand_open:int = None
         self.no_hand_counter = 0
@@ -250,53 +254,21 @@ class HandDetector():
 
             return self.results.multi_handedness
 
-    def findHandPosition(self, frame, draw=True):
-        '''
-        Given and image, returns the hand keypoints position in the format of a list of lists
-        [[id_point0, x_point0, y_point0], ..., [id_point19, x_point19, y_point19]]
-        The number of hand keypoints are 20 in total.
-        Keypoints list and relative position are shown in the example notebook and on this site: https://google.github.io/mediapipe/solutions/hands.html
+    def create_landmark_list(self, frame, draw=True)->list:
 
-        :param: img (opencv BGR image)
-        :param: hand_num (hand id number to detect, default is zero)
-        :draw: bool (draws circles over the hand keypoints, default is true)
-
-        :returns: 
-            lm_list (list of lists of keypoints)
-            img
-        '''
         self.lm_list = []
         h, w, c = frame.shape
+
         if self.hand_landmarks:
-            for id_point, lm in enumerate(self.hand_landmarks):
-                cx, cy = int(lm.x * w), int(lm.y * h)
-                self.lm_list.append([id_point, cx, cy])
+            for id, lm in enumerate(self.hand_landmarks):
+                x, y = (lm.x * w), (lm.y * h)
+                x, y = self.pixel_pos_averagers[id].add_and_get((x,y))
+                self.lm_list.append([id, int(x), int(y)])
+
                 if draw:
-                    cv2.circle(frame, (cx, cy), 4, (0, 0, 255), -1)
+                    cv2.circle(frame, (x, y), 4, S.red, -1)
 
         return self.lm_list
-
-    def findHand3DPosition(self, hand_choice:str='top', draw=False):
-        '''
-        Find the hand 3d positions on the referred detected hand in real-world 3D coordinates 
-        that are in meters with the origin at the hand's approximate geometric center.
-        Please refer to the documentation for further details: 
-        https://google.github.io/mediapipe/solutions/hands.html#multi_hand_world_landmarks
-
-
-        :param: hand_num (hand id number to detect, default is zero)
-        :draw: bool (draws a 3d graph of the predicted locations in world coordinates of the hand keypoints, default is False)
-
-        :returns: list of lists of 3d hand keypoints in the format [[id_point, x_point,y_point,z_point]]
-        '''
-        self.lm3d_list = []
-        if self.hand_world_landmarks:
-            for id_point, lm in enumerate(self.hand_world_landmarks):
-                self.lm3d_list.append([id_point, lm.x, lm.y, lm.z])
-            if draw:
-                self.mpDraw.plot_landmarks(
-                    self.hand_world_landmarks, self.mpHands.HAND_CONNECTIONS, azimuth=5)
-        return self.lm3d_list
 
     # def get_biggest_distance_in_one_hand(self, frame=None,  draw=True):
     #     '''

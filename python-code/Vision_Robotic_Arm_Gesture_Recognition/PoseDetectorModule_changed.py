@@ -31,6 +31,7 @@ class poseDetector():
             
             trackCon (float, optional): Minimum confidence value ([0.0, 1.0]) from the landmark-tracking model for the pose landmarks to be considered tracked successfully, or otherwise person detection will be invoked automatically on the next input image. Setting it to a higher value can increase robustness of the solution, at the expense of a higher latency. Ignored if static_image_mode is true, where person detection simply runs on every image. Default to 0.5.
         """
+        self.lm_range = range(33)
         self.mode = mode  # static image mode
         self.modCompl = modCompl
         self.upBody = upBody
@@ -40,7 +41,7 @@ class poseDetector():
         self.detCon = detCon  # detection confidence threshold
         self.trackCon = trackCon  # tracking confidence threshold
         self.hand_moving_buffer = ValueBuffer(5)
-        self.hand_side:str = None
+        self.hand_side:str = 'right'
 
         self.mpPose = mp.solutions.pose
         self.pose = self.mpPose.Pose(static_image_mode=self.mode,
@@ -51,38 +52,23 @@ class poseDetector():
                                      min_detection_confidence=self.detCon,
                                      min_tracking_confidence=self.trackCon)
         self.mpDraw = mp.solutions.drawing_utils
-        self.move_detectors:list[MoveDetector] = []
-        self.pos_averagers:list[ListAverager] = []
+        self.move_detectors = [MoveDetector(S.moving_speed, S.moving_buffer_size) for _ in self.lm_range]
+        self.pixel_pos_averagers = [ListAverager(S.position_buffer_size) for _ in self.lm_range]
+        self.world_pos_averagers = [ListAverager(S.position_buffer_size) for _ in self.lm_range]
+        self.visibility_smoother = [ValueBuffer(S.position_buffer_size) for _ in self.lm_range]
 
         self.left_hand_points = [ 15,17,19, 21 ] # left hand landmarks from mediapipe pose
         self.right_hand_points = [ 16,18,20, 22 ] # right hand landmarks from mediapipe pose
 
-    def find_speed(self):
+    def create_moving_list(self):
         if not self.lm_list:
             return []
-        self.lm_speed_list = []
+        self.lm_moving_list = []
         for (i,x,y) in self.lm_list:
-            if i >= len(self.move_detectors):
-                self.move_detectors.append(MoveDetector(S.moving_speed,S.moving_buffer_size))
-            speed = self.move_detectors[i].get_speed((x,y))
-            if speed is None:
-                speed = 0
-            self.lm_speed_list.append([i, speed])
+            speed = self.move_detectors[i].is_moving((x,y))
+            self.lm_moving_list.append([i, speed])
 
-        return self.lm_speed_list
-
-    def find_smoothed_landmarks(self):
-        if self.lm_list:
-            self.lm_smoothed_list = []
-            for (i,x,y) in self.lm_list:
-                if i >= len(self.pos_averagers):
-                    self.pos_averagers.append(ListAverager(S.moving_buffer_size))
-
-                pos = self.pos_averagers[i].add_and_get((x,y))
-                self.lm_smoothed_list.append([i,*pos])
-
-        return self.lm_smoothed_list
-
+        return self.lm_moving_list
 
     def findPose(self, frame, frame_to_draw=None, draw=True):
         """
@@ -105,56 +91,50 @@ class poseDetector():
                     frame_to_draw, self.results.pose_landmarks, self.mpPose.POSE_CONNECTIONS)
         return frame
 
-    def findPosePosition(self, frame, additional_info=False, draw=True):
-        '''
-        Given and image, returns the pose keypoints position in the format of a list of lists
-        [[id_point0, x_point0, y_point0], ...]
-        If additional info is True, returns a list of list in the format
-        [[id_point0, x_point0, y_point0, zpoint0, visibility], ...]
-
-        Keypoints list  are shown on this site: https://google.github.io/mediapipe/images/mobile/pose_tracking_full_body_landmarks.png
-
-        :param: additional_info (returns z and visibility in the keypoint list. Default is False)
-        :param: frame(opencv BGR image)
-        :draw: bool (draws circles over the keypoints. Default is True)
-
-        :returns: 
-            lm_list (list of lists of keypoints)
-            img
-        '''
+    def create_landmark_list(self, frame, draw=True)->list:
+       
         self.lm_list = []
         h, w, c = frame.shape
 
         if self.results.pose_landmarks:
             pose = self.results.pose_landmarks
-            for id_point, lm in enumerate(pose.landmark):
-
-                cx, cy = int(lm.x * w), int(lm.y * h)
-                if additional_info:
-                    cz = lm.z
-                    vis = lm.visibility
-                    self.lm_list.append([id_point, cx, cy, cz, vis])
-                else:
-                    self.lm_list.append([id_point, cx, cy])
+            for id, lm in enumerate(pose.landmark):
+                x, y = (lm.x * w), (lm.y * h)
+                x, y = self.pixel_pos_averagers[id].add_and_get((x,y))
+                self.lm_list.append([id, int(x), int(y)])
 
                 if draw:
-                    cv2.circle(frame, (cx, cy), 5, (0, 0, 255), -1)
+                    cv2.circle(frame, (x, y), 5, S.red, -1)
 
         return self.lm_list
 
-    def find_specific_points(self,mode:str='top', mirrowed:bool=False):
+    def create_visibility_list(self)->list:
+        self.lm_visibility = []
+        if self.results.pose_landmarks:
+            pose = self.results.pose_landmarks
+            for id, lm in enumerate(pose.landmark):
+                vis = self.visibility_smoother[id].add_and_get_average(lm.visibility)
+                vis = vis > S.visibility_threshold
+                self.lm_visibility.append([id, vis])
+        return self.lm_visibility
+
+
+    def find_specific_points(self,mode:str='top', just_update_pos:bool=False, mirrowed:bool=False):
         landmarks = self.lm_list
-        hand_points = self.get_hand_points(mode, mirrowed)
-        self.hand_center = get_center_of_landmarks(landmarks,hand_points[1:3]) # just take 17, 19 (left) or 18, 20 (right) to get the hand center
-        self.hand_center.insert(0, hand_points[2]) # [hand_point_index , x, y]  while 15,17,19 or 21 for left, 16, 18, 20 or 22 for right hand
-        if 15 in hand_points: # left hand
+        if not just_update_pos:
+            self.hand_side = self.get_hand_side(mode, mirrowed)
+        
+        if self.hand_side == 'left': # left hand
             self.shulder = landmarks[11] # left shulder
             self.hip = landmarks[23]
-            self.hand_side = 'left' #if not mirrowed else 'right'
-        elif 16 in hand_points: # right hand
+            hand_points = self.left_hand_points
+        elif self.hand_side == 'right': # right hand
             self.shulder = landmarks[12] # right shulder
             self.hip = landmarks[24]
-            self.hand_side = 'right' #if not mirrowed else 'left'
+            hand_points = self.right_hand_points
+
+        self.hand_center = get_center_of_landmarks(landmarks,hand_points[1:3]) # just take 17, 19 (left) or 18, 20 (right) to get the hand center
+        self.hand_center.insert(0, hand_points[2]) # [hand_point_index , x, y]  while 15,17,19 or 21 for left, 16, 18, 20 or 22 for right hand
 
     
     def calibrate_arm_length(self,time_to_calibrate=2.0, max_rel_hight_diff=1/4):
@@ -177,7 +157,7 @@ class poseDetector():
             self.calibranion_start_time = time.perf_counter()
 
 
-    def find3DPosePosition(self, additional_info=False, draw=False):
+    def create_world_landmark_list(self, draw=False):
         '''
         Given and image, returns the 3D pose keypoints position in the format of a list of lists
         [[id_point0, x_point0, y_point0, zpoint0], ...]
@@ -197,14 +177,9 @@ class poseDetector():
 
         if self.results.pose_landmarks:
             pose = self.results.pose_world_landmarks
-            for id_point, lm in enumerate(pose.landmark):
-                cx, cy, cz = lm.x, lm.y, lm.z
-
-                if additional_info:
-                    vis = lm.visibility
-                    self.lm_3dlist.append([id_point, cx, cy, cz, vis])
-                else:
-                    self.lm_3dlist.append([id_point, cx, cy, cz])
+            for id, lm in enumerate(pose.landmark):
+                x, y, z = self.world_pos_averagers[id].add_and_get((lm.x, lm.y, lm.z))
+                self.lm_3dlist.append([id, x, y, z])
 
             if draw:
                 self.mpDraw.plot_landmarks(
@@ -315,7 +290,7 @@ class poseDetector():
         return most_top_points
 
 
-    def get_hand_points(self, left_right_top='top', mirrored=False):
+    def get_hand_side(self, choose:str='top', mirrored:bool=False)->str:
         """ choose between left, right or top hand based on the pose landmarks
         Args:
             pose_landmarks: list of pose landmarks
@@ -325,59 +300,61 @@ class poseDetector():
             hand_center: index of the chosen wrist landmark (15 for left, 16 for right)
         
         """
-        pose_landmarks = self.lm_list
+        left = 'left'
+        right = 'right'
+        lm_left = self.left_hand_points
+        lm_right = self.right_hand_points
+        v15 = self.lm_visibility[15][1] # left hand wrist in screen
+        v16 = self.lm_visibility[16][1] # right hand wrist in screen
+
+        # if only one hand is in screen return this one
+        if not (v15 and v16):
+            if v15: return left
+            if v16: return right
             
         # only the first leter is capital letter, so it is uniform for all spelling options
-        left_right_top = left_right_top.capitalize() 
-        hand_center = None
-        left = self.left_hand_points
-        right = self.right_hand_points
+        choose = choose.capitalize() 
+
         # if mirrored:
         #     left_hand_points, right_hand_points = right_hand_points, left_hand_points
 
-        if left_right_top == "Top":
-            hand_points = self.get_upper_points([left, right])
+        if choose == "Top":
+            hand_points = self.get_upper_points([lm_left, lm_right])
 
-        elif left_right_top == "Left":
+        elif choose == "Left":
             hand_points = left if not mirrored else right
 
-        elif left_right_top == "Right":
+        elif choose == "Right":
             hand_points = right if not mirrored else left
 
-        elif left_right_top in ['Moving','Move','Fastest']:
+        elif choose in ['Moving','Move','Fastest']:
             moving = self.get_fastest_hand()
             if moving:
-                self.hand_side = moving
-            hand_points = left if self.hand_side == 'left' else right
+                return moving
         else:
-            print(f"Invalid hand selection mode: {left_right_top}. Please choose 'top', 'left' or 'right'.")
+            print(f"Invalid hand selection mode: {choose}. Please choose 'top', 'left', 'right' or 'moving'.")
         
-        return hand_points
+        return self.hand_side
 
     def get_fastest_point(self, point_ids:list=None):
         if point_ids is None:
-            point_ids = range(33)
-        pts_speeds = self.lm_speed_list[:][1]
+            point_ids = self.lm_range
         max_speed = 0
         fastest_id = None
         for id in point_ids:
-            if id >= len(pts_speeds):
-                continue
-            speed = pts_speeds[id]
+            speed = self.lm_moving_list[id][1]
             if speed > max_speed:
                 max_speed = speed
                 fastest_id = id
         return fastest_id
 
-    def get_fastest_hand(self):
+    def get_fastest_hand(self)->str:
         hand_ids = [*self.left_hand_points, *self.right_hand_points]
-        moving_ids = [id for id in hand_ids if self.lm_speed_list[id][1] >= S.moving_speed]
-        if moving_ids:
-            fastest = self.get_fastest_point(moving_ids)
-            if fastest in self.left_hand_points:
-                return 'left'
-            elif fastest in self.right_hand_points:
-                return 'right'
+        fastest = self.get_fastest_point(hand_ids)
+        if fastest in self.left_hand_points:
+            return 'left'
+        elif fastest in self.right_hand_points:
+            return 'right'
         return None
     
     def get_upper_body_length(self):

@@ -10,4 +10,4 @@ def f(p):
     return p
 p = [0,1,2]
 t = f(p)
-print(p,t)
+print( int(1>2))

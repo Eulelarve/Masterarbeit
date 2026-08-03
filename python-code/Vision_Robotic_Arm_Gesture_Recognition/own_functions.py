@@ -72,21 +72,14 @@ class MoveDetector:
         self.speed_buffer = ValueBuffer(buffer_size=buffer_size)
         self.status_buffer = ValueBuffer(buffer_size=buffer_size)
         self.min_speed = min_speed
-        self.speed = None
-        self.smoothed_speed = None
-
-    def _is_moving_no_buffer(self, new_pos:list):
-        if self.is_jumping(new_pos) == False:
-            if self.pos_change >= self.min_speed:
-                return True
-            return False
-        return None
+        self.speed = 0
+        self.smoothed_speed = 0
     
     def is_moving(self, new_pos:list=None)->bool|None:
         self.set_new_pos(new_pos)
         if self.speed >= self.min_speed:
-            return True
-        return False
+            return self.speed
+        return 0
 
     def is_moving_status_buffered(self, new_pos:list)->bool:
         self.status_buffer.add(self.is_moving(new_pos))
@@ -99,7 +92,7 @@ class MoveDetector:
         self.set_new_pos(new_pos)
         return self.speed
 
-    def get_speed_smoothed(self, new_pos:tuple=None)->float:
+    def get_smoothed_speed(self, new_pos:tuple=None)->float:
             if new_pos is not None:
                 self.set_new_pos(new_pos)
             return self.smoothed_speed

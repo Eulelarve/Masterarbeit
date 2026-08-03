@@ -103,7 +103,6 @@ def main(fps_cap=S.fps, show_fps=True, show_processing=True,source=0,
     upper_body_size = ValueBuffer(40)
     hand_aperture_smoother = ValueBuffer(5)
     pointing_angle_smoother = ListAverager(5)
-    hand_center_smoother = ListAverager(5)
     hand_move = MoveDetector(min_speed=S.moving_speed, buffer_size=S.moving_buffer_size)
     open_close_status_capturer = SaveFrameStatus(keys=(ord('1'), ord('2'), ord('3')), status=('hand open', 'hand closed', None))
 
@@ -453,7 +452,7 @@ def main(fps_cap=S.fps, show_fps=True, show_processing=True,source=0,
                 draw=show_processing and draw_pose
             )
    
-            pose_landmarks = pose_detector.findPosePosition(
+            pose_landmarks = pose_detector.create_landmark_list(
                     frame=frame_overlay,
                     draw=show_processing and draw_landmarks
                 )
@@ -461,12 +460,12 @@ def main(fps_cap=S.fps, show_fps=True, show_processing=True,source=0,
             pose_found = True if len(pose_landmarks) > 0 else False
             
             if pose_found:
-                pose_detector.find_smoothed_landmarks()
-                pose_detector.find_speed()
+                pose_detector.create_moving_list()
+                v = pose_detector.create_visibility_list()
                 frame_counter_pose += 1
 
                 if _3D and not use_rs_depth:
-                    pose_world_landmarks = pose_detector.find3DPosePosition(draw=False)
+                    pose_world_landmarks = pose_detector.create_world_landmark_list(draw=False)
 
                 if use_rs_depth:
                     pose_room_coordinats = rs_pixel_list_to_3d(depth_frame,cam_intrinsics,pose_landmarks,cam_angle,True)
@@ -497,11 +496,10 @@ def main(fps_cap=S.fps, show_fps=True, show_processing=True,source=0,
         if not paused and process and pose_found:
             draw_hand_center = True
             # hand and shulder
-            pose_detector.find_specific_points('right', True)
-            center = pose_detector.hand_center[1:]
-            hand_center = hand_center_smoother.add_and_get(center,True)
-            shulder = pose_detector.shulder[1:]
-            hip = pose_detector.hip[1:]
+            pose_detector.find_specific_points('moving',is_grapping, True)
+            hand_center = pose_detector.hand_center[1:3]
+            shulder = pose_detector.shulder[1:3] 
+            hip = pose_detector.hip[1:3]
             hand_side = pose_detector.hand_side
             if show_processing and draw_hand_center:
                 x,y = hand_center
@@ -614,17 +612,17 @@ def main(fps_cap=S.fps, show_fps=True, show_processing=True,source=0,
                                                         frame=frame_overlay, draw=show_processing and draw_max_distance, hand_index=hand_index)
                 
                 if valide_hand:
-                    hand_landmarks = hand_detector.findHandPosition(
+                    hand_landmarks = hand_detector.create_landmark_list(
                         frame=frame_overlay, 
                         draw=False
                         )
                     hand_found = len(hand_landmarks) > 0
         # --------------------------------------------------
-        # middle the Hand center of pose and hand detection
+        # overwrite the Hand center of pose by hand detection
         # --------------------------------------------------
         if not paused and process and pose_found and hand_found:
-            center = hand_detector.get_hand_centers(frame_overlay)[0]
-            hand_center = hand_center_smoother.add_and_get(center,True)
+            hand_center = np.int16(hand_detector.get_hand_centers(frame_overlay)[0])
+            
             
 
         # --------------------------------------------------
