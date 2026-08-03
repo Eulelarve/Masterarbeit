@@ -477,7 +477,7 @@ class HandDetector():
         
         return self.is_hand_open
 
-    def open_or_close_aperture_thr(self,frame, width_factor=1.2, thr_open=70, thr_closed = 60, buffer_size=10, draw_aperture=False):
+    def open_or_close_aperture_thr(self,frame, width_factor=1.0, thr_open=70, thr_closed = 55, buffer_size=10, draw_aperture=False):
 
         self.no_hand_counter = 0
 
@@ -501,7 +501,7 @@ class HandDetector():
         self.is_hand_open = self.status_smoother.add_and_get_most_frequently(status)
         return self.is_hand_open
         
-    def findHandAperture(self, frame, use_len_if_larger_then_width=1.2, aperture_range = [0.4, 1.7], draw_aperture=True,):
+    def findHandAperture(self, frame, use_len_if_larger_then_width=1.0, aperture_range_len = [0.4, 1.7], aperture_range_width = [0.7, 1.7], draw_aperture=True,):
         '''
         Finds the normalized hand aperture as distance between the mean point of the hand tips and the mean wrist and thumb base point divided by the palm lenght.
 
@@ -557,19 +557,18 @@ class HandDetector():
 
             # compute hand aperture length as L2norm between hand tips midpoint and lower palm midpoint
             # normalize by palm length computed before
-            hand_len = np.linalg.norm(
-                tips_midpoint_array - lower_palm_midpoint_array, ord=2)
+            hand_len = np.linalg.norm(tips_midpoint_array - lower_palm_midpoint_array, ord=2)
             aperture = hand_len / palm_len
+            aperture_norm = np.round(np.interp(aperture, aperture_range_len, [0, 100]), 1)
+
         else: # means hand is shown from the front
             # compute hand aperture width
             thump_tip_array = np.array(self.lm_list[4][1:])
             pinky_tip_array = np.array(self.lm_list[20][1:])
-            thump_to_pinly_tip_distance = np.linalg.norm(
-                thump_tip_array - pinky_tip_array, ord=2)
+            thump_to_pinly_tip_distance = np.linalg.norm(thump_tip_array - pinky_tip_array, ord=2)
             aperture = thump_to_pinly_tip_distance / palm_width
+            aperture_norm = np.round(np.interp(aperture, aperture_range_width, [0, 100]), 1)
 
-        aperture_norm = np.round(
-            np.interp(aperture, aperture_range, [0, 100]), 1)
 
         if draw_aperture:
             if use_len:

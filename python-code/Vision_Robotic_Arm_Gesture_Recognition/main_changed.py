@@ -150,7 +150,6 @@ def main(fps_cap=S.fps, show_fps=True, show_processing=True,source=0,
         else:
             print('playback:', source)
 
-    mirrow_frame = not is_playback and S.use_frame_mirrowing
 
     # get d455 intrinsics
     # try:
@@ -423,10 +422,9 @@ def main(fps_cap=S.fps, show_fps=True, show_processing=True,source=0,
             if frame_raw is None:
                 continue
 
-            if mirrow_frame:
-                frame_raw = cv2.flip(frame_raw, 1)
-                if use_rs_depth and show_depth_frame:
-                    depth_colormap = cv2.flip(depth_colormap, 1)
+            frame_raw = cv2.flip(frame_raw, 1)
+            if use_rs_depth and show_depth_frame:
+                depth_colormap = cv2.flip(depth_colormap, 1)
 
             frame_overlay = frame_raw.copy()
 
@@ -471,7 +469,7 @@ def main(fps_cap=S.fps, show_fps=True, show_processing=True,source=0,
                     pose_world_landmarks = pose_detector.find3DPosePosition(draw=False)
 
                 if use_rs_depth:
-                    pose_room_coordinats = rs_pixel_list_to_3d(depth_frame,cam_intrinsics,pose_landmarks,cam_angle,mirrow_frame)
+                    pose_room_coordinats = rs_pixel_list_to_3d(depth_frame,cam_intrinsics,pose_landmarks,cam_angle,True)
                     # print('right')
                     # for e,i in enumerate(pose_room_coordinats):
                     #     if e in [12,24,16]:
@@ -499,7 +497,7 @@ def main(fps_cap=S.fps, show_fps=True, show_processing=True,source=0,
         if not paused and process and pose_found:
             draw_hand_center = True
             # hand and shulder
-            pose_detector.find_specific_points('right', mirrow_frame)
+            pose_detector.find_specific_points('right', True)
             center = pose_detector.hand_center[1:]
             hand_center = hand_center_smoother.add_and_get(center,True)
             shulder = pose_detector.shulder[1:]
@@ -658,7 +656,6 @@ def main(fps_cap=S.fps, show_fps=True, show_processing=True,source=0,
                         pointing_azimuth, pointing_elevation = find_pointing_angle2(angle_3d_points, i_hand, i_shulder,
                                                                                     frame_overlay, pose_landmarks,
                                                                                     draw_angles and show_processing,
-                                                                                    not mirrow_frame, 
                                                                                     )
 
                         smoothed_angles = pointing_angle_smoother.add_and_get((pointing_azimuth,pointing_elevation), ignore_none=True)
@@ -669,13 +666,12 @@ def main(fps_cap=S.fps, show_fps=True, show_processing=True,source=0,
                         pointing_azimuth, pointing_elevation = find_pointing_angle(angle_3d_points, i_hand, i_shulder,
                                                                 frame_overlay, pose_landmarks,
                                                                 draw_angles and show_processing,
-                                                                mirrow_frame,
                                                                 )
                         pointing_azimuth, pointing_elevation = pointing_angle_smoother.add_and_get(
                             (pointing_azimuth,pointing_elevation),
                             ignore_none=True
                             )
-                        pointing_azimuth = correct_pointing_angle(pointing_azimuth, hand_side, mirrow_frame)
+                        pointing_azimuth = correct_pointing_angle(pointing_azimuth, hand_side, True)
 
                     pointing_azimuth = clip_pointing_angle(pointing_azimuth, use_rs_depth)
                     pointing_elevation = clip_pointing_angle(pointing_elevation, use_rs_depth)
@@ -947,9 +943,6 @@ def main(fps_cap=S.fps, show_fps=True, show_processing=True,source=0,
                 1
             )
         
-
-        
-       
         # --------------------------------------------------
         # draw GUI overlas
         # --------------------------------------------------
@@ -1178,13 +1171,13 @@ if __name__ == "__main__":
     videos = [v7,v8,v10,v11]
     # videos.reverse()
     for v in bags:
-        for hand_methode in [ 'aperture_len_width__1.2']: #,'distance_dif__0.7','len_width_thr__1.5' ,   ]:
+        for hand_methode in [ 'aperture_len_width__1.1']: #,'distance_dif__0.7','len_width_thr__1.5' ,   ]:
             for buffer_size in [10]:
                 s = S.video_folder+v
                 r = main(
                     fps_cap=S.fps,
                     show_fps=True,
-                    source='rs',
+                    source=1,
                     pause_frames=None,
                     show_processing=True,
                     capture_status_manually=False,

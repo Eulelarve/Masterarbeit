@@ -48,7 +48,7 @@ def draw_angle_between_points(frame, text:str, p1:list[int,int] ,p2:list[int,int
         cv2.putText(frame, text, (cx2 + text_pos[0], cy2 + text_pos[1]),
                     cv2.FONT_HERSHEY_PLAIN, 1, color, 2, cv2.LINE_AA)
 
-def find_pointing_angle2(angle_3d_points,i_hand,i_shulder, frame ,drawing_2d_points, draw, left_is_minus):
+def find_pointing_angle2(angle_3d_points,i_hand,i_shulder, frame ,drawing_2d_points, draw):
     pointing_azimut = None 
     pointing_elevation = None
     arm_azimuth = None
@@ -72,8 +72,7 @@ def find_pointing_angle2(angle_3d_points,i_hand,i_shulder, frame ,drawing_2d_poi
 
         arm_azimuth, arm_elevation = find_arm_angles(angle_3d_points,i_hand,i_shulder, zero_degree_distance, True)
         # room angle (pointing angle)
-        pointing_azimut ,pointing_elevation = find_room_angles(room_size,origin, start_point, arm_azimuth, arm_elevation, resulution, not left_is_minus)
-
+        pointing_azimut ,pointing_elevation = find_room_angles(room_size,origin, start_point, arm_azimuth, arm_elevation, resulution, True)
     if draw:
         draw_arm_angles(frame,i_hand,i_shulder, drawing_2d_points, arm_azimuth, arm_elevation)
     return pointing_azimut ,pointing_elevation

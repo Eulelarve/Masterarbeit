@@ -10,7 +10,6 @@ yellow = (0, 255, 255)
 fps = 30
 live_stream_resulutuin = (1280,720) # (1280,720) or (640,480)
 window_size = (1280,720)#(1920, 1080)#
-use_frame_mirrowing = True
 hand_width_factor = 1.2
 hand_opening_factor = 1.3
 skip_frames = 100
