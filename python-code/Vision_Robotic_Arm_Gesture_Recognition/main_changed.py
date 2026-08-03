@@ -704,13 +704,15 @@ def main(fps_cap=S.fps, show_fps=True, show_processing=True,source=0,
                         # ---------------------------------------
                         # choose a hand opening detection methode
                         # hand_methode = 'aperture_len_width__1.2' #  aperture_len_width__1.2   len_width_thr__1.2   distance_dif__0.5
-                        factor = float(hand_methode[hand_methode.find('__')+2:])
+                        try:
+                            factor = float(hand_methode[hand_methode.find('__')+2:])
+                        except:
+                            factor = None
 
                         if 'aperture_len_width' in hand_methode:
                             hand_status = hand_detector.open_or_close_aperture_thr(
                                     frame=frame_overlay,
                                     draw_aperture=show_processing and draw_aperture,
-                                    width_factor = factor,
                                     buffer_size=S.hand_status_buffer_size,
                                 )
                         elif 'len_width_thr' in hand_methode:
@@ -1171,7 +1173,7 @@ if __name__ == "__main__":
     videos = [v7,v8,v10,v11]
     # videos.reverse()
     for v in bags:
-        for hand_methode in [ 'aperture_len_width__1.1']: #,'distance_dif__0.7','len_width_thr__1.5' ,   ]:
+        for hand_methode in [ 'aperture_len_width']: #,'distance_dif__0.7','len_width_thr__1.5' ,   ]:
             for buffer_size in [10]:
                 s = S.video_folder+v
                 r = main(

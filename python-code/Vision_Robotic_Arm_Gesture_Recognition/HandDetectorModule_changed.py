@@ -2,6 +2,7 @@ import mediapipe as mp
 import matplotlib.pyplot as plt
 import numpy as np
 import cv2
+import math
 
 import time
 
@@ -477,7 +478,7 @@ class HandDetector():
         
         return self.is_hand_open
 
-    def open_or_close_aperture_thr(self,frame, width_factor=1.0, thr_open=70, thr_closed = 55, buffer_size=10, draw_aperture=False):
+    def open_or_close_aperture_thr(self,frame, thr_open=70, thr_closed = 55, buffer_size=10, draw_aperture=False):
 
         self.no_hand_counter = 0
 
@@ -488,7 +489,6 @@ class HandDetector():
         aperture = self.findHandAperture(
                 frame=frame, 
                 draw_aperture=draw_aperture,
-                use_len_if_larger_then_width = width_factor
             )
         
         if aperture >= thr_open:
@@ -501,7 +501,7 @@ class HandDetector():
         self.is_hand_open = self.status_smoother.add_and_get_most_frequently(status)
         return self.is_hand_open
         
-    def findHandAperture(self, frame, use_len_if_larger_then_width=1.0, aperture_range_len = [0.4, 1.7], aperture_range_width = [0.7, 1.7], draw_aperture=True,):
+    def findHandAperture(self, frame, aperture_range_len = [0.4, 1.7], aperture_range_width = [0.7, 1.7], draw_aperture=True,):
         '''
         Finds the normalized hand aperture as distance between the mean point of the hand tips and the mean wrist and thumb base point divided by the palm lenght.
 
@@ -521,64 +521,38 @@ class HandDetector():
         frame, hand aperture (aperture)
         In case the aperture can't be computed, the value of aperture will be None
         '''
-        aperture = None
+        # hand length
+        wrist = self.lm_list[0][1:]
+        middle_mcp = self.lm_list[9][1:]
+        middle_tip = self.lm_list[12][1:]
 
-        thumb_cmc_lm_array = np.array(self.lm_list[1][1:])
-        wrist_lm_array = np.array(self.lm_list[0][1:])
-        lower_palm_midpoint_array = (thumb_cmc_lm_array + wrist_lm_array) / 2
+        palm_len = math.dist(wrist, middle_mcp)
+        hand_len = math.dist(wrist, middle_tip)
+        
+        aperture_len = hand_len / palm_len
+        aperture_len_norm = np.round(np.interp(aperture_len, aperture_range_len, [0, 100]), 1)
 
-        index_mcp_lm_array = np.array(self.lm_list[5][1:])
-        pinky_mcp_lm_array = np.array(self.lm_list[17][1:])
-        upper_palm_midpoint_array = (
-            index_mcp_lm_array + pinky_mcp_lm_array) / 2
+        # hand width
+        pinky_mcp = self.lm_list[17][1:]
+        index_mcp = self.lm_list[5][1:]
+        thump_tip = np.array(self.lm_list[4][1:])
+        pinky_tip = np.array(self.lm_list[20][1:])
 
-        # compute palm lenght as L2 norm between the upper palm midpoint and lower palm midpoint
-        palm_len = np.linalg.norm(
-            upper_palm_midpoint_array - lower_palm_midpoint_array, ord=2)
-        # compute palm width as L2 norm between the index mcp and pinky mcp
-        palm_width = np.linalg.norm(
-            index_mcp_lm_array - pinky_mcp_lm_array, ord=2)
+        palm_width = math.dist(index_mcp, pinky_mcp)
+        hand_width = math.dist(thump_tip, pinky_tip)
 
-        use_len = palm_len > palm_width * use_len_if_larger_then_width
+        aperture_wid = hand_width / palm_width
+        aperture_wid_norm = np.round(np.interp(aperture_wid, aperture_range_width, [0, 100]), 1)
 
-        if use_len: # means hand is shown from the side
-            # 4 finger tips
-            index_tip_array = np.array(self.lm_list[8][1:])
-            middle_tip_array = np.array(self.lm_list[12][1:])
-            ring_tip_array = np.array(self.lm_list[16][1:])
-            pinky_tip_array = np.array(self.lm_list[20][1:])
-            
-            hand_tips = np.array([index_tip_array,
-                                middle_tip_array,
-                                ring_tip_array,
-                                pinky_tip_array])
-
-            tips_midpoint_array = np.mean(hand_tips, axis=0)
-
-            # compute hand aperture length as L2norm between hand tips midpoint and lower palm midpoint
-            # normalize by palm length computed before
-            hand_len = np.linalg.norm(tips_midpoint_array - lower_palm_midpoint_array, ord=2)
-            aperture = hand_len / palm_len
-            aperture_norm = np.round(np.interp(aperture, aperture_range_len, [0, 100]), 1)
-
-        else: # means hand is shown from the front
-            # compute hand aperture width
-            thump_tip_array = np.array(self.lm_list[4][1:])
-            pinky_tip_array = np.array(self.lm_list[20][1:])
-            thump_to_pinly_tip_distance = np.linalg.norm(thump_tip_array - pinky_tip_array, ord=2)
-            aperture = thump_to_pinly_tip_distance / palm_width
-            aperture_norm = np.round(np.interp(aperture, aperture_range_width, [0, 100]), 1)
-
+        use_len = hand_len > hand_width
 
         if draw_aperture:
             if use_len:
-                cv2.line(frame, tuple(tips_midpoint_array.astype(int)),
-                                tuple(lower_palm_midpoint_array.astype(int)), (255, 0, 0), 3)
+                cv2.line(frame, wrist, middle_tip, S.blue, 3)
             else:
-                cv2.line(frame, tuple(thump_tip_array.astype(int)),
-                                tuple(pinky_tip_array.astype(int)), (255, 0, 0), 3)
+                cv2.line(frame,thump_tip, pinky_tip, S.blue, 3)
 
-        return aperture_norm
+        return aperture_len_norm if use_len else aperture_wid_norm
 
 # ---------------------------------------------------------------
 # MAIN SCRIPT EXAMPLE FOR REAL-TIME HAND TRACKING USING A WEBCAM
