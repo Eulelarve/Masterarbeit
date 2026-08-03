@@ -1,5 +1,6 @@
 import json
 import socket
+import numpy as np
 
 class SendOnChange:
     """
@@ -47,6 +48,15 @@ class SendOnChange:
 # dass sie die Werte als JSON-String über UDP sendet. 
 # Das ist robust für Integer und Strings und in MATLAB leicht wieder einlesbar.
 
+def json_converter(obj):
+    if isinstance(obj, np.integer):
+        return int(obj)
+    if isinstance(obj, np.floating):
+        return float(obj)
+    if isinstance(obj, np.ndarray):
+        return obj.tolist()
+    raise TypeError(f"Object of type {type(obj)} is not JSON serializable")
+
 
 def send_info_to(device, printout=False, **infos):
     """
@@ -66,10 +76,9 @@ def send_info_to(device, printout=False, **infos):
     int
         Number of sent bytes.
     """
-
     ip, port = device
     payload_dict = dict(infos)
-    payload = json.dumps(payload_dict).encode("utf-8")
+    payload = json.dumps(payload_dict, default=json_converter).encode("utf-8")
 
     if printout:
         print(f"Sending to {ip}:{port} -> {payload_dict}")

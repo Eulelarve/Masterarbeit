@@ -34,6 +34,8 @@ def main(fps_cap=S.fps, show_fps=True, show_processing=True,source=0,
          skip_hand_move_detection=False,
          show_globe = False,
          hand_methode = 'aperture_len_width__1.2',
+         show_depth_frame = False,
+         full_screen=False,
          ):
     """
     Video processing entry point.
@@ -83,6 +85,8 @@ def main(fps_cap=S.fps, show_fps=True, show_processing=True,source=0,
     hand_status_before:int = None
     is_grapping = False
     video_name = ''
+    # pointing_elevation = None
+    # pointing_azimuth = None
 
     # hand_status_dict = {'aperture':None, 'aperture_width':None,  'len_width_thr_1.2':None, 'len_width_thr_1.4':None, 'distance_dif_0.3':None,'distance_dif_0.4':None}
     # hand_status_detected = {'aperture':[], 'aperture_width':[],  'len_width_thr_1.2':[], 'len_width_thr_1.4':[], 'distance_dif_0.3':[], 'distance_dif_0.4':[]}
@@ -119,7 +123,12 @@ def main(fps_cap=S.fps, show_fps=True, show_processing=True,source=0,
     time.sleep(0.5)
 
     cv2.setUseOptimized(True)
-    cv2.namedWindow(window_name)
+    if full_screen:
+        cv2.namedWindow(window_name, cv2.WINDOW_NORMAL)
+        cv2.setWindowProperty("Bild", cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
+    else:
+        cv2.namedWindow(window_name)
+
     cv2.setMouseCallback(window_name, cv2_mouse_callback)
 
     print('--SOURCE--')
@@ -390,7 +399,7 @@ def main(fps_cap=S.fps, show_fps=True, show_processing=True,source=0,
 
                     depth_frame = frames.get_depth_frame()
 
-                    if depth_frame:
+                    if depth_frame and show_depth_frame:
                         depth_image = np.asanyarray(
                             depth_frame.get_data()
                         )
@@ -416,7 +425,7 @@ def main(fps_cap=S.fps, show_fps=True, show_processing=True,source=0,
 
             if mirrow_frame:
                 frame_raw = cv2.flip(frame_raw, 1)
-                if use_rs_depth:
+                if use_rs_depth and show_depth_frame:
                     depth_colormap = cv2.flip(depth_colormap, 1)
 
             frame_overlay = frame_raw.copy()
@@ -478,7 +487,7 @@ def main(fps_cap=S.fps, show_fps=True, show_processing=True,source=0,
                 if show_processing and draw_landmarks:
                     hands = [15, 21,19,17, 16, 22, 20, 18, ]
                     pose_detector.draw_landmarks(
-                        frame=frame_overlay,
+                        frame=frame_overlay, 
                         landmark_ids=hands,
                     )
 
@@ -563,17 +572,17 @@ def main(fps_cap=S.fps, show_fps=True, show_processing=True,source=0,
         # --------------------------------------------------
         # Hand depth value
         # --------------------------------------------------
-        if not paused and process and pose_found:
-            if roi_hand:
-                if use_rs_depth:
-                    cx, cy = hand_center
-                    if cx > frame_x and cy < frame_y:
-                        distance_m = depth_frame.get_distance(
-                            int(cx),
-                            int(cy)
-                        )
+        # if not paused and process and pose_found:
+        #     if roi_hand:
+        #         if use_rs_depth:
+        #             cx, cy = hand_center
+        #             if cx > frame_x and cy < frame_y:
+        #                 distance_m = depth_frame.get_distance(
+        #                     int(cx),
+        #                     int(cy)
+        #                 )
 
-                        print(f"Distance: {distance_m:.3f} m")
+        #                 print(f"Distance: {distance_m:.3f} m")
 
         # --------------------------------------------------
         # Hand detection
@@ -631,6 +640,7 @@ def main(fps_cap=S.fps, show_fps=True, show_processing=True,source=0,
             arm_in_angle_area = valide_angle_zone(hand_center, frame_raw.shape)
             if  not arm_in_angle_area:
                 pointing_azimuth = None
+                pointing_elevation = None
             else:
                 draw_angles = True
                 if _3D:
@@ -960,7 +970,6 @@ def main(fps_cap=S.fps, show_fps=True, show_processing=True,source=0,
                 overlay.select(hand_center)
                 if hand_grasped:
                     overlay.grap()
-
                 overlay.move(hand_center,azimuth=pointing_azimuth,elevation=pointing_elevation)
                 if hand_released:
                     overlay.release()
@@ -971,7 +980,7 @@ def main(fps_cap=S.fps, show_fps=True, show_processing=True,source=0,
         # --------------------------------------------------
         if gui_info:
             if gui_info['type'] == S.type_instrument:
-                communicator.send(**gui_info)
+                communicator.send(**gui_info) # some error after add elevation
 
         # --------------------------------------------------
         # show - Change visibility mode
@@ -1053,7 +1062,7 @@ def main(fps_cap=S.fps, show_fps=True, show_processing=True,source=0,
             cv2.resize(frame_overlay, S.window_size)
         )
 
-        if use_rs_depth:
+        if use_rs_depth and show_depth_frame:
             cv2.imshow(
                 "Depth",
                 depth_colormap
@@ -1173,7 +1182,7 @@ if __name__ == "__main__":
                 r = main(
                     fps_cap=S.fps,
                     show_fps=True,
-                    source=s,
+                    source='rs',
                     pause_frames=None,
                     show_processing=True,
                     capture_status_manually=False,
@@ -1187,6 +1196,7 @@ if __name__ == "__main__":
                     skip_hand_move_detection=False,
                     show_globe=False,
                     hand_methode=hand_methode,
+                    show_depth_frame = False,
                 )
                 if r == False:break
             if r == False:break

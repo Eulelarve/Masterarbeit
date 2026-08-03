@@ -72,10 +72,10 @@ def find_pointing_angle2(angle_3d_points,i_hand,i_shulder, frame ,drawing_2d_poi
 
 def find_room_angles(room_size:tuple,origin:tuple, start_point:tuple, azimuth_angle:float, elevation_angle:float, resulution:float, left_is_minus:bool) ->tuple[float,float]:
     p1 = rey_tracing_to_room_border(room_size,origin, start_point, azimuth_angle, elevation_angle, resulution)
-    x = origin[0] + start_point[0]
-    y = origin[1] + start_point[1]
-    z = origin[2] + start_point[2]
-    print(origin,p1,x,y,z)#test
+    # x = origin[0] + start_point[0]
+    # y = origin[1] + start_point[1]
+    # z = origin[2] + start_point[2]
+    # print(origin,p1,x,y,z)#test
     room_azimuth = find_azimuth_angle(p1 ,origin, left_is_minus)
     room_elevation = find_elevation_angle(p1, origin, zero_is_horizontal=True,down_is_y_minus=True)
     return room_azimuth, room_elevation

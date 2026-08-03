@@ -141,7 +141,7 @@ def rs_pixel_to_3d(depth_frame, intrinsics, px:int, py:int, mirrowed_frame=False
         depth
     )
     if mirrowed_frame:
-        point[0] = w - point[0]
+        point[0] = - point[0]
         
     return np.array(point)
 
@@ -166,10 +166,12 @@ def rs_pixel_list_to_3d(depth_frame, intrinsics,pixel_coords_list:tuple, cam_ang
 
     pts_3d = []
     for i ,(x,y) in enumerate(pts):
+
         p3d = rs_pixel_to_3d(depth_frame, intrinsics, x, y,mirrowed_frame)
         if p3d is None:
             pts_3d.append(None)
             continue
+
         x,y,z = p3d
         # angle compensation
         y = z*np.sin(theta) + y*np.cos(theta)

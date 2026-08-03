@@ -9,7 +9,7 @@ yellow = (0, 255, 255)
 # other
 fps = 30
 live_stream_resulutuin = (1280,720) # (1280,720) or (640,480)
-window_size = (1280,720)#(1920, 1080)
+window_size = (1920, 1080)#(1280,720)#
 hand_width_factor = 1.2
 hand_opening_factor = 1.3
 skip_frames = 100
@@ -31,11 +31,11 @@ instrument_start_volume = 0.5 # sound volume is between 0 and 1
 rs_save_type = '.bag'
 zero_degree_distance = 0.10 # in meters
 real_depth_angle_resulutuin = 15
-room_size = (4.0, 2.7, 4.0)   # xyz <- width, hight, depth in meters
-room_origin = (2.0, 1.5, 2.0) # xyz <- width, hight, depth in meters, (0,0,0) is bottom, left, front corner
+room_size = (3.4, 2.7, 3.4)   # xyz <- width, hight, depth in meters (outer boarders 4m,3m,4m und 30 cm thick frame beams)
+room_origin = (1.7, 1.5, 1.7) # xyz <- width, hight, depth in meters, (0,0,0) is bottom, left, front corner
 step_size_to_find_pointing_angle = 0.1 # in meters
 align_depth = True
-dist_cam_to_room_center = 1.85 # in meter
+dist_cam_to_room_center = 1.8 # in meter
 cam_intrinsics = 'xxx'
 
 # d455 intrinsiks color frame:              [ 1280x720  p[638.568 367.388]  f[640.329 638.932]  Inverse Brown Conrady [-0.055931 0.0683116 -0.000836038 0.000658576 -0.0223113] ]
