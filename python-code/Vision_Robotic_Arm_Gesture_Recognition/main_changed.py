@@ -150,7 +150,7 @@ def main(fps_cap=S.fps, show_fps=True, show_processing=True,source=0,
         else:
             print('playback:', source)
 
-    mirrow_frame = not is_playback
+    mirrow_frame = not is_playback and S.use_frame_mirrowing
 
     # get d455 intrinsics
     # try:
@@ -459,10 +459,12 @@ def main(fps_cap=S.fps, show_fps=True, show_processing=True,source=0,
                     frame=frame_overlay,
                     draw=show_processing and draw_landmarks
                 )
-            
+
             pose_found = True if len(pose_landmarks) > 0 else False
             
             if pose_found:
+                pose_detector.find_smoothed_landmarks()
+                pose_detector.find_speed()
                 frame_counter_pose += 1
 
                 if _3D and not use_rs_depth:
@@ -497,7 +499,7 @@ def main(fps_cap=S.fps, show_fps=True, show_processing=True,source=0,
         if not paused and process and pose_found:
             draw_hand_center = True
             # hand and shulder
-            pose_detector.find_specific_points()
+            pose_detector.find_specific_points('right', mirrow_frame)
             center = pose_detector.hand_center[1:]
             hand_center = hand_center_smoother.add_and_get(center,True)
             shulder = pose_detector.shulder[1:]
@@ -656,12 +658,12 @@ def main(fps_cap=S.fps, show_fps=True, show_processing=True,source=0,
                         pointing_azimuth, pointing_elevation = find_pointing_angle2(angle_3d_points, i_hand, i_shulder,
                                                                                     frame_overlay, pose_landmarks,
                                                                                     draw_angles and show_processing,
-                                                                                    mirrow_frame, 
+                                                                                    not mirrow_frame, 
                                                                                     )
-                        pointing_azimuth, pointing_elevation = pointing_angle_smoother.add_and_get(
-                            (pointing_azimuth,pointing_elevation),
-                            ignore_none=True
-                            )
+
+                        smoothed_angles = pointing_angle_smoother.add_and_get((pointing_azimuth,pointing_elevation), ignore_none=True)
+                        if smoothed_angles:
+                            pointing_azimuth, pointing_elevation = smoothed_angles
                         
                     else:
                         pointing_azimuth, pointing_elevation = find_pointing_angle(angle_3d_points, i_hand, i_shulder,

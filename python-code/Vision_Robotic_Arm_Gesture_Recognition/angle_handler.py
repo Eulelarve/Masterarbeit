@@ -54,7 +54,8 @@ def find_pointing_angle2(angle_3d_points,i_hand,i_shulder, frame ,drawing_2d_poi
     arm_azimuth = None
     arm_elevation = None
     shoulder = angle_3d_points[i_shulder]
-    if shoulder is not None:
+    hand = angle_3d_points[i_hand]
+    if shoulder is not None and hand is not None:
         # set parameters
         resulution = S.step_size_to_find_pointing_angle
         room_size = S.room_size
@@ -62,10 +63,17 @@ def find_pointing_angle2(angle_3d_points,i_hand,i_shulder, frame ,drawing_2d_poi
         zero_degree_distance = S.zero_degree_distance
         start_point = shoulder[1:]
         start_point[2] += -S.dist_cam_to_room_center
+        # check for ovelapping hand and shoulder
+        hand_shulder_dist = math.dist(shoulder[1:], hand[1:]) 
+        if zero_degree_distance >= hand_shulder_dist:
+            # if shoulder and hand are overlapping in the frame, persine is pointing to the camera
+            return  0, 0 
         # arm angle
-        arm_azimuth, arm_elevation = find_arm_angles(angle_3d_points,i_hand,i_shulder, zero_degree_distance, left_is_minus, )
+
+        arm_azimuth, arm_elevation = find_arm_angles(angle_3d_points,i_hand,i_shulder, zero_degree_distance, True)
         # room angle (pointing angle)
-        pointing_azimut ,pointing_elevation = find_room_angles(room_size,origin, start_point, arm_azimuth, arm_elevation, resulution, left_is_minus)
+        pointing_azimut ,pointing_elevation = find_room_angles(room_size,origin, start_point, arm_azimuth, arm_elevation, resulution, not left_is_minus)
+
     if draw:
         draw_arm_angles(frame,i_hand,i_shulder, drawing_2d_points, arm_azimuth, arm_elevation)
     return pointing_azimut ,pointing_elevation
@@ -115,7 +123,7 @@ def rey_tracing_to_room_border(room_size:tuple,origin:tuple, start_point:tuple, 
     max_steps = math.ceil(room_diagonal/step)
     for _ in range(max_steps):
         # follow slope
-        x -= math.sin(math.radians(azimuth_angle)) * step
+        x += math.sin(math.radians(azimuth_angle)) * step
         y += (math.sin(math.radians(elevation_angle)) * step) if elevation_angle else 0
         z -= math.cos(math.radians(azimuth_angle)) * step
         # checking room borders
@@ -156,9 +164,6 @@ def find_arm_angles(angle_3d_points,i_hand,i_shulder, zero_degree_distance:int, 
     
     p1 = hand[1:] 
     p2 = shulder[1:] 
-    hand_shulder_dist = math.dist(p1, p2) # if shoulder and hand are overlapping in the frame
-    if zero_degree_distance >= hand_shulder_dist:
-        return  0, 0
     
     arm_azimuth = find_azimuth_angle(p1,p2,left_is_minus)
     arm_elevation = find_elevation_angle(p1,p2, zero_is_horizontal=True, down_is_y_minus=False)

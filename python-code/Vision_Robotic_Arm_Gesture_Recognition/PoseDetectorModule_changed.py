@@ -5,10 +5,10 @@ import cv2
 import time
 import math
 
-from own_functions import ValueBuffer, close_to
+from own_functions import ValueBuffer, close_to, MoveDetector, ListAverager
 from coordinates_handler import get_center_of_landmarks
 from angle_handler import find_pointing_angle, correct_pointing_angle, clip_pointing_angle , find_pointing_angle2, angle_between_points,draw_angle_between_points, find_azimuth_angle
-
+import settings as S
 
 class poseDetector():
     def __init__(self, mode=False, modCompl=1, upBody=False, smooth=True, segm=False, smooth_seg=True, detCon=0.5, trackCon=0.5):
@@ -40,6 +40,7 @@ class poseDetector():
         self.detCon = detCon  # detection confidence threshold
         self.trackCon = trackCon  # tracking confidence threshold
         self.hand_moving_buffer = ValueBuffer(5)
+        self.hand_side:str = None
 
         self.mpPose = mp.solutions.pose
         self.pose = self.mpPose.Pose(static_image_mode=self.mode,
@@ -50,7 +51,37 @@ class poseDetector():
                                      min_detection_confidence=self.detCon,
                                      min_tracking_confidence=self.trackCon)
         self.mpDraw = mp.solutions.drawing_utils
-    
+        self.move_detectors:list[MoveDetector] = []
+        self.pos_averagers:list[ListAverager] = []
+
+        self.left_hand_points = [ 15,17,19, 21 ] # left hand landmarks from mediapipe pose
+        self.right_hand_points = [ 16,18,20, 22 ] # right hand landmarks from mediapipe pose
+
+    def find_speed(self):
+        if not self.lm_list:
+            return []
+        self.lm_speed_list = []
+        for (i,x,y) in self.lm_list:
+            if i >= len(self.move_detectors):
+                self.move_detectors.append(MoveDetector(S.moving_speed,S.moving_buffer_size))
+            speed = self.move_detectors[i].get_speed((x,y))
+            if speed is None:
+                speed = 0
+            self.lm_speed_list.append([i, speed])
+
+        return self.lm_speed_list
+
+    def find_smoothed_landmarks(self):
+        if self.lm_list:
+            self.lm_smoothed_list = []
+            for (i,x,y) in self.lm_list:
+                if i >= len(self.pos_averagers):
+                    self.pos_averagers.append(ListAverager(S.moving_buffer_size))
+
+                pos = self.pos_averagers[i].add_and_get((x,y))
+                self.lm_smoothed_list.append([i,*pos])
+
+        return self.lm_smoothed_list
 
 
     def findPose(self, frame, frame_to_draw=None, draw=True):
@@ -111,19 +142,19 @@ class poseDetector():
 
         return self.lm_list
 
-    def find_specific_points(self):
+    def find_specific_points(self,mode:str='top', mirrowed:bool=False):
         landmarks = self.lm_list
-        hand_points = self.get_hand_points('left')
+        hand_points = self.get_hand_points(mode, mirrowed)
         self.hand_center = get_center_of_landmarks(landmarks,hand_points[1:3]) # just take 17, 19 (left) or 18, 20 (right) to get the hand center
         self.hand_center.insert(0, hand_points[2]) # [hand_point_index , x, y]  while 15,17,19 or 21 for left, 16, 18, 20 or 22 for right hand
         if 15 in hand_points: # left hand
             self.shulder = landmarks[11] # left shulder
             self.hip = landmarks[23]
-            self.hand_side = 'left'
+            self.hand_side = 'left' #if not mirrowed else 'right'
         elif 16 in hand_points: # right hand
             self.shulder = landmarks[12] # right shulder
             self.hip = landmarks[24]
-            self.hand_side = 'right'
+            self.hand_side = 'right' #if not mirrowed else 'left'
 
     
     def calibrate_arm_length(self,time_to_calibrate=2.0, max_rel_hight_diff=1/4):
@@ -144,9 +175,6 @@ class poseDetector():
 
         else:
             self.calibranion_start_time = time.perf_counter()
-
-
-        
 
 
     def find3DPosePosition(self, additional_info=False, draw=False):
@@ -302,22 +330,56 @@ class poseDetector():
         # only the first leter is capital letter, so it is uniform for all spelling options
         left_right_top = left_right_top.capitalize() 
         hand_center = None
-        left_hand_points = [ 15,17,19, 21 ] # left hand landmarks from mediapipe pose
-        right_hand_points = [ 16,18,20, 22 ] # right hand landmarks from mediapipe pose
+        left = self.left_hand_points
+        right = self.right_hand_points
+        # if mirrored:
+        #     left_hand_points, right_hand_points = right_hand_points, left_hand_points
 
         if left_right_top == "Top":
-            hand_points = self.get_upper_points([left_hand_points, right_hand_points])
+            hand_points = self.get_upper_points([left, right])
 
         elif left_right_top == "Left":
-            hand_points = left_hand_points if not mirrored else right_hand_points
+            hand_points = left if not mirrored else right
 
         elif left_right_top == "Right":
-            hand_points = right_hand_points if not mirrored else left_hand_points
+            hand_points = right if not mirrored else left
+
+        elif left_right_top in ['Moving','Move','Fastest']:
+            moving = self.get_fastest_hand()
+            if moving:
+                self.hand_side = moving
+            hand_points = left if self.hand_side == 'left' else right
         else:
             print(f"Invalid hand selection mode: {left_right_top}. Please choose 'top', 'left' or 'right'.")
         
         return hand_points
 
+    def get_fastest_point(self, point_ids:list=None):
+        if point_ids is None:
+            point_ids = range(33)
+        pts_speeds = self.lm_speed_list[:][1]
+        max_speed = 0
+        fastest_id = None
+        for id in point_ids:
+            if id >= len(pts_speeds):
+                continue
+            speed = pts_speeds[id]
+            if speed > max_speed:
+                max_speed = speed
+                fastest_id = id
+        return fastest_id
+
+    def get_fastest_hand(self):
+        hand_ids = [*self.left_hand_points, *self.right_hand_points]
+        moving_ids = [id for id in hand_ids if self.lm_speed_list[id][1] >= S.moving_speed]
+        if moving_ids:
+            fastest = self.get_fastest_point(moving_ids)
+            if fastest in self.left_hand_points:
+                return 'left'
+            elif fastest in self.right_hand_points:
+                return 'right'
+        return None
+    
     def get_upper_body_length(self):
         if self.lm_list:
             marks = self.lm_list

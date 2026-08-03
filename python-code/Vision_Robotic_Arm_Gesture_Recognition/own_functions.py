@@ -69,9 +69,11 @@ def get_globe_timeline_curvs(r, cx=0, cy=0, deg_steps=15, line_steps=50, frame=N
 class MoveDetector:
     def __init__(self,min_speed=10, buffer_size=5):
         self.pos = None
-        self.speed = None
+        self.speed_buffer = ValueBuffer(buffer_size=buffer_size)
         self.status_buffer = ValueBuffer(buffer_size=buffer_size)
         self.min_speed = min_speed
+        self.speed = None
+        self.smoothed_speed = None
 
     def _is_moving_no_buffer(self, new_pos:list):
         if self.is_jumping(new_pos) == False:
@@ -79,11 +81,10 @@ class MoveDetector:
                 return True
             return False
         return None
-
     
-    def is_moving(self, new_pos:list)->bool|None:
-        speed = self.get_speed(new_pos)
-        if speed >= self.min_speed:
+    def is_moving(self, new_pos:list=None)->bool|None:
+        self.set_new_pos(new_pos)
+        if self.speed >= self.min_speed:
             return True
         return False
 
@@ -94,12 +95,22 @@ class MoveDetector:
     def stands_still(self, new_pos:list)->bool:
         return not self.is_moving(new_pos)
 
-    def get_speed(self, new_pos):
-        if self.pos is None:
+    def get_speed(self, new_pos:tuple=None)->float:
+        self.set_new_pos(new_pos)
+        return self.speed
+
+    def get_speed_smoothed(self, new_pos:tuple=None)->float:
+            if new_pos is not None:
+                self.set_new_pos(new_pos)
+            return self.smoothed_speed
+
+    def set_new_pos(self, new_pos:tuple):
+        if new_pos is not None:
+            if self.pos is None:
+                self.pos = new_pos
+            self.speed = math.dist(new_pos, self.pos)
+            self.smoothed_speed = self.speed_buffer.add_and_get_average(self.speed)
             self.pos = new_pos
-        pos_change = math.dist(new_pos, self.pos)
-        self.pos = new_pos
-        return pos_change
 
     # def is_jumping(self, new_pos):
     #     if self.valide_move(new_pos):
@@ -259,15 +270,18 @@ class ValueBuffer:
         return self.values.index(value)
 
 class ListAverager:
-    def __init__(self, buffer_size=5, list_len=2):
-        self.buffer_list = []
-        for _ in range(list_len):
-            self.buffer_list.append(ValueBuffer(buffer_size))
+    def __init__(self, buffer_size=5):
+        self.buffer_list:list[ValueBuffer] = []
+        self.buffer_size = buffer_size
 
-    def add(self, list:tuple, ignore_none=False):
-        for i, value in enumerate(list):
+    def add(self, values:tuple, ignore_none=False):
+        for i, value in enumerate(values):
             if value is None and ignore_none:
                 continue
+
+            if i >= len(self.buffer_list):
+                self.buffer_list.append(ValueBuffer(self.buffer_size))
+
             self.buffer_list[i].add(value)
 
     def get(self, rounded=False)->list:
