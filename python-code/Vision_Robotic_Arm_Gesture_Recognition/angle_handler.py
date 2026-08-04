@@ -7,7 +7,7 @@ import socket
 import pyrealsense2 as rs
 import numpy as np
 from datetime import datetime
-
+from coordinates_handler import rs_pixel_list_to_3d
 
 from own_functions import insert, keep_rect_inside, map_threshold
 from analyse import SaveFrameStatus, save_list_to_file, find_files
@@ -64,18 +64,24 @@ def find_pointing_angle2(angle_3d_points,i_hand,i_shulder, frame ,drawing_2d_poi
         start_point = shoulder[1:]
         start_point[2] += -S.dist_cam_to_room_center
         # check for ovelapping hand and shoulder
-        hand_shulder_dist = math.dist(shoulder[1:], hand[1:]) 
-        if zero_degree_distance >= hand_shulder_dist:
-            # if shoulder and hand are overlapping in the frame, persine is pointing to the camera
+        if pointion_into_camera(hand[1:4],shoulder[1:4]):
             return  0, 0 
         # arm angle
 
-        arm_azimuth, arm_elevation = find_arm_angles(angle_3d_points,i_hand,i_shulder, zero_degree_distance, True)
+        arm_azimuth, arm_elevation = find_arm_angles(angle_3d_points,i_hand,i_shulder, True)
         # room angle (pointing angle)
         pointing_azimut ,pointing_elevation = find_room_angles(room_size,origin, start_point, arm_azimuth, arm_elevation, resulution, True)
     if draw:
         draw_arm_angles(frame,i_hand,i_shulder, drawing_2d_points, arm_azimuth, arm_elevation)
     return pointing_azimut ,pointing_elevation
+
+def pointion_into_camera(hand, shoulder):
+        """ if shoulder and hand are overlapping in the frame, persine is pointing to the camera """
+        hand_shulder_dist = math.dist(shoulder[1:], hand[1:]) 
+        if hand_shulder_dist <= S.zero_degree_distance:
+            return True
+        return False
+
 
 def find_room_angles(room_size:tuple,origin:tuple, start_point:tuple, azimuth_angle:float, elevation_angle:float, resulution:float, left_is_minus:bool) ->tuple[float,float]:
     p1 = rey_tracing_to_room_border(room_size,origin, start_point, azimuth_angle, elevation_angle, resulution)
@@ -147,15 +153,18 @@ def rey_tracing_to_room_border(room_size:tuple,origin:tuple, start_point:tuple, 
     # not valide
     return None
 
-def find_pointing_angle(angle_3d_points,i_hand,i_shulder, frame=None ,drawing_2d_points=None, draw=False, left_is_minus=True, ):
-    zero_degree_distance = S.zero_degree_distance
-    arm_azimuth, arm_elevation = find_arm_angles(angle_3d_points,i_hand,i_shulder, zero_degree_distance, left_is_minus, )
+def find_pointing_angle(hand_pixel_xy ,shoulder_pixel_xy, hand_side:str, frame=None, draw=False):
+    hand_3d ,shoulder_3d = rs_pixel_list_to_3d()
+    arm_azimuth, arm_elevation = find_arm_angles(hand_3d ,shoulder_3d, True)
+
     if draw:
-        draw_arm_angles(frame,i_hand,i_shulder, drawing_2d_points, arm_azimuth, arm_elevation)
-    
+        draw_arm_angles(frame,hand_pixel_xy ,shoulder_pixel_xy, arm_azimuth, arm_elevation)
+
+    hand_side = 'left' if i_hand in S.left_hand_landmark_ids else 'right'
+    pointing_azimuth = correct_pointing_angle(pointing_azimuth, hand_side, True)
     return arm_azimuth ,arm_elevation
 
-def find_arm_angles(angle_3d_points,i_hand,i_shulder, zero_degree_distance:int, left_is_minus:bool)->float|None:
+def find_arm_angles(angle_3d_points,i_hand,i_shulder, left_is_minus:bool)->float|None:
     hand = angle_3d_points[i_hand]
     shulder = angle_3d_points[i_shulder]
     if hand is None or shulder is None:
@@ -208,9 +217,9 @@ def find_azimuth_angle(p1:tuple,p2_angle_point:tuple,left_is_minus:bool=True)->f
     return azimuth
 
 
-def draw_arm_angles(frame,i_hand,i_shulder, drawing_2d_points, arm_azimuth, arm_elevation):
-    p1_2d = drawing_2d_points[i_hand][1:3]
-    p2_2d = drawing_2d_points[i_shulder][1:3]
+def draw_arm_angles(frame,hand_pixel_xy ,shoulder_pixel_xy, arm_azimuth, arm_elevation):
+    p1_2d = hand_pixel_xy
+    p2_2d = shoulder_pixel_xy
     p3_2d = p2_2d.copy()
     p3_2d[1] += 100 # draw in y direction
     text = ''
@@ -240,12 +249,13 @@ def correct_pointing_angle(angle:float,hand_side:str,mirrowed_frame:bool):
 
     return new_angle
 
-def clip_pointing_angle(angle, real_depth):
+def clip_pointing_angle(angle, real_depth, borders:tuple=None):
     if angle is None:
           return None
     if real_depth:
         angle = round_angle_to_resulution(angle)
-        angle = np.clip(angle, -90, +90)
+        if borders:
+            angle = np.clip(angle, *borders)
     else:                 
         angle = map_threshold(angle,(-75,-25,25,75),(-90,-45,0,45,90))
     return angle

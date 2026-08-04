@@ -12,7 +12,7 @@ from collections import defaultdict
 from comunication import SendOnChange
 from GUI import GuiOverlay
 from own_functions import ValueBuffer,ListAverager, CSVWriter, tolist, screenshot, close_to, MoveDetector, get_globe_timeline_curvs , cv2_mouse_callback, MOUSE, valide_angle_zone, map_threshold
-from coordinates_handler import mediapipe_pose_world_to_3d, rs_pixel_list_to_3d, get_center_of_landmarks, mediapipe_pose_to_3d
+from coordinates_handler import mediapipe_pose_world_to_3d, rs_pixel_list_to_3d, get_center_of_landmarks, mediapipe_pose_to_3d, rs_pixel_to_3d
 from angle_handler import find_pointing_angle, correct_pointing_angle, clip_pointing_angle , find_pointing_angle2, angle_between_points,draw_angle_between_points, find_azimuth_angle
 
 from HandDetectorModule_changed import HandDetector as hdm
@@ -567,20 +567,6 @@ def main(fps_cap=S.fps, show_fps=True, show_processing=True,source=0,
                     if roi_width >= min_width and roi_height >= min_height:
                         roi_hand = (start_x, start_y, roi_width, roi_height)
 
-        # --------------------------------------------------
-        # Hand depth value
-        # --------------------------------------------------
-        # if not paused and process and pose_found:
-        #     if roi_hand:
-        #         if use_rs_depth:
-        #             cx, cy = hand_center
-        #             if cx > frame_x and cy < frame_y:
-        #                 distance_m = depth_frame.get_distance(
-        #                     int(cx),
-        #                     int(cy)
-        #                 )
-
-        #                 print(f"Distance: {distance_m:.3f} m")
 
         # --------------------------------------------------
         # Hand detection
@@ -624,6 +610,13 @@ def main(fps_cap=S.fps, show_fps=True, show_processing=True,source=0,
             hand_center = np.int16(hand_detector.get_hand_centers(frame_overlay)[0])
             
             
+        # --------------------------------------------------
+        # 3D room points for hand center and shoulder
+        # --------------------------------------------------
+        # if not paused and process and pose_found:
+        #     if use_rs_depth:
+        #         hand_center_3d = rs_pixel_to_3d(depth_frame, cam_intrinsics,*hand_center, True)
+        #         shoulder_3d = rs_pixel_to_3d(depth_frame, cam_intrinsics,*shulder, True)
 
         # --------------------------------------------------
         # hand (hand in pose landmarks) is moving
@@ -653,25 +646,22 @@ def main(fps_cap=S.fps, show_fps=True, show_processing=True,source=0,
                     if use_rs_depth or cam_intrinsics and True:
                         pointing_azimuth, pointing_elevation = find_pointing_angle2(angle_3d_points, i_hand, i_shulder,
                                                                                     frame_overlay, pose_landmarks,
-                                                                                    draw_angles and show_processing,
+                                                                                    draw_angles and show_processing
                                                                                     )
-
-                        smoothed_angles = pointing_angle_smoother.add_and_get((pointing_azimuth,pointing_elevation), ignore_none=True)
-                        if smoothed_angles:
-                            pointing_azimuth, pointing_elevation = smoothed_angles
+                        borders = None
                         
                     else:
                         pointing_azimuth, pointing_elevation = find_pointing_angle(angle_3d_points, i_hand, i_shulder,
                                                                 frame_overlay, pose_landmarks,
                                                                 draw_angles and show_processing,
                                                                 )
-                        pointing_azimuth, pointing_elevation = pointing_angle_smoother.add_and_get(
-                            (pointing_azimuth,pointing_elevation),
-                            ignore_none=True
-                            )
-                        pointing_azimuth = correct_pointing_angle(pointing_azimuth, hand_side, True)
 
-                    pointing_azimuth = clip_pointing_angle(pointing_azimuth, use_rs_depth)
+                        borders = (-90, +90)
+
+                    smoothed_angles = pointing_angle_smoother.add_and_get((pointing_azimuth,pointing_elevation), ignore_none=True)
+                    if smoothed_angles:
+                        pointing_azimuth, pointing_elevation = smoothed_angles
+                    pointing_azimuth = clip_pointing_angle(pointing_azimuth, use_rs_depth, borders)
                     pointing_elevation = clip_pointing_angle(pointing_elevation, use_rs_depth)
 
         # --------------------------------------------------

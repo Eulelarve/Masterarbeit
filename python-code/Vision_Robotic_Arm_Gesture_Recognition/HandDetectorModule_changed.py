@@ -500,9 +500,10 @@ class HandDetector():
 
         palm_len = math.dist(wrist, middle_mcp)
         hand_len = math.dist(wrist, middle_tip)
-        
-        aperture_len = hand_len / palm_len
-        aperture_len_norm = np.round(np.interp(aperture_len, aperture_range_len, [0, 100]), 1)
+
+        if palm_len > 0:
+            aperture_len = hand_len / palm_len
+            aperture_len_norm = np.round(np.interp(aperture_len, aperture_range_len, [0, 100]), 1)
 
         # hand width
         pinky_mcp = self.lm_list[17][1:]
@@ -512,9 +513,10 @@ class HandDetector():
 
         palm_width = math.dist(index_mcp, pinky_mcp)
         hand_width = math.dist(thump_tip, pinky_tip)
-
-        aperture_wid = hand_width / palm_width
-        aperture_wid_norm = np.round(np.interp(aperture_wid, aperture_range_width, [0, 100]), 1)
+        
+        if palm_width > 0:
+            aperture_wid = hand_width / palm_width
+            aperture_wid_norm = np.round(np.interp(aperture_wid, aperture_range_width, [0, 100]), 1)
 
         use_len = hand_len > hand_width
 

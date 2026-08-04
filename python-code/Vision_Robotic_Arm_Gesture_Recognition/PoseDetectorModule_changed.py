@@ -57,8 +57,8 @@ class poseDetector():
         self.world_pos_averagers = [ListAverager(S.position_buffer_size) for _ in self.lm_range]
         self.visibility_smoother = [ValueBuffer(S.position_buffer_size) for _ in self.lm_range]
 
-        self.left_hand_points = [ 15,17,19, 21 ] # left hand landmarks from mediapipe pose
-        self.right_hand_points = [ 16,18,20, 22 ] # right hand landmarks from mediapipe pose
+        self.left_hand_points = S.left_hand_landmark_ids
+        self.right_hand_points = S.right_hand_landmark_ids
 
     def create_moving_list(self):
         if not self.lm_list:

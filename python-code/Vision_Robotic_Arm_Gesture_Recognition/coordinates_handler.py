@@ -116,34 +116,41 @@ def mediapipe_pose_to_3d(pose_landmarks:tuple[int], pose_wold_landmarks, intrins
     pts = add_estimated_cam_distance(pts)
     return pts
 
-def rs_pixel_to_3d(depth_frame, intrinsics, px:int, py:int, mirrowed_frame=False):
+def rs_get_depth(depth_frame, pixel_xy:tuple, mirrowed_x_pixel:bool)->float|None:
+    h = depth_frame.get_height()
+    w = depth_frame.get_width()
+    x = int(pixel_xy[0])
+    y = int(pixel_xy[1])
+    # Out-of-range prüfen
+    if x < 0 or x >= w or y < 0 or y >= h:
+        return None
+
+    if mirrowed_x_pixel:
+        x = w - x
+
+    return depth_frame.get_distance(x, y)
+
+def rs_pixel_to_meter(intrinsics:object, pixel_xy:tuple, depth:float)->list:
+    return rs.rs2_deproject_pixel_to_point(intrinsics, pixel_xy, depth)
+
+def rs_pixel_to_3d(depth_frame_or_depth:object|float|int, intrinsics:object, pixel_xy:tuple, cam_angle:float, mirrowed_x_pixel:bool)->list:
     """
     px, py: Pixelkoordinaten im Colorbild
     Rückgabe: np.array([X,Y,Z]) in Metern
     """
-    h = depth_frame.get_height()
-    w = depth_frame.get_width()
-    x = int(px)
-    y = int(py)
-    if mirrowed_frame:
-        x = w - x
+    if type(depth_frame_or_depth) in [int, float]:
+        depth = depth_frame_or_depth
+    else:
+        depth = rs_get_depth(depth_frame_or_depth, pixel_xy, mirrowed_x_pixel)
 
-    # Out-of-range prüfen
-    if x < 0 or x >= w or y < 0 or y >= h:
-        return None
-    depth = depth_frame.get_distance(x, y)
+    meter = rs_pixel_to_meter(intrinsics, pixel_xy, depth)
 
-    if depth <= 0:
-        return None
-    point = rs.rs2_deproject_pixel_to_point(
-        intrinsics,
-        [x, y],
-        depth
-    )
-    if mirrowed_frame:
-        point[0] = - point[0]
+    if mirrowed_x_pixel:
+        meter[0] = - meter[0]
+
+        x,y,z = compensate_cam_angle(meter, cam_angle)
         
-    return np.array(point)
+    return [x,y,z]
 
 
 def rs_pixel_list_to_3d(depth_frame, intrinsics,pixel_coords_list:tuple, cam_angle:float, mirrowed_frame = False):
@@ -162,21 +169,18 @@ def rs_pixel_list_to_3d(depth_frame, intrinsics,pixel_coords_list:tuple, cam_ang
     if len(pts[0]) > 2: 
         pts = pts[:, 1:3]
 
-    theta = np.deg2rad(cam_angle)
 
     pts_3d = []
-    for i ,(x,y) in enumerate(pts):
+    for pt in pts:
 
-        p3d = rs_pixel_to_3d(depth_frame, intrinsics, x, y,mirrowed_frame)
-        if p3d is None:
-            pts_3d.append(None)
-            continue
-
-        x,y,z = p3d
-        # angle compensation
-        y = z*np.sin(theta) + y*np.cos(theta)
-        z = z*np.cos(theta) + -y*np.sin(theta)
-        pts_3d.append([i,x,y,z])
+        p3d = rs_pixel_to_3d(depth_frame, intrinsics, pt, cam_angle, mirrowed_frame)
+        pts_3d.append(p3d)
 
     return pts_3d
 
+def compensate_cam_angle(point_3d:tuple, cam_elevation:float)->list:
+    theta = np.deg2rad(cam_elevation)
+    x,y,z = point_3d
+    y = z*np.sin(theta) + y*np.cos(theta)
+    z = z*np.cos(theta) + -y*np.sin(theta)
+    return [x,y,z]
