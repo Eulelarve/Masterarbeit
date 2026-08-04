@@ -62,7 +62,8 @@ class HandDetector():
 
             return hands_center
         
-    def hand_close_to(self, should_pos:list, max_distance, frame, hand_index:int=0, draw=False):
+    def hand_close_to(self, should_pos:list, max_distance, frame, hand_side_index:int=0, draw=False):
+        hs_i = hand_side_index
         # first chesk
         hand_centers = self.get_hand_centers()
         if not hand_centers:
@@ -76,8 +77,8 @@ class HandDetector():
         if should_pos[1] >= 1: # y coordinate is bigger than 1, so it is in pixel values, change to relative values
             should_pos[1] = should_pos[1] / frame.shape[0]
         # claculate distance x y
-        x_diff = abs(hand_centers[hand_index][0] - should_pos[0])
-        y_diff = abs(hand_centers[hand_index][1] - should_pos[1])
+        x_diff = abs(hand_centers[hs_i][0] - should_pos[0])
+        y_diff = abs(hand_centers[hs_i][1] - should_pos[1])
         # elliptical rectification
         x_diff = x_diff / frame.shape[1] * frame.shape[0] # x dist = x dist / x frame * y frame
         # check distance
@@ -91,7 +92,7 @@ class HandDetector():
         if draw:
             radius = int(max_distance * frame.shape[0]) # change to pixel values
             cv2.circle(frame, (int(should_pos[0]*frame.shape[1]), int(should_pos[1]*frame.shape[0])), radius, color, 1) # circle
-            cv2.circle(frame, (int(hand_centers[hand_index][0]*frame.shape[1]), int(hand_centers[hand_index][1]*frame.shape[0])), 3, S.red, -1) # dot
+            cv2.circle(frame, (int(hand_centers[hs_i][0]*frame.shape[1]), int(hand_centers[hs_i][1]*frame.shape[0])), 3, S.red, -1) # dot
         return output
       
        
@@ -116,7 +117,6 @@ class HandDetector():
             
             # only the first leter is capital letter, so if fits to the Mediapipe label format
             left_right_top = left_right_top.capitalize() 
-
 
 
             #--------------------------------------------------

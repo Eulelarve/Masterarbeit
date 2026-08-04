@@ -477,7 +477,8 @@ class CSVWriter:
             print(f'CSVWriter: add row to {filename}')
 
 
-def close_to(max_distance:float, *points:list)->bool:
+def close_to(max_distance:float, *points:tuple[float,float])->bool:
+    """ returns false if one of the given points is not close enough to the first given point """
     p_ref = points[0]
     for p in points:
         if math.dist(p_ref, p) > max_distance:

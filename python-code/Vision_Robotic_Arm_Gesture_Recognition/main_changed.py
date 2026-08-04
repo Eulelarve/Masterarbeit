@@ -12,8 +12,7 @@ from collections import defaultdict
 from comunication import SendOnChange
 from GUI import GuiOverlay
 from own_functions import ValueBuffer,ListAverager, CSVWriter, tolist, screenshot, close_to, MoveDetector, get_globe_timeline_curvs , cv2_mouse_callback, MOUSE, valide_angle_zone, map_threshold
-from coordinates_handler import mediapipe_pose_world_to_3d, rs_pixel_list_to_3d, get_center_of_landmarks, mediapipe_pose_to_3d, rs_pixel_to_3d
-from angle_handler import find_pointing_angle, correct_pointing_angle, clip_pointing_angle , find_pointing_angle2, angle_between_points,draw_angle_between_points, find_azimuth_angle
+from angle_handler import RoomAngleDetector
 
 from HandDetectorModule_changed import HandDetector as hdm
 from PoseDetectorModule_changed import poseDetector as pdm
@@ -117,6 +116,7 @@ def main(fps_cap=S.fps, show_fps=True, show_processing=True,source=0,
 
     hand_detector = hdm()
     pose_detector = pdm()
+    angle_detector = RoomAngleDetector()
     communicator = SendOnChange((S.IPv4_audiosystem,S.port),show_processing)
 
     time.sleep(0.5)
@@ -210,7 +210,7 @@ def main(fps_cap=S.fps, show_fps=True, show_processing=True,source=0,
 
         color_frame = frames.get_color_frame()
         depth_frame = frames.get_depth_frame()
-        cam_intrinsics = frames.get_color_frame().profile.as_video_stream_profile().intrinsics
+        cam_intrinsics = color_frame.profile.as_video_stream_profile().intrinsics
 
         frame_test = np.asanyarray(color_frame.get_data())
 
@@ -461,26 +461,10 @@ def main(fps_cap=S.fps, show_fps=True, show_processing=True,source=0,
             
             if pose_found:
                 pose_detector.create_moving_list()
-                v = pose_detector.create_visibility_list()
+                pose_detector.create_visibility_list()
                 frame_counter_pose += 1
 
-                if _3D and not use_rs_depth:
-                    pose_world_landmarks = pose_detector.create_world_landmark_list(draw=False)
-
-                if use_rs_depth:
-                    pose_room_coordinats = rs_pixel_list_to_3d(depth_frame,cam_intrinsics,pose_landmarks,cam_angle,True)
-                    # print('right')
-                    # for e,i in enumerate(pose_room_coordinats):
-                    #     if e in [12,24,16]:
-                    #         print(pose_room_coordinats[e],i)#test
-                  
-                else:
-                    if cam_intrinsics is None:
-                        pose_room_coordinats = mediapipe_pose_world_to_3d(pose_world_landmarks,cam_angle)
-                    else:
-                        pose_room_coordinats = mediapipe_pose_to_3d(pose_landmarks ,pose_world_landmarks, cam_angle)
-
-        
+                pose_world_landmarks = pose_detector.create_world_landmark_list(draw=False)
                 
                 # draw hand points from mediapipe pose landmarks 
                 if show_processing and draw_landmarks:
@@ -497,9 +481,9 @@ def main(fps_cap=S.fps, show_fps=True, show_processing=True,source=0,
             draw_hand_center = True
             # hand and shulder
             pose_detector.find_specific_points('moving',is_grapping, True)
-            hand_center = pose_detector.hand_center[1:3]
-            shulder = pose_detector.shulder[1:3] 
-            hip = pose_detector.hip[1:3]
+            i_hand , *hand_center = pose_detector.hand_center[:]
+            i_shulder, *shulder = pose_detector.shulder[:] 
+            i_hip, *hip = pose_detector.hip[:]
             hand_side = pose_detector.hand_side
             if show_processing and draw_hand_center:
                 x,y = hand_center
@@ -591,11 +575,11 @@ def main(fps_cap=S.fps, show_fps=True, show_processing=True,source=0,
                 )
 
                 # _, index = hand_detector.choose_hand("top")
-                hand_index = hand_detector.choose_hand("first")
+                hand_side_index = hand_detector.choose_hand("first")
                 # if S.arm_decection_border_top <= hand_center[1]:
                 valide_hand =  hand_detector.hand_close_to(hand_center, 
                                                         max_distance=_roi_size/4,
-                                                        frame=frame_overlay, draw=show_processing and draw_max_distance, hand_index=hand_index)
+                                                        frame=frame_overlay, draw=show_processing and draw_max_distance, hand_side_index=hand_side_index)
                 
                 if valide_hand:
                     hand_landmarks = hand_detector.create_landmark_list(
@@ -634,35 +618,25 @@ def main(fps_cap=S.fps, show_fps=True, show_processing=True,source=0,
                 pointing_elevation = None
             else:
                 draw_angles = True
-                if _3D:
-                    # if hasattr(pose_detector,'arm_len'): # if arm length alreaddy calibrated
-                    #     pass
+            
+                # --------------------------------------------------
+                # azimuth
 
-                    # --------------------------------------------------
-                    # azimuth
-                    i_shulder = pose_detector.shulder[0]
-                    i_hand = pose_detector.hand_center[0]
-                    angle_3d_points = pose_room_coordinats
-                    if use_rs_depth or cam_intrinsics and True:
-                        pointing_azimuth, pointing_elevation = find_pointing_angle2(angle_3d_points, i_hand, i_shulder,
-                                                                                    frame_overlay, pose_landmarks,
-                                                                                    draw_angles and show_processing
-                                                                                    )
-                        borders = None
-                        
+                drow = draw_angles and show_processing
+                if use_rs_depth:
+                    angle_detector.find_room_angle_with_depth_frame(depth_frame,hand_center, shulder, frame_overlay, drow)
+                else:
+                    hand_world_lm = pose_world_landmarks[i_hand][1:4]
+                    shoulder_world_lm = pose_world_landmarks[i_shulder][1:4]
+                    if cam_intrinsics:
+                        hand_world_depth = hand_world_lm[2]
+                        shoulder_world_depth = shoulder_world_lm[2]
+                        angle_detector.find_room_angle_with_intrinsics(cam_intrinsics, hand_center , shulder, hand_world_depth, shoulder_world_depth, frame_overlay, draw)
                     else:
-                        pointing_azimuth, pointing_elevation = find_pointing_angle(angle_3d_points, i_hand, i_shulder,
-                                                                frame_overlay, pose_landmarks,
-                                                                draw_angles and show_processing,
-                                                                )
+                        angle_detector.find_room_angles_45_deg_aprox(hand_side, hand_world_lm, shoulder_world_lm, hand_center, shulder, frame_overlay,draw)
 
-                        borders = (-90, +90)
-
-                    smoothed_angles = pointing_angle_smoother.add_and_get((pointing_azimuth,pointing_elevation), ignore_none=True)
-                    if smoothed_angles:
-                        pointing_azimuth, pointing_elevation = smoothed_angles
-                    pointing_azimuth = clip_pointing_angle(pointing_azimuth, use_rs_depth, borders)
-                    pointing_elevation = clip_pointing_angle(pointing_elevation, use_rs_depth)
+                pointing_azimuth = angle_detector.azimuth
+                pointing_elevation = angle_detector.elevation
 
         # --------------------------------------------------
         # draw glode limelines

@@ -69,15 +69,6 @@ def get_center_of_landmarks(pose_landmarks, landmark_indices, round_to_int=True)
     except:
         return [center_x, center_y]
 
-
-def mediapipe_pose_world_to_3d(pose_world_landmarks:tuple, cam_angle:float)->list:
-    pts = compensate_cam_angle(pose_world_landmarks,cam_angle)
-    pts = add_estimated_cam_distance(pts)
-    for (i,x,y,z) in pts:
-        pts[i][2] = y + 0.5 # so y = 0 ruffly in the frame middle
-
-    return pts
-
 def add_estimated_cam_distance(landmarks_3d:tuple)->list:
     pts = []
     for (i,x,y,z) in landmarks_3d:
@@ -85,21 +76,6 @@ def add_estimated_cam_distance(landmarks_3d:tuple)->list:
         ixyz = [i,x,y,z0]
         pts.append(ixyz)
     return pts
-
-def compensate_cam_angle(landmarks_3d:tuple, cam_angle:float)->list:
-    theta = np.deg2rad(cam_angle)
-    pts = []
-    for p in landmarks_3d:
-        i = p[0]
-        x = p[1]
-        y = p[2]
-        z = p[3]
-        y0 = y*math.cos(theta) + z*math.sin(theta)
-        z0 = -y*math.sin(theta) + z*math.cos(theta)
-        ixyz = [i,x,y0,z0]
-        pts.append(ixyz)
-    return pts
-
 
 def mediapipe_pose_to_3d(pose_landmarks:tuple[int], pose_wold_landmarks, intrinsics, cam_angle:float)->list:
     pts = []
@@ -131,29 +107,35 @@ def rs_get_depth(depth_frame, pixel_xy:tuple, mirrowed_x_pixel:bool)->float|None
     return depth_frame.get_distance(x, y)
 
 def rs_pixel_to_meter(intrinsics:object, pixel_xy:tuple, depth:float)->list:
+    if intrinsics is None:
+        raise "no cam intrinsics are given"
     return rs.rs2_deproject_pixel_to_point(intrinsics, pixel_xy, depth)
 
-def rs_pixel_to_3d(depth_frame_or_depth:object|float|int, intrinsics:object, pixel_xy:tuple, cam_angle:float, mirrowed_x_pixel:bool)->list:
+def rs_pixel_to_3d(pixel_xy:tuple, depth_frame_or_depth:object|float|int, mirrowed_x_pixel:bool, cam_angle:float|None, cam_intrinsics:object|None=None)->list:
     """
-    px, py: Pixelkoordinaten im Colorbild
-    Rückgabe: np.array([X,Y,Z]) in Metern
+    cam intrinsics are not needed if a depth frame is given
+    pixel_xy: Pixelkoordinaten im Colorbild
+    return:  list [X,Y,Z] in Metern
     """
     if type(depth_frame_or_depth) in [int, float]:
         depth = depth_frame_or_depth
-    else:
+    else: # is depth frame
         depth = rs_get_depth(depth_frame_or_depth, pixel_xy, mirrowed_x_pixel)
+        if cam_intrinsics is None:
+            cam_intrinsics = depth_frame_or_depth.profile.as_video_stream_profile().intrinsics
 
-    meter = rs_pixel_to_meter(intrinsics, pixel_xy, depth)
+    x,y,z = rs_pixel_to_meter(cam_intrinsics, pixel_xy, depth)
 
     if mirrowed_x_pixel:
-        meter[0] = - meter[0]
+        x = - x
 
-        x,y,z = compensate_cam_angle(meter, cam_angle)
+    if cam_angle:
+        x,y,z = compensate_cam_angle((x,y,z), cam_angle)
         
     return [x,y,z]
 
 
-def rs_pixel_list_to_3d(depth_frame, intrinsics,pixel_coords_list:tuple, cam_angle:float, mirrowed_frame = False):
+def rs_pixel_list_to_3d(depth_frame, pixel_coords_list:tuple, cam_angle:float, mirrowed_frame = False):
     """ 
         returns a np.array with i,x,y,z
          i: index
@@ -173,7 +155,7 @@ def rs_pixel_list_to_3d(depth_frame, intrinsics,pixel_coords_list:tuple, cam_ang
     pts_3d = []
     for pt in pts:
 
-        p3d = rs_pixel_to_3d(depth_frame, intrinsics, pt, cam_angle, mirrowed_frame)
+        p3d = rs_pixel_to_3d(pixel_xy=pt, depth_frame_or_depth=depth_frame, mirrowed_x_pixel=mirrowed_frame, cam_angle=cam_angle, cam_intrinsics=None)
         pts_3d.append(p3d)
 
     return pts_3d

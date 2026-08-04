@@ -7,7 +7,7 @@ import math
 
 from own_functions import ValueBuffer, close_to, MoveDetector, ListAverager
 from coordinates_handler import get_center_of_landmarks
-from angle_handler import find_pointing_angle, correct_pointing_angle, clip_pointing_angle , find_pointing_angle2, angle_between_points,draw_angle_between_points, find_azimuth_angle
+from angle_handler import angle_between_points, draw_angle_between_points
 import settings as S
 
 class poseDetector():

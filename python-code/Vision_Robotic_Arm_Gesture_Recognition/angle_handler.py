@@ -7,9 +7,9 @@ import socket
 import pyrealsense2 as rs
 import numpy as np
 from datetime import datetime
-from coordinates_handler import rs_pixel_list_to_3d
+from coordinates_handler import rs_pixel_to_3d
 
-from own_functions import insert, keep_rect_inside, map_threshold
+from own_functions import insert, keep_rect_inside, map_threshold, ValueBuffer, ListAverager, close_to
 from analyse import SaveFrameStatus, save_list_to_file, find_files
 
 import settings as S
@@ -48,42 +48,50 @@ def draw_angle_between_points(frame, text:str, p1:list[int,int] ,p2:list[int,int
         cv2.putText(frame, text, (cx2 + text_pos[0], cy2 + text_pos[1]),
                     cv2.FONT_HERSHEY_PLAIN, 1, color, 2, cv2.LINE_AA)
 
-def find_pointing_angle2(angle_3d_points,i_hand,i_shulder, frame ,drawing_2d_points, draw):
-    pointing_azimut = None 
-    pointing_elevation = None
-    arm_azimuth = None
-    arm_elevation = None
-    shoulder = angle_3d_points[i_shulder]
-    hand = angle_3d_points[i_hand]
-    if shoulder is not None and hand is not None:
-        # set parameters
-        resulution = S.step_size_to_find_pointing_angle
-        room_size = S.room_size
-        origin = S.room_origin  
-        zero_degree_distance = S.zero_degree_distance
-        start_point = shoulder[1:]
-        start_point[2] += -S.dist_cam_to_room_center
-        # check for ovelapping hand and shoulder
-        if pointion_into_camera(hand[1:4],shoulder[1:4]):
-            return  0, 0 
-        # arm angle
+def find_elevation_angle(p1:tuple,p2_angle_point:tuple, zero_is_horizontal:bool=True, down_is_y_minus:bool=True):
+    if p1 is None or p2_angle_point is None:
+        return None
 
-        arm_azimuth, arm_elevation = find_arm_angles(angle_3d_points,i_hand,i_shulder, True)
-        # room angle (pointing angle)
-        pointing_azimut ,pointing_elevation = find_room_angles(room_size,origin, start_point, arm_azimuth, arm_elevation, resulution, True)
-    if draw:
-        draw_arm_angles(frame,i_hand,i_shulder, drawing_2d_points, arm_azimuth, arm_elevation)
-    return pointing_azimut ,pointing_elevation
+    # p3 room refference point, should be p2 shifted by one meter down
+    p3 = list(p2_angle_point)
+    if down_is_y_minus:
+        p3[1] -= 1
+    else:
+        p3[1] += 1
 
-def pointion_into_camera(hand, shoulder):
-        """ if shoulder and hand are overlapping in the frame, persine is pointing to the camera """
-        hand_shulder_dist = math.dist(shoulder[1:], hand[1:]) 
-        if hand_shulder_dist <= S.zero_degree_distance:
-            return True
-        return False
+    elevation = angle_between_points(p1, p2_angle_point, p3) # take just x and y dimension, not z (hight)
+
+    # decide the angle 0 degree position
+    if zero_is_horizontal:
+        elevation -= 90
+
+    return elevation
+
+def find_azimuth_angle(p1:tuple,p2_angle_point:tuple,left_is_minus:bool=True)->float:
+    if p1 is None or p2_angle_point is None:
+        return None
+    # p1
+    x1 = p1[0]
+    z1 = p1[-1]
+    # p2 angle point
+    x2 = p2_angle_point[0]
+    z2 = p2_angle_point[-1]
+    # p3 room refference point
+    x3 = x2
+    z3 = z2 -1
+    azimuth = angle_between_points((x1,z1), (x2,z2), (x3,z3)) # take just x and y dimension, not z (hight)
+    # decide the angle directions
+    if x1 < x2: # p1 nach links side (-x) of the angle point
+        azimuth *= 1 -2*left_is_minus  
+    else:
+        azimuth *= -1 +2*left_is_minus 
+    return azimuth
 
 
-def find_room_angles(room_size:tuple,origin:tuple, start_point:tuple, azimuth_angle:float, elevation_angle:float, resulution:float, left_is_minus:bool) ->tuple[float,float]:
+
+
+
+def find_room_angles(room_size:tuple,origin:tuple, start_point:tuple, azimuth_angle:float, elevation_angle:float, resulution:float, left_is_minus:bool) ->list[float,float]:
     p1 = rey_tracing_to_room_border(room_size,origin, start_point, azimuth_angle, elevation_angle, resulution)
     # x = origin[0] + start_point[0]
     # y = origin[1] + start_point[1]
@@ -91,7 +99,7 @@ def find_room_angles(room_size:tuple,origin:tuple, start_point:tuple, azimuth_an
     # print(origin,p1,x,y,z)#test
     room_azimuth = find_azimuth_angle(p1 ,origin, left_is_minus)
     room_elevation = find_elevation_angle(p1, origin, zero_is_horizontal=True,down_is_y_minus=True)
-    return room_azimuth, room_elevation
+    return [room_azimuth, room_elevation]
 
 def rey_tracing_to_room_border(room_size:tuple,origin:tuple, start_point:tuple, azimuth_angle:float, elevation_angle:float, resulution:float)->list:
     """
@@ -153,116 +161,212 @@ def rey_tracing_to_room_border(room_size:tuple,origin:tuple, start_point:tuple, 
     # not valide
     return None
 
-def find_pointing_angle(hand_pixel_xy ,shoulder_pixel_xy, hand_side:str, frame=None, draw=False):
-    hand_3d ,shoulder_3d = rs_pixel_list_to_3d()
-    arm_azimuth, arm_elevation = find_arm_angles(hand_3d ,shoulder_3d, True)
+class RoomAngleDetector:
+    def __init__(self):
+        # settings
+        self.room_azemuth_aprox_corection_max = 15 # in degree
+        self.mirrowed_frame = True
+        self.intersection_distance_pixel = 20
+        # take global settings
+        self.angle_resulution = S.real_depth_angle_resulutuin
+        self.ray_tracing_resulution = S.ray_tracing_step_size
+        self.intersection_distance = S.zero_degree_distance
+        self.room_size = S.room_size
+        self.room_center = S.room_center  
+        self.dist_cam_to_room_center = S.dist_cam_to_room_center
+        self.cam_angle = S.cam_angle
+        # variables
+        self.angle_smoother = ListAverager(S.angle_buffer_size)
+        self.arm_angles = [None, None] # arm [azimuth, elewation] angle
+        self.room_angles = [None, None] # room [azimuth, elewation] angle
+        self.hand_3d:list = None
+        self.shoulder_3d:list = None
+        self.hand_pixel_xy:list = None 
+        self.shoulder_pixel_xy:list = None
+        self.draw_frame:object = None
+        self.cam_intrinsics:object = None
 
-    if draw:
-        draw_arm_angles(frame,hand_pixel_xy ,shoulder_pixel_xy, arm_azimuth, arm_elevation)
+    def find_room_angles_45_deg_aprox(self, hand_side:str, world_lm_hand:tuple, world_lm_shoulder:tuple , hand_pixel_xy:tuple=None, shoulder_pixel_xy:tuple=None ,draw_frame=None, draw:bool=False):
+        """ find the room angle with given mediapipe world landmarks with a resupution 45° by +/- 90"""
+        self.hand_pixel_xy = hand_pixel_xy
+        self.shoulder_pixel_xy = shoulder_pixel_xy
+        self.draw_frame = draw_frame
 
-    hand_side = 'left' if i_hand in S.left_hand_landmark_ids else 'right'
-    pointing_azimuth = correct_pointing_angle(pointing_azimuth, hand_side, True)
-    return arm_azimuth ,arm_elevation
+        self.hand_3d = world_lm_hand
+        self.shoulder_3d = world_lm_shoulder
+        self.hand_side = hand_side
 
-def find_arm_angles(angle_3d_points,i_hand,i_shulder, left_is_minus:bool)->float|None:
-    hand = angle_3d_points[i_hand]
-    shulder = angle_3d_points[i_shulder]
-    if hand is None or shulder is None:
-        return None, None
-    
-    p1 = hand[1:] 
-    p2 = shulder[1:] 
-    
-    arm_azimuth = find_azimuth_angle(p1,p2,left_is_minus)
-    arm_elevation = find_elevation_angle(p1,p2, zero_is_horizontal=True, down_is_y_minus=False)
-    return arm_azimuth, arm_elevation
+        if self.pointion_into_camera_check(True):
+            self.arm_angles = [None, None]
+            self.room_angles = [0, 0]
+        else:
+            self.find_arm_angles()
+            self.aprox_room_azimuth()
+            self.room_angles[1] = self.arm_angles[1]
+            self.map_room_angles_to_45_deg_steps()
 
-def find_elevation_angle(p1:tuple,p2_angle_point:tuple, zero_is_horizontal:bool=True, down_is_y_minus:bool=True):
-    if p1 is None or p2_angle_point is None:
+        if draw:
+            self.draw_arm_angles()
+
+        return self.room_angles
+
+    def find_room_angle_with_intrinsics(self, cam_intrinsics:object, hand_pixel_xy:tuple, shoulder_pixel_xy:tuple, hand_depth:float, shoulder_depth:float ,draw_frame=None, draw:bool=False):
+        self.hand_pixel_xy = hand_pixel_xy
+        self.shoulder_pixel_xy = shoulder_pixel_xy
+        self.draw_frame = draw_frame
+
+        self.cam_intrinsics = cam_intrinsics
+        self.find_3d_hand_shoulder_with_depth(hand_depth, shoulder_depth)
+        if self.pointion_into_camera_check():
+            self.arm_angles = [None, None]
+            self.room_angles = [0, 0]
+        else:
+            # arm angle
+            self.find_arm_angles()
+            # room angle (pointing angle)
+            start_point = self.shoulder_3d.copy()
+            start_point[2] -= self.dist_cam_to_room_center
+            self.room_angles = find_room_angles(self.room_size, self.room_size, start_point, *self.arm_angles, self.ray_tracing_resulution, True)
+
+        if draw:
+            self.draw_arm_angles()
+
+        return self.room_angles
+
+    def find_room_angle_with_depth_frame(self,depth_frame:object, hand_pixel_xy:tuple, shoulder_pixel_xy:tuple ,draw_frame=None, draw:bool=False):
+        self.hand_pixel_xy = hand_pixel_xy
+        self.shoulder_pixel_xy = shoulder_pixel_xy
+        self.draw_frame = draw_frame
+
+        self.find_3d_hand_shoulder_with_depth_frame(depth_frame)
+        if self.hand_3d is None or self.shoulder_3d is  None:
+            self.arm_angles = [None, None]
+            self.room_angles = [None, None]
+        elif self.pointion_into_camera_check():
+            self.arm_angles = [None, None]
+            self.room_angles = [0, 0]
+        else:
+            # arm angle
+            self.find_arm_angles()
+            # room angle (pointing angle)
+            start_point = self.shoulder_3d.copy()
+            start_point[2] -= self.dist_cam_to_room_center
+            self.room_angles = find_room_angles(self.room_size, self.room_center, start_point, *self.arm_angles, self.ray_tracing_resulution, not self.mirrowed_frame)
+            self.round_room_angle_to_resulution()
+
+        if draw:
+            self.draw_arm_angles()
+
+        return self.room_angles
+
+    def find_arm_angles(self)->list|None:
+        if self.hand_3d is None or self.shoulder_3d is None:
+            self.arm_angles = [None, None]
+        else:
+            arm_azimuth = find_azimuth_angle(self.hand_3d, self.shoulder_3d, self.mirrowed_frame)
+            arm_elevation = find_elevation_angle(self.hand_3d, self.shoulder_3d, zero_is_horizontal=True, down_is_y_minus=False)
+
+            self.arm_angles = self.angle_smoother.add_and_get([arm_azimuth, arm_elevation])
+        return self.arm_angles
+
+    def find_3d_hand_shoulder_with_depth_frame(self, depth_frame:object)->tuple[list|None]:
+        args = (depth_frame, 
+                self.mirrowed_frame, 
+                self.cam_angle, 
+                self.cam_intrinsics)
+        self.hand_3d =      rs_pixel_to_3d(self.hand_pixel_xy, *args)
+        self.shoulder_3d =  rs_pixel_to_3d(self.shoulder_pixel_xy, *args)
+        return self.hand_3d, self.shoulder_3d
+
+    def find_3d_hand_shoulder_with_depth(self, hand_depth:float, shoulder_depth:float)->tuple[list|None]:
+        args = (self.mirrowed_frame, 
+                self.cam_angle, 
+                self.cam_intrinsics)
+        self.hand_3d =      rs_pixel_to_3d(self.hand_pixel_xy, hand_depth, *args)
+        self.shoulder_3d =  rs_pixel_to_3d(self.shoulder_pixel_xy, shoulder_depth, *args)
+        return self.hand_3d, self.shoulder_3d
+        
+    def aprox_room_azimuth(self):
+        angle = self.arm_angles[0]
+        if angle is not None:
+            sliding_factor = (90-abs(angle))/90
+            correction = sliding_factor * self.room_azemuth_aprox_corection_max
+
+            if self.mirrowed_frame:
+                correction *= -1
+
+            if self.hand_side == 'left':
+                new_angle = angle - correction
+            elif self.hand_side == 'right':
+                new_angle = angle + correction
+
+            self.room_angles[0] = new_angle
+
+    def map_room_angles_to_45_deg_steps(self):
+        for i, angle in enumerate(self.room_angles):
+            if angle is None:
+                continue
+            self.room_angles[i] = map_threshold(angle,
+                                                (-70,-25,25,70),
+                                                (-90,-45,0,45,90)
+                                                )
+
+    def round_room_angle_to_resulution(self):
+        res = self.angle_resulution
+        for i, angle in enumerate(self.room_angles):
+            if angle is None:
+                continue
+            self.room_angles[i] = round(angle/res)*res
+
+    def pointion_into_camera_check(self,use_pixel_coordinats=False):
+        """ if shoulder and hand are overlapping in the frame, persine is pointing to the camera """
+        if use_pixel_coordinats:
+            return close_to(self.intersection_distance_pixel, self.hand_pixel_xy, self.shoulder_pixel_xy)
+        else:
+            return close_to(self.intersection_distance, self.hand_3d, self.shoulder_3d)
+
+    def draw_arm_angles(self):
+        if self.draw_frame is None:
+            raise "no frame to draw on"
+        if self.hand_pixel_xy is None:
+            raise "no hand pixel position to draw"
+        if self.shoulder_pixel_xy is None:
+            raise "no shoulder pixel position to draw"
+        p1_2d = self.hand_pixel_xy
+        p2_2d = self.shoulder_pixel_xy
+        p3_2d = p2_2d.copy()
+        p3_2d[1] += 100 # draw in y direction
+        text = ''
+        azimuth, elevation = self.arm_angles
+        if self.arm_angles[0] is not None:
+            text += str(round(azimuth)) 
+        if elevation is not None:
+            text += '/' 
+            text += str(round(elevation)) 
+        if not text:
+            text = 'None'
+        draw_angle_between_points(self.draw_frame,text,p1_2d,p2_2d,p3_2d,(-10,-10), S.green)
+
+    @property
+    def azimuth(self)->float:
+        return self.room_angles[0]
+
+    @property
+    def elevation(self)->float:
+        return self.room_angles[1]
+
+    @property
+    def angles(self)->list:
+        return [*self.room_angles, *self.arm_angles]
+
+    @property
+    def hand(self)->list:
+        if self.hand_3d:
+            return self.hand_3d.copy()
         return None
 
-    # p3 room refference point, should be p2 shifted by one meter down
-    p3 = list(p2_angle_point)
-    if down_is_y_minus:
-        p3[1] -= 1
-    else:
-        p3[1] += 1
-
-    elevation = angle_between_points(p1, p2_angle_point, p3) # take just x and y dimension, not z (hight)
-
-    # decide the angle 0 degree position
-    if zero_is_horizontal:
-        elevation -= 90
-
-    return elevation
-
-def find_azimuth_angle(p1:tuple,p2_angle_point:tuple,left_is_minus:bool=True)->float:
-    if p1 is None or p2_angle_point is None:
+    @property
+    def shoulder(self)->list:
+        if self.shoulder_3d:
+            return self.shoulder_3d.copy()
         return None
-    # p1
-    x1 = p1[0]
-    z1 = p1[-1]
-    # p2 angle point
-    x2 = p2_angle_point[0]
-    z2 = p2_angle_point[-1]
-    # p3 room refference point
-    x3 = x2
-    z3 = z2 -1
-    azimuth = angle_between_points((x1,z1), (x2,z2), (x3,z3)) # take just x and y dimension, not z (hight)
-    # decide the angle directions
-    if x1 < x2: # p1 nach links side (-x) of the angle point
-        azimuth *= 1 -2*left_is_minus  
-    else:
-        azimuth *= -1 +2*left_is_minus 
-    return azimuth
-
-
-def draw_arm_angles(frame,hand_pixel_xy ,shoulder_pixel_xy, arm_azimuth, arm_elevation):
-    p1_2d = hand_pixel_xy
-    p2_2d = shoulder_pixel_xy
-    p3_2d = p2_2d.copy()
-    p3_2d[1] += 100 # draw in y direction
-    text = ''
-    if arm_azimuth is not None:
-        text += str(round(arm_azimuth)) 
-    if arm_elevation is not None:
-        text += '/' 
-        text += str(round(arm_elevation)) 
-    if not text:
-        text = 'None'
-    draw_angle_between_points(frame,text,p1_2d,p2_2d,p3_2d,(-10,-10), S.green)
-
-def correct_pointing_angle(angle:float,hand_side:str,mirrowed_frame:bool):
-    if angle is None:
-        return None
-    max_correction = 15 # degree
-    sliding_factor = (90-abs(angle))/90
-    correction = sliding_factor * max_correction
-
-    if mirrowed_frame:
-        correction *= -1
-
-    if hand_side == 'left':
-        new_angle = angle - correction
-    elif hand_side == 'right':
-        new_angle = angle + correction
-
-    return new_angle
-
-def clip_pointing_angle(angle, real_depth, borders:tuple=None):
-    if angle is None:
-          return None
-    if real_depth:
-        angle = round_angle_to_resulution(angle)
-        if borders:
-            angle = np.clip(angle, *borders)
-    else:                 
-        angle = map_threshold(angle,(-75,-25,25,75),(-90,-45,0,45,90))
-    return angle
-
-def round_angle_to_resulution(angle:float)->int:
-    if angle is None:
-        return None
-    res = S.real_depth_angle_resulutuin
-    return round(angle/res)*res
-
