@@ -627,8 +627,8 @@ def main(fps_cap=S.fps, show_fps=True, show_processing=True,source=0,
                     hand_world_lm = pose_world_landmarks[i_hand][1:4]
                     shoulder_world_lm = pose_world_landmarks[i_shulder][1:4]
                     if cam_intrinsics:
-                        hand_world_depth = hand_world_lm[2]
-                        shoulder_world_depth = shoulder_world_lm[2]
+                        hand_world_depth = hand_world_lm[2] + S.dist_cam_to_room_center
+                        shoulder_world_depth = shoulder_world_lm[2] + S.dist_cam_to_room_center
                         angle_detector.find_room_angle_with_intrinsics(cam_intrinsics, hand_center , shulder, hand_world_depth, shoulder_world_depth, frame_overlay, draw)
                     else:
                         angle_detector.find_room_angles_45_deg_aprox(hand_side, hand_world_lm, shoulder_world_lm, hand_center, shulder, frame_overlay,draw)
