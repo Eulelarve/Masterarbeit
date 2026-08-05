@@ -9,7 +9,7 @@ import numpy as np
 from datetime import datetime
 from coordinates_handler import rs_pixel_to_3d
 
-from own_functions import insert, keep_rect_inside, map_threshold, ValueBuffer, ListAverager, close_to
+from own_functions import insert, keep_rect_inside, map_threshold, ValueBuffer, ListBuffer, close_to
 from analyse import SaveFrameStatus, save_list_to_file, find_files
 
 import settings as S
@@ -176,7 +176,7 @@ class RoomAngleDetector:
         self.dist_cam_to_room_center = S.dist_cam_to_room_center
         self.cam_angle = S.cam_angle
         # variables
-        self.angle_smoother = ListAverager(S.angle_buffer_size)
+        self.angle_smoother = ListBuffer(S.angle_buffer_size)
         self.arm_angles = [None, None] # arm [azimuth, elewation] angle
         self.room_angles = [None, None] # room [azimuth, elewation] angle
         self.hand_3d:list = None

@@ -1,7 +1,10 @@
 from datetime import datetime
 import cv2
 import math
+from statistics import median
 import numpy as np
+from collections import deque
+
 try:
     import settings as S
 except:
@@ -139,133 +142,204 @@ def fit_roi_landmarks_to_frame(landmarks, pixel_frame_size, pixel_region_x_y_w_h
         lm.y = lm.y * factor_y + offset_y
 
 
+class ReturnModes:
+    """ mode declarations vor the get methodes of the ValueBuffer and ListBuffer classes"""
+    mode_AVERAGE = 'average'
+    mode_MEDIAN = 'median'
+    mode_MOST = 'most'
+    mode_MAJOR = 'major'
+    mode_DIFF = 'diff'
+    mode_MAX = 'max'
+    mode_MIN = 'min'
+    mode_DIFF_I = 'diff_i'
+    mode_MAX_I = 'max_i'
+    mode_MIN_I = 'min_i'
 
-from collections import deque
-
-class ValueBuffer:
+class ValueBuffer(ReturnModes):
     """_summary_ 
-        A class to store a buffer of elements and calculate the average, most frequently, majority and atleast x of the values in the buffer.
+        A class to buffer of elements and calculate states like average, median, majority, max and most frequent of the elements in the buffer.
     """
 
-    def __init__(self, buffer_size):
-        self.values = deque(maxlen=buffer_size)
+    def __init__(self, buffer_size:int, default_get_mode:str=S.default_buffer_mode):
+        self.buffer = deque(maxlen=buffer_size)
         self.last_majority = None # saves the last value that was the majority in the buffer, so that it can be returned if there is no majority in the current buffer
+        self.majority_border = int(buffer_size / 2) +1
+        self.default_mode = default_get_mode
 
-    def add(self, value, update_majority=False, ignore_none=False):
+    def add(self, value:any, ignore_none=False):
         if ignore_none and value is None:
             return
-        self.values.append(value)
-        if update_majority:
-            self.majority
-    
-    def set_majority(self, value):
-        self.values.clear()
-        for _ in range(self.values.maxlen//2):
-            self.values.append(value)
-        self.add(value, update_majority=True)
+        self.buffer.append(value)
 
+    def get(self, mode:str|None=None)->any:
+        if not mode:
+            mode = self.default_mode
+        mode = mode.lower()
+        match mode:
+            case self.mode_AVERAGE:
+                return self.average
+            case self.mode_MEDIAN:
+                return self.median
+            case self.mode_MOST:
+                return self.most_frequently
+            case self.mode_MAJOR:
+                return self.majority
+            case self.mode_DIFF:
+                return self.difference
+            case self.mode_MAX:
+                return self.max
+            case self.mode_MIN:
+                return self.min
+            case self.mode_DIFF_I:
+                return self.i_difference
+            case self.mode_MAX_I:
+                return self.i_max
+            case self.mode_MIN_I:
+                return self.i_min
+            case _:
+                raise f'"{mode}" is not a valide mode'
+            
+    def add_and_get(self, value:any, mode:str|None=None, ignore_none=False)->any:
+        self.add(value, ignore_none)
+        return self.get(mode)
+    
+    def set_majority_boarder(self, new_border:int):
+        if new_border > self.buffer.maxlen:
+            raise f"new manorety border ({new_border} higher the buffer lenght ({self.buffer.maxlen}))"
+        if new_border < 0:
+            raise "majorety border must be positiv"
+        self.majority_border = new_border
+    
     def flood(self, value):
-        for _ in range(self.values.maxlen-1):
-            self.values.append(value)
+        for _ in range(self.buffer.maxlen-1):
+            self.buffer.append(value)
         self.add(value, update_majority=True)
 
     def add_and_get_average(self, value, ignore_none=False):
-        self.add(value, update_majority=False,ignore_none=ignore_none)
+        self.add(value, ignore_none=ignore_none)
         return self.average
     
-    def add_and_get_mojority(self, value):
-        self.add(value)
+    def add_and_get_mojority(self, value, ignore_none=False):
+        self.add(value, ignore_none)
         return self.majority
 
-    def add_and_get_most_frequently(self, value):
-        self.add(value, update_majority=False)
+    def add_and_get_most_frequently(self, value, ignore_none=False):
+        self.add(value, ignore_none)
         return self.most_frequently
+
+    def add_and_get_median(self, value, ignore_none=False):
+        self.add(value, ignore_none)
+        return self.median
+
+    def atleast(self, nr_of_same_elements)->any:
+        """ returns the most frequently element reaching the given number of same elements in the buffer list 
+        """
+        if not self.buffer:
+            return None
+
+        most = self.most_frequently
+        if self.count(most) >= nr_of_same_elements:
+                return most
+        # if no element nomber reaches the min_nr_of_same_elements,
+        return None
+
+    def count(self, value:any)->int:
+        return self.buffer.count(value)
+
+    def index(self, value)->int:
+        return self.buffer.index(value)
+    
+    def clear(self):
+        self.buffer.clear()
+    
+    def __getitem__(self, index):
+        return self.buffer[index]
+
+    def __len__(self):
+        return len(self.buffer)
     
     @property
-    def average(self):
-        """ calculate the average of the values in the buffer
+    def average(self)->float|None:
+        """ calculate the average of the element in the buffer
             only for boffered numerical values, otherwise it will crash
         """
-        if not self.values:
+        if not self.buffer:
             return None
-
-        return sum(self.values) / len(self.values)
+        return sum(self.buffer) / len(self.buffer)
     
     @property
-    def most_frequently(self):
-        if not self.values:
+    def most_frequently(self)->any:
+        """ returns the element that appears most frequently in the buffer list """
+        if not self.buffer:
             return None
-        
-        return max(set(self.values), key=self.values.count)
+        return max(set(self.buffer), key=self.count)
         
     @property
-    def majority(self):
-        if not self.values:
+    def majority(self)->any:
+        """ returns the first value reaching the majorety number of same elements in the buffer list 
+            also if no element nomber exceeds the half of the buffer size, return the last majority element, if there is one
+        """
+        if not self.buffer:
             return None
 
-        for value in self.values:
-            if self.values.count(value) > self.values.maxlen / 2:
+        for value in self.buffer:
+            if self.count(value) >= self.majority_border:
                 self.last_majority = value
-                return value
-            
-        # if no element nomber exceeds the half of the buffer size, return the last majority element, if there is one
-        return None
+                break
+        return self.last_majority
     
     @property
-    def difference(self):
-        return max(self.values) - min(self.values)
-
-    @property
-    def max(self):
-        return max(self.values)
-    
-    @property
-    def min(self):
-        return min(self.values)
-    
-    @property
-    def i_max(self):
-        return self.index(self.max)
-
-    
-    @property
-    def i_min(self):
-        return self.index(self.min)
-    
-    def atleast(self, min_nr_of_same_elements):
-        if not self.values:
+    def median(self)->float|None:
+        if not self.buffer:
             return None
-
-        for value in set(self.values):
-            if self.values.count(value) >= min_nr_of_same_elements:
-                return value
-        
-        # if no element nomber exceeds the min_nr_of_same_elements,
-        return None
+        return median(self.buffer)
     
     @property
-    def all_the_same(self):
-        value = set(self.values)
+    def difference(self)->float|None:
+        if not self.buffer:
+            return None
+        return self.max -self.min
+
+    @property
+    def max(self)->float|None:
+        if not self.buffer:
+            return None
+        return max(self.buffer)
+    
+    @property
+    def min(self)->float|None:
+        if not self.buffer:
+            return None
+        return min(self.buffer)
+    
+    @property
+    def i_max(self)->int:
+        return self.index(self.max)
+    
+    @property
+    def i_min(self)->int:
+        return self.index(self.min)
+
+    @property
+    def i_difference(self)->int:
+        return self.i_max - self.i_min
+    
+    @property
+    def all_the_same(self)->any:
+        if not self.buffer:
+            return None
+        value = set(self.buffer)
         if len(value) == 1:
             return value[0]
         return None
-    
-    def clear(self):
-        self.values.clear()
-    
-    def __getitem__(self, index):
-        return self.values[index]
 
-    def __len__(self):
-        return len(self.values)
-    
-    def index(self, value):
-        return self.values.index(value)
 
-class ListAverager:
-    def __init__(self, buffer_size=5):
+
+class ListBuffer(ReturnModes):
+    def __init__(self, buffer_size:int=5, default_get_mode:str=S.default_buffer_mode):
         self.buffer_list:list[ValueBuffer] = []
         self.buffer_size = buffer_size
+        self.default_mode = default_get_mode
 
     def add(self, values:tuple, ignore_none=False):
         for i, value in enumerate(values):
@@ -277,18 +351,31 @@ class ListAverager:
 
             self.buffer_list[i].add(value)
 
-    def get(self, rounded=False)->list:
+    def get(self, mode:str|None=None, round_to:int|None = None)->list:
+        if not mode:
+            mode = self.default_mode
         r = []
         for buffer in self.buffer_list:
-            value = buffer.average
-            if rounded:
-                value = round(value)
+            value = buffer.get(mode=mode)
+            value = round0(value, round_to)
             r.append(value)
         return r
 
-    def add_and_get(self, list:tuple, rounded = False, ignore_none=False)->list:
+    def add_and_get(self, list:tuple, mode:str|None=None, round_to:int|None = None, ignore_none=False)->list:
         self.add(list,ignore_none)
-        return self.get(rounded)
+        return self.get(mode, round_to)
+
+
+def round0(value:float, decimal:int|None)->int|float:
+    """ if decimal is 0 return an int value
+        if decimal is None returns the original value
+    """
+    if decimal is None:
+        return value
+    if decimal:
+        return round(value, decimal)
+    return round(value) 
+
 
 class HandOpenClosedBuffer(ValueBuffer):
     """_summary_

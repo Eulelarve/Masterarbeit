@@ -14,6 +14,7 @@ hand_width_factor = 1.2
 hand_opening_factor = 1.3
 skip_frames = 100
 hand_status_buffer_size = 10
+default_buffer_mode = 'median'
 no_hand_frame_count = 30 # by 30 FPS are 30 frames = one secund not hand, to get the no_hand status
 video_folder = r'..\test_videos (gitignore)/'
 moving_speed = 10 # pixel per frame, min needed to be detected as moving hand, choose between 2-20
@@ -38,7 +39,7 @@ room_center = (1.7, 1.5, 1.7) # xyz <- width, hight, depth in meters, (0,0,0) is
 ray_tracing_step_size = 0.1 # ray_tracing_step_size_to_find_room_angle, in meters
 align_depth = True
 dist_cam_to_room_center = 1.8 # in meter
-visibility_threshold = 0.9
+visibility_threshold = 0.92
 cam_intrinsics = 'xxx'
 left_hand_landmark_ids = [ 15,17,19, 21 ] # left hand landmarks from mediapipe pose
 right_hand_landmark_ids = [ 16,18,20, 22 ] # right hand landmarks from mediapipe pose

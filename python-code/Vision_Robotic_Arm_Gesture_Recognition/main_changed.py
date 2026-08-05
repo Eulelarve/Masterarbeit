@@ -11,7 +11,7 @@ from collections import defaultdict
 
 from comunication import SendOnChange
 from GUI import GuiOverlay
-from own_functions import ValueBuffer,ListAverager, CSVWriter, tolist, screenshot, close_to, MoveDetector, get_globe_timeline_curvs , cv2_mouse_callback, MOUSE, valide_angle_zone, map_threshold
+from own_functions import ValueBuffer,ListBuffer, CSVWriter, tolist, screenshot, close_to, MoveDetector, get_globe_timeline_curvs , cv2_mouse_callback, MOUSE, valide_angle_zone, map_threshold
 from angle_handler import RoomAngleDetector
 
 from HandDetectorModule_changed import HandDetector as hdm
@@ -100,8 +100,6 @@ def main(fps_cap=S.fps, show_fps=True, show_processing=True,source=0,
     frame = None
     process_ones = False
     upper_body_size = ValueBuffer(40)
-    hand_aperture_smoother = ValueBuffer(5)
-    pointing_angle_smoother = ListAverager(5)
     hand_move = MoveDetector(min_speed=S.moving_speed, buffer_size=S.moving_buffer_size)
     open_close_status_capturer = SaveFrameStatus(keys=(ord('1'), ord('2'), ord('3')), status=('hand open', 'hand closed', None))
 
@@ -686,7 +684,7 @@ def main(fps_cap=S.fps, show_fps=True, show_processing=True,source=0,
                         elif 'distance_dif' in hand_methode:
                             hand_status = hand_detector.open_or_close_distance_dif(frame_overlay, show_processing and draw_aperture, 
                                                                                     min_distance_difference=factor,
-                                                                                    frame_difference=S.hand_status_buffer_size,
+                                                                                    frame_difference=S.hand_status_buffer_size*2,
                                                                                     )
 
                     else:   

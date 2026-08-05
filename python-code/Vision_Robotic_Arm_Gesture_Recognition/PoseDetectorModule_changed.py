@@ -5,7 +5,7 @@ import cv2
 import time
 import math
 
-from own_functions import ValueBuffer, close_to, MoveDetector, ListAverager
+from own_functions import ValueBuffer, close_to, MoveDetector, ListBuffer
 from coordinates_handler import get_center_of_landmarks
 from angle_handler import angle_between_points, draw_angle_between_points
 import settings as S
@@ -53,12 +53,13 @@ class poseDetector():
                                      min_tracking_confidence=self.trackCon)
         self.mpDraw = mp.solutions.drawing_utils
         self.move_detectors = [MoveDetector(S.moving_speed, S.moving_buffer_size) for _ in self.lm_range]
-        self.pixel_pos_averagers = [ListAverager(S.position_buffer_size) for _ in self.lm_range]
-        self.world_pos_averagers = [ListAverager(S.position_buffer_size) for _ in self.lm_range]
+        self.pixel_pos_smoother = [ListBuffer(S.position_buffer_size) for _ in self.lm_range]
+        self.world_pos_smoother = [ListBuffer(S.position_buffer_size) for _ in self.lm_range]
         self.visibility_smoother = [ValueBuffer(S.position_buffer_size) for _ in self.lm_range]
 
         self.left_hand_points = S.left_hand_landmark_ids
         self.right_hand_points = S.right_hand_landmark_ids
+
 
     def create_moving_list(self):
         if not self.lm_list:
@@ -84,6 +85,8 @@ class poseDetector():
         
         imgRGB = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         self.results = self.pose.process(imgRGB)
+        self.frame_w = frame.shape[1]
+        self.frame_h = frame.shape[0]
 
         if self.results.pose_landmarks:
             if draw:
@@ -100,7 +103,7 @@ class poseDetector():
             pose = self.results.pose_landmarks
             for id, lm in enumerate(pose.landmark):
                 x, y = (lm.x * w), (lm.y * h)
-                x, y = self.pixel_pos_averagers[id].add_and_get((x,y))
+                x, y = self.pixel_pos_smoother[id].add_and_get((x,y))
                 self.lm_list.append([id, int(x), int(y)])
 
                 if draw:
@@ -113,11 +116,19 @@ class poseDetector():
         if self.results.pose_landmarks:
             pose = self.results.pose_landmarks
             for id, lm in enumerate(pose.landmark):
-                vis = self.visibility_smoother[id].add_and_get_average(lm.visibility)
-                vis = vis > S.visibility_threshold
+                if self.landmarke_in_frame(id):
+                    vis = self.visibility_smoother[id].add_and_get_average(lm.visibility)
+                    vis = vis > S.visibility_threshold
+                else:
+                    vis = False
                 self.lm_visibility.append([id, vis])
         return self.lm_visibility
 
+    def landmarke_in_frame(self, id:int)->bool:
+        x,y = self.lm_list[id][1:3]
+        if 0 <= x < self.frame_w and 0 <= y < self.frame_h:
+            return True
+        return False
 
     def find_specific_points(self,mode:str='top', just_update_pos:bool=False, mirrowed:bool=False):
         landmarks = self.lm_list
@@ -178,7 +189,7 @@ class poseDetector():
         if self.results.pose_landmarks:
             pose = self.results.pose_world_landmarks
             for id, lm in enumerate(pose.landmark):
-                x, y, z = self.world_pos_averagers[id].add_and_get((lm.x, lm.y, lm.z))
+                x, y, z = self.world_pos_smoother[id].add_and_get((lm.x, lm.y, lm.z))
                 self.lm_3dlist.append([id, x, y, z])
 
             if draw:

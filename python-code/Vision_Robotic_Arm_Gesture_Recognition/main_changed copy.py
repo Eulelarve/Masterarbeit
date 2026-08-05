@@ -78,7 +78,6 @@ def main(fps_cap=30, show_fps=True, show_processing=True,source=0,
     process_ones = False
     upper_body_size = ValueBuffer(40)
     hand_aperture_smoother = ValueBuffer(5)
-    hand_status_buffer = HandOpenClosedBuffer(buffer_size=S.hand_status_buffer_size)
     open_close_status_capturer = SaveFrameStatus(keys=(ord('1'), ord('2'), ord('3')), status=('hand open', 'hand closed', None))
 
     previous_time = time.perf_counter()

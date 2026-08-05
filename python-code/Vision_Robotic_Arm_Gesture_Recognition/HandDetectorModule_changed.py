@@ -6,7 +6,7 @@ import math
 
 import time
 
-from own_functions import fit_roi_landmarks_to_frame, ValueBuffer, close_to, ListAverager
+from own_functions import fit_roi_landmarks_to_frame, ValueBuffer, close_to, ListBuffer
 import settings as S
 
 class HandDetector():
@@ -38,7 +38,7 @@ class HandDetector():
                                         min_tracking_confidence=self.trackCon)
         self.mpDraw = mp.solutions.drawing_utils
 
-        self.pixel_pos_averagers = [ListAverager(S.position_buffer_size) for _ in self.lm_range]
+        self.pixel_pos_smoother = [ListBuffer(S.position_buffer_size) for _ in self.lm_range]
 
 
         self.is_hand_open:int = None
@@ -262,7 +262,7 @@ class HandDetector():
         if self.hand_landmarks:
             for id, lm in enumerate(self.hand_landmarks):
                 x, y = (lm.x * w), (lm.y * h)
-                x, y = self.pixel_pos_averagers[id].add_and_get((x,y))
+                x, y = self.pixel_pos_smoother[id].add_and_get((x,y))
                 self.lm_list.append([id, int(x), int(y)])
 
                 if draw:
@@ -355,7 +355,7 @@ class HandDetector():
         
         return distance
     
-    def open_or_close_distance_dif(self, frame=None, draw=True, min_distance_difference=0.7, frame_difference=10, ):
+    def open_or_close_distance_dif(self, frame=None, draw=True, min_distance_difference=0.7, frame_difference=20, ):
         wrist_finger_tip = (0, 12)
         thump_pinky = (4, 20)
         red = (0, 0, 255)
@@ -366,8 +366,8 @@ class HandDetector():
         distance = self.get_distance(*wrist_finger_tip) + self.get_distance(*thump_pinky)
         # buffering
         if getattr(self, "dist_smoother", None) is None:
-            self.dist_smoother = ValueBuffer(frame_difference)
-            self.frame_buffer = ValueBuffer(frame_difference*2)
+            self.dist_smoother = ValueBuffer(2)
+            self.frame_buffer = ValueBuffer(frame_difference)
             self.is_hand_open = 1 # initialisie with hand opening
         distance = self.dist_smoother.add_and_get_average(distance)
         self.frame_buffer.add(distance)
