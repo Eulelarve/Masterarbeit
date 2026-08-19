@@ -4,7 +4,8 @@ import settings as S
 import numpy as np
 
 class GUITile:
-    def __init__(self, name:str, image_path:str|None, type='GUITile'):
+    def __init__(self, gui_object:object, name:str, image_path:str|None, type='GUITile'):
+        self.parent:GuiOverlay = gui_object
         self.type = type
         self.name = name
         self.icon = None
@@ -21,14 +22,28 @@ class GUITile:
         self.set_image(image_path)
         self._adjust_icon()
 
+    def select(self):
+        self.selected = True
+
+    def unselect(self):
+        self.selected = False
+        self.activated = False
+
+    def pointer_selection(self, pointer_pos:tuple[int, int])->bool:
+        if self.collide(pointer_pos):
+            self.select()
+            return True
+        self.unselect()
+        return False
+
     def get_info(self):
         self.info_dict['name'] = self.name
         self.info_dict['type'] = self.type
         self.info_dict['function'] = self._function
         return self.info_dict.copy()
     
-    def function(self, gui:object):
-        self.activated = not self.activated
+    def function(self):
+        self.activated = True
 
     def set_center(self, pos:tuple[int,int]):
         x,y = pos
@@ -61,7 +76,6 @@ class GUITile:
 
     def draw(self, frame):
         if self.show:
-
             if self.rect is None:
                 self.update_rect(frame)
             if self.rect is None:
@@ -162,8 +176,8 @@ class GUITile:
 
 
 class Instrument(GUITile):
-    def __init__(self, name:str, image_path:str|None):
-        super().__init__(name, image_path, S.type_instrument)
+    def __init__(self, gui_object:object, name:str, image_path:str|None):
+        super().__init__(gui_object, name, image_path, S.type_instrument)
         self.bar_pos:int = None
         self.bar_rect:list = None
         self.elevation:float = None
@@ -209,12 +223,12 @@ class Instrument(GUITile):
         self.volume = volue
 
 class VolumeBar(GUITile):
-    def __init__(self):
+    def __init__(self ,gui_object:object, ):
         self.width_factor = 0.5  # halbe Bildbreite
         self.height_factor = 0.15
         name = "volume"
         self.volume = 0.0
-        super().__init__(name, None, 'VolumeBar')
+        super().__init__(gui_object, name, None, 'VolumeBar')
         self._function = "change volume"
 
     def get_info(self):
@@ -254,18 +268,18 @@ class VolumeBar(GUITile):
             self._create_image()
             self._create_icon()
 
-    def function(self, gui):
-        super().function(gui)
-        self.set_volume_from_position(gui.draw_pos)
+    def function(self):
+        super().function()
+        self.parent.set_volume_from_position(self.parent.draw_pos)
 
     def _create_image(self):
         text = f"- : : : : : volume {self.volume:.2f} : : : : : +"
         super()._create_image(text)
 
 class CloseButton(GUITile):
-    def __init__(self,):
+    def __init__(self, gui_object:object):
         name = 'X'
-        super().__init__(name, None, 'CloseButton')
+        super().__init__(gui_object, name, None, 'CloseButton')
         self._function = 'close application'
 
     def update_rect(self, frame):
@@ -279,20 +293,20 @@ class CloseButton(GUITile):
     def _create_image(self,):
         return super()._create_image(back_ground_color=(*S.red, 50))
 
-    def function(self, gui:object):
-        super().function(gui)
-        gui.add_info(self.get_info())
+    def function(self):
+        super().function()
+        self.parent.add_info(self.get_info())
 
 
 
     
 class ResetInstruments(GUITile):
-    def __init__(self):
+    def __init__(self, gui_object:object):
         self.width_factor = 0.2 
         self.height_factor = 0.1
         name = 'reset Instruments'
         type = 'ResetInstruments'
-        super().__init__(name, None, type)
+        super().__init__(gui_object, name, None, type)
         self.show = False # not viseble at the programm start
         self._function = 'reset instruments'
 
@@ -309,26 +323,26 @@ class ResetInstruments(GUITile):
 
         self.rect = [x, y, w, h]
 
-    def function(self, gui:object):
-        super().function(gui)
-        gui.reset_instruments()
+    def function(self):
+        super().function()
+        self.parent.reset_instruments()
 
 class ChangeVisibility(GUITile):
-    def __init__(self):
+    def __init__(self, gui_object:object):
         name = 'show'
         type = 'ChangeVisibility'
         self.width_factor = 0.15
         self.height_factor = 0.1
-        super().__init__(name, None, type)
+        super().__init__(gui_object, name, None, type)
         self._function = 'show gui'
         self.modes = {0:'show "show" button',1:'show gui', 2:'show gui and processing', 3:'show processing'}
         self.mode_counter = 1
 
-    def function(self, gui):
-        super().function(gui)
+    def function(self):
+        super().function()
         self.next_mode()
-        gui.set_gui_show_mode(self._function)
-        gui.add_info(self.get_info())
+        self.parent.set_gui_show_mode(self._function)
+        self.parent.add_info(self.get_info())
 
     def next_mode(self):
         self.mode_counter += 1
@@ -345,6 +359,41 @@ class ChangeVisibility(GUITile):
 
         self.rect = [x, y, w, h]
 
+class InfoButton(GUITile):
+    def __init__(self, gui_object:object):
+        name = 'info'
+        type = 'button'
+        self.width_factor = 0.15
+        self.height_factor = 0.1
+        super().__init__(gui_object, name, None, type)
+        self.info_image = cv2.imread(S.gui_info_image_path)
+
+    def update_rect(self, frame):
+        margin = 10
+        fh, fw = frame.shape[:2]
+        w = int(fw * self.width_factor)
+        h = int(fh * self.height_factor)
+        x = margin
+        y = margin * 3
+        self.rect = [x, y, w, h]
+
+    def select(self):
+        self.function()
+        return super().select()
+    
+    def function(self):
+        super().function()
+        frame = self.parent.frame
+
+    def draw(self, frame):
+        if self.activated:
+            x = int((frame.shape[1] - self.info_image.shape[1])/2)
+            y = int((frame.shape[0] - self.info_image.shape[0])/2)
+            overlay_image(frame, self.info_image, (x,y))
+
+        return super().draw(frame)
+
+    
 class GuiOverlay:
     def __init__(self, frame=None):
         self.frame = frame
@@ -360,10 +409,10 @@ class GuiOverlay:
         self.overlay_top_zone = None
         self.overlay_bot_zone = None
         self.show_border_zone = False
-        self.volume_bar = VolumeBar()
-        self.x = CloseButton()
-        self.reset_btn = ResetInstruments()
-        self.show = ChangeVisibility()
+        self.volume_bar = VolumeBar(self)
+        self.x = CloseButton(self)
+        self.reset_btn = ResetInstruments(self)
+        self.show = ChangeVisibility(self)
 
         self.volume_bar.show = False
         self.menu.append(self.volume_bar)
@@ -372,7 +421,7 @@ class GuiOverlay:
         self.menu.append(self.show)
 
     def add_instrument(self, name, image_path='', position=-1):
-        instrument = Instrument(name, image_path)
+        instrument = Instrument(self, name, image_path)
         self._add_to_bar(instrument, position)
         self.define_bar_tile_pos_and_size()
     
@@ -447,8 +496,8 @@ class GuiOverlay:
             y = self.frame.shape[0] - self.overlay_bot_zone.shape[0]
             overlay_image(self.frame,self.overlay_bot_zone,(0, y))
 
-        for inst in [ *self.bar, *self.room, *self.menu,]:
-            inst.draw(self.frame)
+        for tile in [ *self.bar, *self.room, *self.menu,]:
+            tile.draw(self.frame)
         
         if self.draw_pos is not None:
             cv2.circle(frame, self.draw_pos, 5, S.red, -1)
@@ -465,12 +514,8 @@ class GuiOverlay:
 
             for tile in  [*self.bar, *self.room, *self.menu]:
 
-                tile.selected = False
-                if not tile.collide(pointer_pos):
-                    tile.activated = False
-                else:
-                    self.draw_pos = pointer_pos[:] # copy pos
-                    tile.selected = True
+                if tile.pointer_selection(pointer_pos):
+                    self.draw_pos = pointer_pos[:] # copy pos list/tuple
                     self.selected = tile
                     return tile
         
@@ -497,8 +542,7 @@ class GuiOverlay:
                 self.selected_size_change(self.sel_size)
 
             elif self.selected in self.menu:
-                self.selected.function(self)
-
+                self.selected.function()
 
         return True
     

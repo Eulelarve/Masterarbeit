@@ -17,6 +17,7 @@ from angle_handler import RoomAngleDetector
 from HandDetectorModule_changed import HandDetector as hdm
 from PoseDetectorModule_changed import poseDetector as pdm
 from analyse import SaveFrameStatus, save_list_to_file, find_files
+from gesture_handler import GestureDetector
 
 import settings as S
 
@@ -116,6 +117,7 @@ def main(fps_cap=S.fps, show_fps=True, show_processing=True,source=0,
     pose_detector = pdm()
     angle_detector = RoomAngleDetector()
     communicator = SendOnChange((S.IPv4_audiosystem,S.port),show_processing)
+    gesture_detector = GestureDetector()
 
     time.sleep(0.5)
 
@@ -601,7 +603,7 @@ def main(fps_cap=S.fps, show_fps=True, show_processing=True,source=0,
         #         shoulder_3d = rs_pixel_to_3d(depth_frame, cam_intrinsics,*shulder, True)
 
         # --------------------------------------------------
-        # hand (hand in pose landmarks) is moving
+        # hand is moving
         # --------------------------------------------------
         if not paused and process and pose_found:
                 hand_stands_still = hand_move.stands_still(hand_center)
@@ -635,6 +637,15 @@ def main(fps_cap=S.fps, show_fps=True, show_processing=True,source=0,
 
                 pointing_azimuth = angle_detector.azimuth
                 pointing_elevation = angle_detector.elevation
+
+        # --------------------------------------------------
+        # control gestures - Info
+        # -------------------------------------------------- 
+        if not paused and process and pose_found and hand_found:
+            gesture_detector.set_pixel_landmarks(hand_landmarks, pose_landmarks)
+            if gesture_detector.find_info_gesture():
+                print('info')#test
+
 
         # --------------------------------------------------
         # draw glode limelines
