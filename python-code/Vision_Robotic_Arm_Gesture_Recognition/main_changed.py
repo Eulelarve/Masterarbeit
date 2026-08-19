@@ -74,7 +74,7 @@ def main(fps_cap=S.fps, show_fps=True, show_processing=True,source=0,
     overlay.add_instrument("Scalpel")
     overlay.add_instrument("Pinzette")
     overlay.add_instrument("Schere")
-    overlay.add_instrument("violin",r"..\icon_geige.png")
+    overlay.add_instrument("violin",r"..\icons\icon_geige.png")
 
     frame_counter_processed = 0
     frame_counter_pose = 0

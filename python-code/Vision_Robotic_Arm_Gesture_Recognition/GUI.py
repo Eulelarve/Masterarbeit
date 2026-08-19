@@ -366,7 +366,7 @@ class InfoButton(GUITile):
         self.width_factor = 0.15
         self.height_factor = 0.1
         super().__init__(gui_object, name, None, type)
-        self.info_image = cv2.imread(S.gui_info_image_path)
+        self.info_image = cv2.imread(S.gui_info_image_path, cv2.IMREAD_UNCHANGED)
 
     def update_rect(self, frame):
         margin = 10
@@ -380,15 +380,12 @@ class InfoButton(GUITile):
     def select(self):
         self.function()
         return super().select()
-    
-    def function(self):
-        super().function()
-        frame = self.parent.frame
 
     def draw(self, frame):
         if self.activated:
             x = int((frame.shape[1] - self.info_image.shape[1])/2)
             y = int((frame.shape[0] - self.info_image.shape[0])/2)
+            print(self.info_image.shape)#test
             overlay_image(frame, self.info_image, (x,y))
 
         return super().draw(frame)
@@ -413,12 +410,14 @@ class GuiOverlay:
         self.x = CloseButton(self)
         self.reset_btn = ResetInstruments(self)
         self.show = ChangeVisibility(self)
+        self.into_btn = InfoButton(self)
 
         self.volume_bar.show = False
         self.menu.append(self.volume_bar)
         self.menu.append(self.x)
         self.menu.append(self.reset_btn)
-        self.menu.append(self.show)
+        # self.menu.append(self.show)
+        self.menu.append(self.into_btn)
 
     def add_instrument(self, name, image_path='', position=-1):
         instrument = Instrument(self, name, image_path)
