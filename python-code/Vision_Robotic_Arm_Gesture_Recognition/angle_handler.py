@@ -21,13 +21,28 @@ def angle_between_points(p1:tuple, p2:tuple, p3:tuple)->float:
     """
     v1 = np.array(p1) - np.array(p2)
     v2 = np.array(p3) - np.array(p2)
+    return angle_between_vectors(v1,v2)
+  
 
-    angle = np.arccos(
-        np.dot(v1, v2) /
-        (np.linalg.norm(v1) * np.linalg.norm(v2))
-    )
+def angle_between_vectors(v1:tuple, v2:tuple, between_0_and_180_deg = False)->float:
+    """ 
+        calcumates the angle between 2 vectors (2D or 3D)
+    """
+    dot = sum(a * b for a, b in zip(v1, v2))
 
-    return np.degrees(angle)
+    if len(v1) == 2:
+        cross = v1[1] * v2[0] - v1[0] * v2[1]
+    else:
+        cross = math.sqrt(sum(x ** 2 for x in (
+            v1[1] * v2[2] - v1[2] * v2[1],
+            v1[2] * v2[0] - v1[0] * v2[2],
+            v1[0] * v2[1] - v1[1] * v2[0]
+        )))
+
+    if between_0_and_180_deg:
+        cross = abs(cross)
+
+    return math.degrees(math.atan2(cross, dot))
 
 def draw_angle_between_points(frame, text:str, p1:list[int,int] ,p2:list[int,int] ,p3:list[int,int] , text_pos=(-50,+50), color=(255, 255, 255)):
         """ 
@@ -48,26 +63,18 @@ def draw_angle_between_points(frame, text:str, p1:list[int,int] ,p2:list[int,int
         cv2.putText(frame, text, (cx2 + text_pos[0], cy2 + text_pos[1]),
                     cv2.FONT_HERSHEY_PLAIN, 1, color, 2, cv2.LINE_AA)
 
-def find_elevation_angle(p1:tuple,p2_angle_point:tuple, zero_is_horizontal:bool=True, down_is_y_minus:bool=True):
+def find_elevation_angle(p1:tuple,p2_angle_point:tuple):
     if p1 is None or p2_angle_point is None:
         return None
 
     # p3 room refference point, should be p2 shifted by one meter down
     p3 = list(p2_angle_point)
-    if down_is_y_minus:
-        p3[1] -= 1
-    else:
-        p3[1] += 1
-
+    p3[1] += 1
     elevation = angle_between_points(p1, p2_angle_point, p3) # take just x and y dimension, not z (hight)
-
-    # decide the angle 0 degree position
-    if zero_is_horizontal:
-        elevation -= 90
-
+    elevation -= 90 # so 0° is horizontal
     return elevation
 
-def find_azimuth_angle(p1:tuple,p2_angle_point:tuple,left_is_minus:bool=True)->float:
+def find_azimuth_angle(p1:tuple,p2_angle_point:tuple)->float:
     if p1 is None or p2_angle_point is None:
         return None
     # p1
@@ -80,25 +87,20 @@ def find_azimuth_angle(p1:tuple,p2_angle_point:tuple,left_is_minus:bool=True)->f
     x3 = x2
     z3 = z2 -1
     azimuth = angle_between_points((x1,z1), (x2,z2), (x3,z3)) # take just x and y dimension, not z (hight)
-    # decide the angle directions
-    if x1 < x2: # p1 nach links side (-x) of the angle point
-        azimuth *= 1 -2*left_is_minus  
-    else:
-        azimuth *= -1 +2*left_is_minus 
     return azimuth
 
 
 
 
 
-def find_room_angles(room_size:tuple,origin:tuple, start_point:tuple, azimuth_angle:float, elevation_angle:float, resulution:float, left_is_minus:bool) ->list[float,float]:
+def find_room_angles(room_size:tuple,origin:tuple, start_point:tuple, azimuth_angle:float, elevation_angle:float, resulution:float) ->list[float,float]:
     p1 = rey_tracing_to_room_border(room_size,origin, start_point, azimuth_angle, elevation_angle, resulution)
     # x = origin[0] + start_point[0]
     # y = origin[1] + start_point[1]
     # z = origin[2] + start_point[2]
     # print(origin,p1,x,y,z)#test
-    room_azimuth = find_azimuth_angle(p1 ,origin, left_is_minus)
-    room_elevation = find_elevation_angle(p1, origin, zero_is_horizontal=True,down_is_y_minus=True)
+    room_azimuth = find_azimuth_angle(p1 ,origin)
+    room_elevation = find_elevation_angle(p1, origin)
     return [room_azimuth, room_elevation]
 
 def rey_tracing_to_room_border(room_size:tuple,origin:tuple, start_point:tuple, azimuth_angle:float, elevation_angle:float, resulution:float)->list:
@@ -251,7 +253,7 @@ class RoomAngleDetector:
             # room angle (pointing angle)
             start_point = self.shoulder_3d.copy()
             start_point[2] -= self.dist_cam_to_room_center
-            self.room_angles = find_room_angles(self.room_size, self.room_center, start_point, *self.arm_angles, self.ray_tracing_resulution, not self.mirrowed_frame)
+            self.room_angles = find_room_angles(self.room_size, self.room_center, start_point, *self.arm_angles, self.ray_tracing_resulution)
             self.round_room_angle_to_resulution()
 
         if draw:
@@ -263,8 +265,8 @@ class RoomAngleDetector:
         if self.hand_3d is None or self.shoulder_3d is None:
             self.arm_angles = [None, None]
         else:
-            arm_azimuth = find_azimuth_angle(self.hand_3d, self.shoulder_3d, self.mirrowed_frame)
-            arm_elevation = find_elevation_angle(self.hand_3d, self.shoulder_3d, zero_is_horizontal=True, down_is_y_minus=False)
+            arm_azimuth = find_azimuth_angle(self.hand_3d, self.shoulder_3d)
+            arm_elevation = find_elevation_angle(self.hand_3d, self.shoulder_3d)
 
             self.arm_angles = self.angle_smoother.add_and_get([arm_azimuth, arm_elevation])
         return self.arm_angles
