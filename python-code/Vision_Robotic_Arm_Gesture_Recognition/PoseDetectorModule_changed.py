@@ -64,12 +64,12 @@ class poseDetector():
     def create_moving_list(self):
         if not self.lm_list:
             return []
-        self.lm_moving_list = []
+        self.lm_movment_list = []
         for (i,x,y) in self.lm_list:
             speed = self.move_detectors[i].is_moving((x,y))
-            self.lm_moving_list.append([i, speed])
+            self.lm_movment_list.append([i, speed])
 
-        return self.lm_moving_list
+        return self.lm_movment_list
 
     def findPose(self, frame, frame_to_draw=None, draw=True):
         """
@@ -353,7 +353,7 @@ class poseDetector():
         max_speed = 0
         fastest_id = None
         for id in point_ids:
-            speed = self.lm_moving_list[id][1]
+            speed = self.lm_movment_list[id][1]
             if speed > max_speed:
                 max_speed = speed
                 fastest_id = id

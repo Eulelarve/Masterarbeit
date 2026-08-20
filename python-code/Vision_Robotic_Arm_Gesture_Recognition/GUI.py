@@ -335,13 +335,13 @@ class ChangeVisibility(GUITile):
         self.height_factor = 0.1
         super().__init__(gui_object, name, None, type)
         self._function = 'show gui'
-        self.modes = {0:'show "show" button',1:'show gui', 2:'show gui and processing', 3:'show processing'}
+        self.modes = {0:'show buttons',1:'show gui', 2:'show gui and processing', 3:'show buttons and processing'}
         self.mode_counter = 1
 
     def function(self):
         super().function()
         self.next_mode()
-        self.parent.set_gui_show_mode(self._function)
+        self.parent.set_gui_visibility(self._function)
         self.parent.add_info(self.get_info())
 
     def next_mode(self):
@@ -366,7 +366,6 @@ class InfoButton(GUITile):
         self.width_factor = 0.15
         self.height_factor = 0.1
         super().__init__(gui_object, name, None, type)
-        self.info_image = cv2.imread(S.gui_info_image_path, cv2.IMREAD_UNCHANGED)
 
     def update_rect(self, frame):
         margin = 10
@@ -381,14 +380,9 @@ class InfoButton(GUITile):
         self.function()
         return super().select()
 
-    def draw(self, frame):
-        if self.activated:
-            x = int((frame.shape[1] - self.info_image.shape[1])/2)
-            y = int((frame.shape[0] - self.info_image.shape[0])/2)
-            print(self.info_image.shape)#test
-            overlay_image(frame, self.info_image, (x,y))
-
-        return super().draw(frame)
+    def function(self):
+        super().function()
+        self.parent.show_info_menu = True
 
     
 class GuiOverlay:
@@ -406,18 +400,20 @@ class GuiOverlay:
         self.overlay_top_zone = None
         self.overlay_bot_zone = None
         self.show_border_zone = False
+        self.info_menu_image = cv2.imread(S.gui_info_image_path, cv2.IMREAD_UNCHANGED)
+        self.show_info_menu = False
         self.volume_bar = VolumeBar(self)
         self.x = CloseButton(self)
         self.reset_btn = ResetInstruments(self)
-        self.show = ChangeVisibility(self)
-        self.into_btn = InfoButton(self)
+        # self.show = ChangeVisibility(self)
+        self.info_btn = InfoButton(self)
 
         self.volume_bar.show = False
         self.menu.append(self.volume_bar)
         self.menu.append(self.x)
         self.menu.append(self.reset_btn)
         # self.menu.append(self.show)
-        self.menu.append(self.into_btn)
+        self.menu.append(self.info_btn)
 
     def add_instrument(self, name, image_path='', position=-1):
         instrument = Instrument(self, name, image_path)
@@ -485,6 +481,9 @@ class GuiOverlay:
         self.room_bot = int(self.frame.shape[0] * S.arm_decection_border_bot)
         self.create_border_zone_indicator()
         self.define_bar_tile_pos_and_size()
+        x = int((self.frame.shape[1] - self.info_menu_image.shape[1])/2)
+        y = int((self.frame.shape[0] - self.info_menu_image.shape[0])/2)
+        self.info_menu_pos = x,y
 
     def draw(self, frame):
         if self.frame is not frame:
@@ -495,14 +494,19 @@ class GuiOverlay:
             y = self.frame.shape[0] - self.overlay_bot_zone.shape[0]
             overlay_image(self.frame,self.overlay_bot_zone,(0, y))
 
-        for tile in [ *self.bar, *self.room, *self.menu,]:
-            tile.draw(self.frame)
-        
+        if self.show_info_menu:
+            overlay_image(self.frame, self.info_menu_image, self.info_menu_pos)
+            self.show_info_menu = False
+        else:
+            for tile in [ *self.bar, *self.room, *self.menu,]:
+                tile.draw(self.frame)
+
         if self.draw_pos is not None:
-            cv2.circle(frame, self.draw_pos, 5, S.red, -1)
+            cv2.circle(self.frame, self.draw_pos, 5, S.red, -1)
+            self.draw_pos = None
+
         
     def select(self, pointer_pos:tuple[int,int]):
-        self.draw_pos = None
         if self.grasped:
             self.volume_bar.interaced_with_instrument(self.selected, pointer_pos) 
             if self.volume_bar.collide(pointer_pos):
@@ -517,14 +521,14 @@ class GuiOverlay:
                     self.draw_pos = pointer_pos[:] # copy pos list/tuple
                     self.selected = tile
                     return tile
-        
         return None
 
-    def set_gui_show_mode(self, mode:str):
+    def set_gui_visibility(self, mode:str):
         show_all = 'gui' in mode
-        for inst in [ *self.bar, *self.room, *self.menu,]:
-                    inst.show = show_all
-        self.show.show = True 
+        for tile in [ *self.bar, *self.room, *self.menu,]:
+                    tile.show = show_all
+        show_btn = 'button' in mode
+        self.info_btn.show = show_btn 
 
     def grap(self):
         if self.selected is None:
@@ -564,7 +568,7 @@ class GuiOverlay:
         self.grasped = on
         self.volume_bar.show = on
         self.x.show = not on
-        self.show.show = not on
+        self.info_btn.show = not on
         self.selected.activated = on
 
     def release(self, )->bool:

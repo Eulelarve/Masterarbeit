@@ -5,4 +5,4 @@ from collections import deque
 import math
 
 t= math.atan2(0,0)
-print(math.degrees(t))
+print(math.dist(3,4))

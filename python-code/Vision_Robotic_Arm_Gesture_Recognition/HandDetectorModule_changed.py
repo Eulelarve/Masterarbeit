@@ -463,13 +463,13 @@ class HandDetector():
                 draw_aperture=draw_aperture,
             )
         
-        if aperture >= thr_open:
-            status = 1 # open hand
-        elif aperture <= thr_closed:
-            status = 0 # closed hand
-        else:
-            status = self.is_hand_open # stay like it is
-
+        status = self.is_hand_open # stay like it is
+        if aperture is not None:
+            if aperture >= thr_open:
+                status = 1 # open hand
+            elif aperture <= thr_closed:
+                status = 0 # closed hand
+            
         self.is_hand_open = self.status_smoother.add_and_get_most_frequently(status)
         return self.is_hand_open
         
@@ -493,6 +493,8 @@ class HandDetector():
         frame, hand aperture (aperture)
         In case the aperture can't be computed, the value of aperture will be None
         '''
+        aperture_len_norm = None
+        aperture_wid_norm = None
         # hand length
         wrist = self.lm_list[0][1:]
         middle_mcp = self.lm_list[9][1:]

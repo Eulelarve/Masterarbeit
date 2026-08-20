@@ -83,8 +83,8 @@ def main(fps_cap=S.fps, show_fps=True, show_processing=True,source=0,
     size_sum = 0
     hand_status:int = None 
     hand_status_before:int = None
-    is_grapping = False
     video_name = ''
+    visibilety_mode_loop_list = list(S.overlay_visibilety_modes.values())
     # pointing_elevation = None
     # pointing_azimuth = None
 
@@ -104,7 +104,6 @@ def main(fps_cap=S.fps, show_fps=True, show_processing=True,source=0,
     hand_move = MoveDetector(min_speed=S.moving_speed, buffer_size=S.moving_buffer_size)
     open_close_status_capturer = SaveFrameStatus(keys=(ord('1'), ord('2'), ord('3')), status=('hand open', 'hand closed', None))
 
-    previous_time = time.perf_counter()
     last_frame_time = time.perf_counter()
 
     fps_limit = fps_cap
@@ -269,13 +268,12 @@ def main(fps_cap=S.fps, show_fps=True, show_processing=True,source=0,
         # --------------------------------------------------
         # set and reset 
         # --------------------------------------------------
-        hand_grasped = False
-        hand_released = False
         valide_hand = False
         pose_found = False
         hand_found = False
         hand_stands_still = False
         arm_in_angle_area = False
+        show_processing = 'process' in visibilety_mode_loop_list[0]
         # released_angle = None
         time_stemp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
@@ -480,7 +478,7 @@ def main(fps_cap=S.fps, show_fps=True, show_processing=True,source=0,
         if not paused and process and pose_found:
             draw_hand_center = True
             # hand and shulder
-            pose_detector.find_specific_points('moving',is_grapping, True)
+            pose_detector.find_specific_points('moving',gesture_detector.is_grabbing, True)
             i_hand , *hand_center = pose_detector.hand_center[:]
             i_shulder, *shulder = pose_detector.shulder[:] 
             i_hip, *hip = pose_detector.hip[:]
@@ -638,27 +636,6 @@ def main(fps_cap=S.fps, show_fps=True, show_processing=True,source=0,
                 pointing_azimuth = angle_detector.azimuth
                 pointing_elevation = angle_detector.elevation
 
-        # --------------------------------------------------
-        # control gestures - Info
-        # -------------------------------------------------- 
-        if not paused and process and pose_found and hand_found:
-            gesture_detector.set_pixel_landmarks(hand_landmarks, pose_landmarks)
-            if gesture_detector.find_info_gesture():
-                print('info')#test
-
-
-        # --------------------------------------------------
-        # draw glode limelines
-        # --------------------------------------------------
-        if not paused and process and pose_found:
-            if show_globe:
-                r = 260
-                get_globe_timeline_curvs(r,
-                                            *shulder,
-                                            frame=frame_overlay,
-                                            draw=show_globe
-                                            )
-                        
 
         # --------------------------------------------------
         # evaluate/change Hand status only if it is not moving
@@ -719,19 +696,17 @@ def main(fps_cap=S.fps, show_fps=True, show_processing=True,source=0,
         # --------------------------------------------------
         # hand status grapping
         if not paused and process and pose_found:   
-            if hand_status_before == 1 and hand_status == 0:
-                hand_grasped = True
-                is_grapping = True
-            elif is_grapping and hand_status == 1:
-                hand_released = True
-                is_grapping = False
+            gesture_detector.hand_status = hand_status
+            gesture_detector.hand_status_before = hand_status_before
+            gesture_detector.find_grap()
+
         # --------------------------------------------------
         # save grap and release angle
         # if not paused and process and pose_found:   
-        #     if hand_grasped:
+        #     if gesture_detector.grab:
         #         grasped_angle = pointing_angle
         #         released_angle = None
-        #     elif hand_released:
+        #     elif gesture_detector.releas:
         #         released_angle = pointing_angle
         #         if released_angle is not None and grasped_angle is not None:
         #             moved_angle = released_angle-grasped_angle
@@ -763,17 +738,49 @@ def main(fps_cap=S.fps, show_fps=True, show_processing=True,source=0,
                             cv2.CAP_PROP_POS_FRAMES,
                             wrong_frame-1 
                         )
-        
+
+        # --------------------------------------------------
+        # control gestures - Info
+        # -------------------------------------------------- 
+        if not paused and process and pose_found and hand_found:
+            gesture_detector.set_pixel_landmarks(hand_landmarks, pose_landmarks)
+            gesture_detector.pose_visibilety = list(pose_detector.lm_visibility)
+            gesture_detector.pose_movement = list(pose_detector.lm_movment_list)
+
+            if gesture_detector.find_info_gesture():
+                overlay.show_info_menu = True
+            if gesture_detector.find_termination_gesture():
+                print('termination gesture detected')
+                return_value = False
+                break
+            if gesture_detector.find_visibilety_mode_trigger():
+                visibilety_mode_loop_list.append(visibilety_mode_loop_list.pop(0)) # moves the first element to the last position
+                overlay.set_gui_visibility(visibilety_mode_loop_list[0])
+                print('change visibilety to',visibilety_mode_loop_list[0])#test
+
+
         # --------------------------------------------------
         # frame is fully processed 
         # --------------------------------------------------
         if not paused and process:
             frame_counter_processed += 1
         
-        # ==================================================
+        # ##################################################
         # Status overlay - end of video processing
-        # ==================================================
+        # ##################################################
 
+        # --------------------------------------------------
+        # draw glode limelines
+        # --------------------------------------------------
+        if not paused and process and pose_found:
+            if show_globe:
+                r = 260
+                get_globe_timeline_curvs(r,
+                                        *shulder,
+                                        frame=frame_overlay,
+                                        draw=show_globe
+                                        )
+                            
         
         # --------------------------------------------------
         # draw hand status
@@ -936,10 +943,10 @@ def main(fps_cap=S.fps, show_fps=True, show_processing=True,source=0,
             # per arm and hand 
             if not paused and process and pose_found:
                 overlay.select(hand_center)
-                if hand_grasped:
+                if gesture_detector.grab:
                     overlay.grap()
                 overlay.move(hand_center,azimuth=pointing_azimuth,elevation=pointing_elevation)
-                if hand_released:
+                if gesture_detector.releas:
                     overlay.release()
             overlay.draw(frame_overlay)
         gui_info = overlay.get_info()
@@ -959,7 +966,7 @@ def main(fps_cap=S.fps, show_fps=True, show_processing=True,source=0,
         # print out events 
         # --------------------------------------------------
         # if not paused and process:
-        #     if hand_released:
+        #     if gesture_detector.releas:
         #         print(f'Frame {frame_now}: arm moved {moved_angle}° wich grap at {grasped_angle}° and releas at {released_angle}°')
         #         moves_dict[hand_methode].append([frame_now, moved_angle])
 
