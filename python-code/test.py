@@ -4,5 +4,8 @@ from collections import deque
 
 import math
 
-t= math.atan2(0,0)
-print(math.dist(3,4))
+t= [8,9,7]
+e = list(t)
+print(e, e == t)
+t=None
+print(e, e == t)

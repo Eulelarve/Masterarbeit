@@ -8,6 +8,8 @@ class GestureDetector():
         self.pose_lm = []
         self.pose_visibilety = []
         self.pose_movement = []
+        self.active_hand_id:int|None = None
+        self.upper_body_len:int|None = None
         # grap gesture
         self.hand_status:bool|None = None           # 0 is closed, 1 is open, None is no hand
         self.hand_status_before:bool|None = None
@@ -15,7 +17,7 @@ class GestureDetector():
         self.releas = False
         self.is_grabbing = False
 
-        # control gestures
+        ## control gestures
         self.pointing_up_start_time:int|None = None
         self.arms_crossed_start_time:int|None = None
         self.covered_eyes_start_time:int|None = None
@@ -23,6 +25,11 @@ class GestureDetector():
         self.termination_gesture = False
         self.visibilety_mode_gesture = False
         self.visibilety_mode_trigger = False
+        self.clear_gesture = False
+        self.swipe_course:list[dict] = []
+        self.hand_shoulder_x_diff_max:int|None = None
+        self.hand_shoulder_x_diff_max_time:int|None = None
+        self.swiping_hand_id:int|None = None
 
     def set_pixel_landmarks(self, hand:list[list[int,int,int]], pose:list[list[int,int,int]]):
         """ take two lists of landmark pixel coordinates, lile[[index, screen_x, screen_y], [...], ...]
@@ -150,5 +157,60 @@ class GestureDetector():
                 self.visibilety_mode_trigger = True
         return self.visibilety_mode_trigger          
 
+    def arm_swipe(self)->bool:
+        if self.active_hand_id != self.swiping_hand_id:
+            # active hand changed
+            self.swipe_course.clear()
+            self.swiping_hand_id = self.active_hand_id
+
+        hand = self.pose_lm[self.swiping_hand_id][1:3]
+        time_now = time.time()
+        self.swipe_course.append({
+                                    'time':time_now, 
+                                    'x': hand[0], 
+                                    'y':hand[1]
+                                })
+        while time_now - self.swipe_course[0]['time'] > 0.7:
+            # while the first element is older then 0.7 sec
+            self.swipe_course.pop(0)
+
+        x_max = max(e['x'] for e in self.swipe_course)
+        x_min = min(e['x'] for e in self.swipe_course)
+        if x_max - x_min > self.upper_body_len * 2:
+            # hand travels in x direction more than the upper body size times 2
+            y_max = max(e['y'] for e in self.swipe_course)
+            y_min = min(e['y'] for e in self.swipe_course)
+            if y_max - y_min < self.upper_body_len * 0.5:
+                # hand travels in x direction less than the upper body size times 0.5
+                self.swipe_course.clear()
+                return True
+        # hand moves not fare or fast enough
+        return False
+
+    def find_clear_gesture(self)->bool:
+        self.clear_gesture = self.arm_swipe()
+        return self.clear_gesture
 
 
+
+
+
+
+
+        if self.hand_shoulder_x_diff_max is None:
+            # no refference jet, so set one
+            self.hand_shoulder_x_diff_max = hand_shoulder_x_diff_now
+            return False
+        
+        direction_1 = self.hand_shoulder_x_diff_max > 0
+        direction_2 = hand_shoulder_x_diff_now > 0
+        if direction_1 == direction_2:
+            # hand is still on the same side from the shoulder
+            if abs(self.hand_shoulder_x_diff_max) < abs(hand_shoulder_x_diff_now):
+                # new max distance
+                self.hand_shoulder_x_diff_max = hand_shoulder_x_diff_now
+        else:
+            # hand is on the other side from the shoulder
+            swip_distance = self.hand_shoulder_x_diff_max - hand_shoulder_x_diff_now
+            if abs(swip_distance) > self.upper_body_len * 1.5:
+                return True

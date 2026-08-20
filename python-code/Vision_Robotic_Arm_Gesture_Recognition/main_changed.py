@@ -746,6 +746,8 @@ def main(fps_cap=S.fps, show_fps=True, show_processing=True,source=0,
             gesture_detector.set_pixel_landmarks(hand_landmarks, pose_landmarks)
             gesture_detector.pose_visibilety = list(pose_detector.lm_visibility)
             gesture_detector.pose_movement = list(pose_detector.lm_movment_list)
+            gesture_detector.active_hand_id = i_hand
+            gesture_detector.upper_body_len = upper_body_size.get()
 
             if gesture_detector.find_info_gesture():
                 overlay.show_info_menu = True
@@ -754,9 +756,12 @@ def main(fps_cap=S.fps, show_fps=True, show_processing=True,source=0,
                 return_value = False
                 break
             if gesture_detector.find_visibilety_mode_trigger():
-                visibilety_mode_loop_list.append(visibilety_mode_loop_list.pop(0)) # moves the first element to the last position
+                first_mode = visibilety_mode_loop_list.pop(0)
+                visibilety_mode_loop_list.append(first_mode) 
                 overlay.set_gui_visibility(visibilety_mode_loop_list[0])
                 print('change visibilety to',visibilety_mode_loop_list[0])#test
+            if gesture_detector.find_clear_gesture():
+                print('clear', time_stemp)#test
 
 
         # --------------------------------------------------
