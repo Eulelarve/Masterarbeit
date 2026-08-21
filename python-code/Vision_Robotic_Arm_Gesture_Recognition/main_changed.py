@@ -83,6 +83,8 @@ def main(fps_cap=S.fps, show_fps=True, show_processing=True,source=0,
     size_sum = 0
     hand_status:int = None 
     hand_status_before:int = None
+    pointing_azimuth = None
+    pointing_elevation = None
     video_name = ''
     visibilety_mode_loop_list = list(S.overlay_visibilety_modes.values())
     # pointing_elevation = None
@@ -439,9 +441,7 @@ def main(fps_cap=S.fps, show_fps=True, show_processing=True,source=0,
         # --------------------------------------------------
         if not paused and process:
 
-            # choose between 2D and 3D pose estimation
-            _3D = True 
-            draw_pose = False 
+            draw_pose = True 
             draw_landmarks = False
 
             pose_detector.findPose(
@@ -616,13 +616,10 @@ def main(fps_cap=S.fps, show_fps=True, show_processing=True,source=0,
                 pointing_elevation = None
             else:
                 draw_angles = True
-            
-                # --------------------------------------------------
-                # azimuth
 
-                drow = draw_angles and show_processing
+                draw = draw_angles and show_processing
                 if use_rs_depth:
-                    angle_detector.find_room_angle_with_depth_frame(depth_frame,hand_center, shulder, frame_overlay, drow)
+                    angle_detector.find_room_angle_with_depth_frame(depth_frame,hand_center, shulder, frame_overlay, draw)
                 else:
                     hand_world_lm = pose_world_landmarks[i_hand][1:4]
                     shoulder_world_lm = pose_world_landmarks[i_shulder][1:4]
@@ -761,7 +758,8 @@ def main(fps_cap=S.fps, show_fps=True, show_processing=True,source=0,
                 overlay.set_gui_visibility(visibilety_mode_loop_list[0])
                 print('change visibilety to',visibilety_mode_loop_list[0])#test
             if gesture_detector.find_clear_gesture():
-                print('clear', time_stemp)#test
+                print('instroments reseted')#test
+                overlay.reset_instruments()
 
 
         # --------------------------------------------------

@@ -22,8 +22,8 @@ moving_buffer_size = 5 # frames, the pixel moves are averaged over
 position_buffer_size = 5 # frames, all positions are averaged over
 angle_buffer_size = 5 # frames, pointing angle averaged over
 gui_hight = 1/5 # of the frame hight
-arm_decection_border_top = 1/4 # of the frame hight
-arm_decection_border_bot = 3/4 # of the frame hight
+arm_decection_border_top = 0/4 # x of the frame hight, boarder were the instruments cant be plased (no arm angle calcumation zone)
+arm_decection_border_bot = 3/4 # x of the frame hight, boarder were the instruments cant be plased (no arm angle calcumation zone)
 cam_angle_hight = {0:1.70, 32.5:2.60} # if the cam has the angle x° it is mounted in the hight y m
 cam_angle = 0
 volume_decimal_place = 2 # 2 means 0.12 ,1 means 0.1
@@ -44,7 +44,7 @@ cam_intrinsics = 'xxx'
 left_hand_landmark_ids = [ 15,17,19, 21 ] # left hand landmarks from mediapipe pose
 right_hand_landmark_ids = [ 16,18,20, 22 ] # right hand landmarks from mediapipe pose
 gui_info_image_path = r"..\icons\into_imate.png"
-overlay_visibilety_modes = {0:'show gui and processing', 1:'show buttons and processing', 2:'show buttons', 3:'show gui'}
+overlay_visibilety_modes = {0:'show gui and processing', 1:'show gui', 2:'show buttons',3:'show buttons and processing' }
 
 # d455 intrinsiks color frame:              [ 1280x720  p[638.568 367.388]  f[640.329 638.932]  Inverse Brown Conrady [-0.055931 0.0683116 -0.000836038 0.000658576 -0.0223113] ]
 # d455 intrinsiks depth frame (unaligned):  [ 1280x720  p[643.714 366.77]  f[653.798 653.798]  Brown Conrady [0 0 0 0 0] ]

@@ -241,7 +241,8 @@ class VolumeBar(GUITile):
         w = int(fw * self.width_factor)
         h = int(fh * self.height_factor)
         x = (fw - w) // 2
-        y = int(fh * S.gui_hight - h)
+        y = int(fh * S.gui_hight -h )
+        # y = int(fh * (1 - S.gui_hight))
 
         self.rect = [x, y, w, h]
 
@@ -270,7 +271,7 @@ class VolumeBar(GUITile):
 
     def function(self):
         super().function()
-        self.parent.set_volume_from_position(self.parent.draw_pos)
+        self.set_volume_from_position(self.parent.draw_pos)
 
     def _create_image(self):
         text = f"- : : : : : volume {self.volume:.2f} : : : : : +"
@@ -403,15 +404,15 @@ class GuiOverlay:
         self.info_menu_image = cv2.imread(S.gui_info_image_path, cv2.IMREAD_UNCHANGED)
         self.show_info_menu = False
         self.volume_bar = VolumeBar(self)
-        self.x = CloseButton(self)
-        self.reset_btn = ResetInstruments(self)
+        # self.x = CloseButton(self)
+        # self.reset_btn = ResetInstruments(self)
         # self.show = ChangeVisibility(self)
         self.info_btn = InfoButton(self)
 
         self.volume_bar.show = False
         self.menu.append(self.volume_bar)
-        self.menu.append(self.x)
-        self.menu.append(self.reset_btn)
+        # self.menu.append(self.x)
+        # self.menu.append(self.reset_btn)
         # self.menu.append(self.show)
         self.menu.append(self.info_btn)
 
@@ -527,16 +528,17 @@ class GuiOverlay:
         show_all = 'gui' in mode
         for tile in [ *self.bar, *self.room, *self.menu,]:
                     tile.show = show_all
-        show_btn = 'button' in mode
-        self.info_btn.show = show_btn 
+        if 'button' in mode:
+            self.info_btn.show = True 
+        self.volume_bar.show = False
 
     def grap(self):
         if self.selected is None:
             return False
         if self.grasped == False:
             if type(self.selected) is Instrument:
+                # self.reset_btn.show = False
                 self._set_grap_mode(True)
-                self.reset_btn.show = False
                 self.selected.turn_on()
 
             if self.selected in self.bar:
@@ -553,10 +555,10 @@ class GuiOverlay:
         self.selected.change_size_by(size_change)
 
     def reset_instruments(self):
-        for inst in [*self.room, *self.bar]:
+        for inst in self.bar:
             inst.volume = S.instrument_start_volume
         self.clear_room()
-        self.reset_btn.show = False
+        # self.reset_btn.show = False
 
     def clear_room(self,):
         for inst in self.room.copy():
@@ -567,7 +569,7 @@ class GuiOverlay:
     def _set_grap_mode(self, on:bool):
         self.grasped = on
         self.volume_bar.show = on
-        self.x.show = not on
+        # self.x.show = not on
         self.info_btn.show = not on
         self.selected.activated = on
 
@@ -586,10 +588,10 @@ class GuiOverlay:
                 self.add_info(self.selected.get_info())
 
             self.show_border_zone = False
-            if self.room or [inst for inst in self.bar if inst.volume != S.instrument_start_volume]:
-                self.reset_btn.show = True
-            else:
-                self.reset_btn.show = False
+            # if self.room or [inst for inst in self.bar if inst.volume != S.instrument_start_volume]:
+            #     self.reset_btn.show = True
+            # else:
+            #     self.reset_btn.show = False
 
         self._set_grap_mode(False)
         return True

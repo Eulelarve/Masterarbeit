@@ -19,6 +19,7 @@ class GestureDetector():
 
         ## control gestures
         self.pointing_up_start_time:int|None = None
+        self.give_the_finger_start_time:int|None = None
         self.arms_crossed_start_time:int|None = None
         self.covered_eyes_start_time:int|None = None
         self.info_gesture = False
@@ -51,13 +52,16 @@ class GestureDetector():
         index_dx = abs(index_mcp[0] - index_tip[0])
         index_dy = index_mcp[1] - index_tip[1]
         if index_dy > 3 * index_dx: 
-            # index pointing upwerts
-            thump_dist = 0
-            index_dist = 0
+            # index pointing upwards
+            closer_to_thumb = True
             for tip in [middle_tip, ring_tip, pinky_tip]:
-                thump_dist += math.dist(thumb_tip, tip)
-                index_dist += math.dist(index_tip, tip)
-            if index_dist > 1.6 * thump_dist: 
+                thump_dist = math.dist(thumb_tip, tip)
+                index_dist = math.dist(index_tip, tip)
+                if index_dist < 1.6 * thump_dist: 
+                    closer_to_thumb = False
+                    break
+
+            if closer_to_thumb:
                 # thump colser to the rest of the fingers the index 
                 if not self.pointing_up_start_time:
                     self.pointing_up_start_time = time.time()
@@ -69,6 +73,46 @@ class GestureDetector():
         # hand not in the correct position
         self.pointing_up_start_time = None
         return False
+    
+    def give_the_finger(self)->bool:
+        index_tip = self.hand_lm[8][1:3]
+        middle_tip = self.hand_lm[12][1:3]
+        ring_tip = self.hand_lm[16][1:3]
+        pinky_tip = self.hand_lm[20][1:3]
+        middle_mcp = self.hand_lm[9][1:3]
+        middle_dy = middle_mcp[1] - middle_tip[1]
+        # middle_dx = abs(middle_mcp[0] - middle_tip[0])
+        # if middle_dy > 3 * middle_dx: 
+        if middle_dy > 0: 
+            # middle finger pointing more upwards
+            closer_to_wrist = True
+            for tip in [index_tip, ring_tip, pinky_tip]:
+                wrist_dist = math.dist(middle_mcp, tip)
+                middle_dist = math.dist(middle_tip, tip)
+                if middle_dist < 1.0 * wrist_dist: 
+                    closer_to_wrist = False
+                    break
+
+            if closer_to_wrist:
+                # wrist colser to the rest of the fingers the middle finger 
+                if not self.give_the_finger_start_time:
+                    self.give_the_finger_start_time = time.time()
+                    return False
+                if time.time() - self.give_the_finger_start_time > 3: 
+                    # hold this gesture 3 sec
+                    return True
+                return False
+        # hand not in the correct position
+        self.give_the_finger_start_time = None
+        return False
+
+    def _(self):
+        if self.give_the_finger():
+            self.feel_slighted()
+
+    def feel_slighted(self):
+        print('f**k you self!\nI am out!')
+        self.termination_gesture = True
                 
     def find_grap(self)-> bool|None:
         """ set and returns if the hand is grabbing or releasing now
@@ -91,9 +135,12 @@ class GestureDetector():
         return None
 
     def find_termination_gesture(self)->bool:
-        self.termination_gesture = self.arms_crossed()
+        self.termination_gesture = self.arms_crossed() 
+        self._()
         return self.termination_gesture
-    
+
+
+
     def arms_crossed(self)->bool:
         hand_left = self.pose_lm[19][1:3]
         hand_right = self.pose_lm[20][1:3]
