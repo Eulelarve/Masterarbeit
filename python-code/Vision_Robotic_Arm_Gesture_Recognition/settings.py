@@ -19,7 +19,8 @@ no_hand_frame_count = 30 # by 30 FPS are 30 frames = one secund not hand, to get
 video_folder = r'..\test_videos (gitignore)/'
 moving_speed = 10 # pixel per frame, min needed to be detected as moving hand, choose between 2-20
 moving_buffer_size = 5 # frames, the pixel moves are averaged over
-position_buffer_size = 5 # frames, all positions are averaged over
+position_average_buffer_size = 2 # min 2 frames to be used, all positions are averaged over
+position_median_buffer_size = 3 # min 3 frames to be used, all positions are averaged over
 angle_buffer_size = 5 # frames, pointing angle averaged over
 gui_hight = 1/5 # of the frame hight
 arm_decection_border_top = 0/4 # x of the frame hight, boarder were the instruments cant be plased (no arm angle calcumation zone)

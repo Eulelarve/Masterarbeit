@@ -10,6 +10,36 @@ from coordinates_handler import get_center_of_landmarks
 from angle_handler import angle_between_points, draw_angle_between_points
 import settings as S
 
+POSE_CONNECTIONS = [
+    # Gesicht
+    (0, 1), (1, 2), (2, 3), (3, 7),
+    (0, 4), (4, 5), (5, 6), (6, 8),
+    (9, 10),
+
+    # Oberkörper
+    (11, 12),
+    (11, 13), (13, 15),
+    (15, 17), (15, 19), (15, 21),
+    (17, 19),
+    (12, 14), (14, 16),
+    (16, 18), (16, 20), (16, 22),
+    (18, 20),
+
+    # Rumpf
+    (11, 23), (12, 24),
+    (23, 24),
+
+    # Linkes Bein
+    (23, 25), (25, 27),
+    (27, 29), (29, 31),
+    (27, 31),
+
+    # Rechtes Bein
+    (24, 26), (26, 28),
+    (28, 30), (30, 32),
+    (28, 32),
+]
+
 class poseDetector():
     def __init__(self, mode=False, modCompl=1, upBody=False, smooth=True, segm=False, smooth_seg=True, detCon=0.5, trackCon=0.5):
         """Pose detector class that is used to detect the position of the body keypoints.
@@ -53,9 +83,11 @@ class poseDetector():
                                      min_tracking_confidence=self.trackCon)
         self.mpDraw = mp.solutions.drawing_utils
         self.move_detectors = [MoveDetector(S.moving_speed, S.moving_buffer_size) for _ in self.lm_range]
-        self.pixel_pos_smoother = [ListBuffer(S.position_buffer_size) for _ in self.lm_range]
-        self.world_pos_smoother = [ListBuffer(S.position_buffer_size) for _ in self.lm_range]
-        self.visibility_smoother = [ValueBuffer(S.position_buffer_size) for _ in self.lm_range]
+        self.pixel_pos_smoother = [ListBuffer(S.position_average_buffer_size,'average') for _ in self.lm_range]
+        self.world_pos_smoother = [ListBuffer(S.position_average_buffer_size,'average') for _ in self.lm_range]
+        self.pixel_pos_anti_outliner = [ListBuffer(S.position_average_buffer_size,'median') for _ in self.lm_range]
+        self.world_pos_anti_outliner = [ListBuffer(S.position_average_buffer_size,'median') for _ in self.lm_range]
+        self.visibility_anti_outliner = [ValueBuffer(S.position_average_buffer_size,'median') for _ in self.lm_range]
 
         self.left_hand_points = S.left_hand_landmark_ids
         self.right_hand_points = S.right_hand_landmark_ids
@@ -71,7 +103,7 @@ class poseDetector():
 
         return self.lm_movment_list
 
-    def findPose(self, frame, frame_to_draw=None, draw=True):
+    def findPose(self, frame, ):
         """
         Detects the pose of the person in the given image.
 
@@ -88,28 +120,46 @@ class poseDetector():
         self.frame_w = frame.shape[1]
         self.frame_h = frame.shape[0]
 
-        if self.results.pose_landmarks:
-            if draw:
-                self.mpDraw.draw_landmarks(
-                    frame_to_draw, self.results.pose_landmarks, self.mpPose.POSE_CONNECTIONS)
-        return frame
+        # if self.results.pose_landmarks:
+        #     if draw:
+        #         self.mpDraw.draw_landmarks(
+        #             frame_to_draw, self.results.pose_landmarks, self.mpPose.POSE_CONNECTIONS)
+        # return frame
 
-    def create_landmark_list(self, frame, draw=True)->list:
+    def create_pixel_landmark_list(self)->list:
        
         self.lm_list = []
-        h, w, c = frame.shape
 
         if self.results.pose_landmarks:
             pose = self.results.pose_landmarks
             for id, lm in enumerate(pose.landmark):
-                x, y = (lm.x * w), (lm.y * h)
-                x, y = self.pixel_pos_smoother[id].add_and_get((x,y))
+                x, y = (lm.x * self.frame_w), (lm.y * self.frame_h)
                 self.lm_list.append([id, int(x), int(y)])
 
-                if draw:
-                    cv2.circle(frame, (x, y), 5, S.red, -1)
+                self.disjiggle_pixel_landmark_list()
 
         return self.lm_list
+
+    def disjiggle_pixel_landmark_list(self):
+        for id, x,y in self.lm_list:
+            if S.position_median_buffer_size >= 3:
+                x, y = self.pixel_pos_anti_outliner[id].add_and_get((x, y))
+            if S.position_average_buffer_size >= 2:
+                x, y = self.pixel_pos_smoother[id].add_and_get((x, y))
+            self.lm_list[id][:] = id, int(x), int(y) # use the existing sub list
+
+    def draw_skeleton(self, frame):
+        connections = POSE_CONNECTIONS
+        for start, end in connections:
+            cv2.line(
+                frame,
+                self.lm_list[start][1:3],
+                self.lm_list[end][1:3],
+                S.white,
+                2
+            )
+        for id, *xy in self.lm_list:
+            cv2.circle(frame, xy, 5, S.white, -1)
 
     def create_visibility_list(self)->list:
         self.lm_visibility = []
@@ -117,7 +167,7 @@ class poseDetector():
             pose = self.results.pose_landmarks
             for id, lm in enumerate(pose.landmark):
                 if self.landmarke_in_frame(id):
-                    vis = self.visibility_smoother[id].add_and_get_average(lm.visibility)
+                    vis = self.visibility_anti_outliner[id].add_and_get(lm.visibility)
                     vis = vis > S.visibility_threshold
                 else:
                     vis = False
@@ -189,14 +239,23 @@ class poseDetector():
         if self.results.pose_landmarks:
             pose = self.results.pose_world_landmarks
             for id, lm in enumerate(pose.landmark):
-                x, y, z = self.world_pos_smoother[id].add_and_get((lm.x, lm.y, lm.z))
-                self.lm_3dlist.append([id, x, y, z])
-
-            if draw:
-                self.mpDraw.plot_landmarks(
-                    self.results.pose_world_landmarks, self.mpPose.POSE_CONNECTIONS)
+                self.lm_3dlist.append([id, lm.x, lm.y, lm.z])
+                
+            self.disjiggle_world_landmark_list()
+            # if draw:
+            #     self.mpDraw.plot_landmarks(
+            #         self.results.pose_world_landmarks, self.mpPose.POSE_CONNECTIONS)
 
         return self.lm_3dlist
+
+    def disjiggle_world_landmark_list(self):
+        for id, x,y,z in self.lm_3dlist:
+            if S.position_median_buffer_size >= 3:
+                x, y, z = self.world_pos_anti_outliner[id].add_and_get((x, y, z))
+            if S.position_average_buffer_size >= 2:
+                x, y, z = self.world_pos_smoother[id].add_and_get((x, y, z))
+            self.lm_3dlist[id][:] = id, x, y, z
+
 
     def findAngle(self, frame, i1: int, i2: int, i3: int, angle3d=False, draw=True,text_pos=(-50,+50)):
         '''Find the angle between 3 points i1, i2, i3 in succession, where i2 is the point where the angle is measured.

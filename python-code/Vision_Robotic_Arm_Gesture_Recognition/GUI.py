@@ -241,8 +241,8 @@ class VolumeBar(GUITile):
         w = int(fw * self.width_factor)
         h = int(fh * self.height_factor)
         x = (fw - w) // 2
-        y = int(fh * S.gui_hight -h )
-        # y = int(fh * (1 - S.gui_hight))
+        # y = int(fh * S.gui_hight -h )
+        y = int(fh * (1 - S.gui_hight))
 
         self.rect = [x, y, w, h]
 
@@ -255,13 +255,14 @@ class VolumeBar(GUITile):
         self.change_volume(value)
 
     def interaced_with_instrument(self, instrument:Instrument, pos:tuple[int,int]):
-        self.selected = False
-        if self.collide(pos):
-            self.selected = True
-            self.set_volume_from_position(pos)
-            instrument.volume = self.volume
-        elif self.volume !=instrument.volume:
-            self.change_volume(instrument.volume)
+        if self.show:
+            self.selected = False
+            if self.collide(pos):
+                self.selected = True
+                self.set_volume_from_position(pos)
+                instrument.volume = self.volume
+            elif self.volume !=instrument.volume:
+                self.change_volume(instrument.volume)
         
     def change_volume(self, new_volume):
         if self.volume != new_volume:
@@ -393,14 +394,14 @@ class GuiOverlay:
         self.room:list[Instrument] = []
         self.menu:list[GUITile] = []
         self.selected:GUITile|Instrument = None
-        self.grasped = False
+        self.grabbing = False
         self.sel_size = 10
-        self.room_size = -30
+        self.room_size = -20
         self.draw_pos = None
         self.info_dict_list:list[dict] = []
         self.overlay_top_zone = None
         self.overlay_bot_zone = None
-        self.show_border_zone = False
+        self.in_room_zone = None
         self.info_menu_image = cv2.imread(S.gui_info_image_path, cv2.IMREAD_UNCHANGED)
         self.show_info_menu = False
         self.volume_bar = VolumeBar(self)
@@ -490,7 +491,7 @@ class GuiOverlay:
         if self.frame is not frame:
             self._set_frame(frame)
 
-        if self.show_border_zone:
+        if self.in_room_zone == False:
             overlay_image(self.frame,self.overlay_top_zone,(0, 0))
             y = self.frame.shape[0] - self.overlay_bot_zone.shape[0]
             overlay_image(self.frame,self.overlay_bot_zone,(0, y))
@@ -508,10 +509,15 @@ class GuiOverlay:
 
         
     def select(self, pointer_pos:tuple[int,int]):
-        if self.grasped:
+        self.draw_pos = pointer_pos[:] # copy th pointer/hand pos
+        if self.grabbing:
+            print('test1')
             self.volume_bar.interaced_with_instrument(self.selected, pointer_pos) 
-            if self.volume_bar.collide(pointer_pos):
-                self.draw_pos = pointer_pos[:] # copy pos
+            self.in_room_zone = valide_angle_zone(pointer_pos, self.frame.shape)
+            if self.in_room_zone:
+                print('test')
+                self.show_valume_bar(True)
+
             return self.selected
         else: 
             self.selected = None
@@ -519,11 +525,22 @@ class GuiOverlay:
             for tile in  [*self.bar, *self.room, *self.menu]:
 
                 if tile.pointer_selection(pointer_pos):
-                    self.draw_pos = pointer_pos[:] # copy pos list/tuple
                     self.selected = tile
                     return tile
         return None
+    
+    def show_valume_bar(self, show:bool):
+        if self.volume_bar.show == show:
+            return
+        self.show_instrument_bar(not show)
+        self.volume_bar.show = show
 
+    def show_instrument_bar(self, show:bool):
+        for inst in self.bar:
+            if inst is self.selected:
+                continue
+            inst.show = show
+    
     def set_gui_visibility(self, mode:str):
         show_all = 'gui' in mode
         for tile in [ *self.bar, *self.room, *self.menu,]:
@@ -535,16 +552,11 @@ class GuiOverlay:
     def grap(self):
         if self.selected is None:
             return False
-        if self.grasped == False:
+        if self.grabbing == False:
             if type(self.selected) is Instrument:
                 # self.reset_btn.show = False
                 self._set_grap_mode(True)
                 self.selected.turn_on()
-
-            if self.selected in self.bar:
-                self.selected_size_change(-self.sel_size)
-            elif self.selected in self.room:
-                self.selected_size_change(self.sel_size)
 
             elif self.selected in self.menu:
                 self.selected.function()
@@ -567,19 +579,22 @@ class GuiOverlay:
             self.add_info(inst.get_info())
 
     def _set_grap_mode(self, on:bool):
-        self.grasped = on
-        self.volume_bar.show = on
-        # self.x.show = not on
-        self.info_btn.show = not on
-        self.selected.activated = on
+        if self.grabbing != on:
+            self.grabbing = on
+            # self.x.show = not on
+            self.info_btn.show = not on
+            self.selected.activated = on
+            if self.selected in self.bar:
+                self.selected_size_change(self.sel_size * (1-2*on))
+            elif self.selected in self.room:
+                self.selected_size_change(self.sel_size* -(1-2*on))
 
     def release(self, )->bool:
         if self.selected is None:
             return False
         
-        if self.grasped:
+        if self.grabbing:
             if valide_angle_zone(self.selected.center, self.frame.shape):
-                self.selected_size_change(-self.sel_size)
                 self._add_to_room(self.selected)
             else:
                 self._add_to_bar(self.selected, True)
@@ -587,23 +602,23 @@ class GuiOverlay:
                 self.selected.set_angle(None, None)
                 self.add_info(self.selected.get_info())
 
-            self.show_border_zone = False
+            self.in_room_zone = None
+            self.show_valume_bar(False)
+
             # if self.room or [inst for inst in self.bar if inst.volume != S.instrument_start_volume]:
             #     self.reset_btn.show = True
             # else:
             #     self.reset_btn.show = False
 
-        self._set_grap_mode(False)
+            self._set_grap_mode(False)
         return True
 
     def move(self, pos:tuple[int,int], azimuth:float=None, elevation:float=None,)-> bool:
-        if not self.grasped:
+        if not self.grabbing:
             return False
-        
         self.selected.set_angle(azimuth=azimuth, elevation=elevation)
         self.selected.set_center(pos)
         self.add_info(self.selected.get_info())
-        self.show_border_zone = not valide_angle_zone(self.selected.center, self.frame.shape)
 
 
         return True

@@ -9,6 +9,39 @@ import time
 from own_functions import fit_roi_landmarks_to_frame, ValueBuffer, close_to, ListBuffer
 import settings as S
 
+
+HAND_CONNECTIONS = [
+    # Daumen
+    (0, 1),
+    (1, 2),
+    (2, 3),
+    (3, 4),
+
+    # Zeigefinger
+    (0, 5),
+    (5, 6),
+    (6, 7),
+    (7, 8),
+
+    # Mittelfinger
+    (0, 9),
+    (9, 10),
+    (10, 11),
+    (11, 12),
+
+    # Ringfinger
+    (0, 13),
+    (13, 14),
+    (14, 15),
+    (15, 16),
+
+    # Kleiner Finger
+    (0, 17),
+    (17, 18),
+    (18, 19),
+    (19, 20),
+]
+
 class HandDetector():
     def __init__(self, mode=False, maxHands=1, modCompl=1, detCon=0.5, trackCon=0.5):
         """Hand detector class that is used to detect the hand keypoints.
@@ -38,8 +71,8 @@ class HandDetector():
                                         min_tracking_confidence=self.trackCon)
         self.mpDraw = mp.solutions.drawing_utils
 
-        self.pixel_pos_smoother = [ListBuffer(S.position_buffer_size) for _ in self.lm_range]
-
+        self.pixel_pos_anti_outliner = [ListBuffer(S.position_median_buffer_size, 'median') for _ in self.lm_range]
+        self.pixel_pos_smoother = [ListBuffer(S.position_average_buffer_size, 'average') for _ in self.lm_range]
 
         self.is_hand_open:int = None
         self.no_hand_counter = 0
@@ -194,7 +227,7 @@ class HandDetector():
     
     ### added methods
 
-    def findHands(self,frame, roi=None, frame_to_draw=None, draw_landmarks=True, draw_roi=True):
+    def findHands(self,frame, roi=None, frame_to_draw=None, draw_roi=True):
         """ Detects the hands in the input image.
 
         Args:
@@ -215,7 +248,8 @@ class HandDetector():
         '''
         green = (0, 255, 0)
         white = (255,255,255)
-
+        self.frame_w = frame.shape[1]
+        self.frame_h = frame.shape[0]
 
         # if ROI is specified, only process the region of interest, otherwise process the whole image
         if roi:
@@ -246,29 +280,45 @@ class HandDetector():
                         pixel_region_x_y_w_h=roi
                         )
                 # draw the hand keypoints and connections
-                if draw_landmarks:
-                    self.mpDraw.draw_landmarks(frame_to_draw, handLMs,
-                                            self.mpHands.HAND_CONNECTIONS,
-                                            self.mpDraw.DrawingSpec(color=green, thickness=1, circle_radius=2),
-                                            self.mpDraw.DrawingSpec(color=white, thickness=2, circle_radius=2))
+                # if draw_landmarks:
+                #     self.mpDraw.draw_landmarks(frame_to_draw, handLMs,
+                #                             self.mpHands.HAND_CONNECTIONS,
+                #                             self.mpDraw.DrawingSpec(color=green, thickness=1, circle_radius=2),
+                #                             self.mpDraw.DrawingSpec(color=white, thickness=2, circle_radius=2))
 
             return self.results.multi_handedness
 
-    def create_landmark_list(self, frame, draw=True)->list:
-
+    def create_pixel_landmark_list(self)->list:
         self.lm_list = []
-        h, w, c = frame.shape
 
         if self.hand_landmarks:
             for id, lm in enumerate(self.hand_landmarks):
-                x, y = (lm.x * w), (lm.y * h)
-                x, y = self.pixel_pos_smoother[id].add_and_get((x,y))
+                x, y = (lm.x * self.frame_w), (lm.y * self.frame_h)
                 self.lm_list.append([id, int(x), int(y)])
-
-                if draw:
-                    cv2.circle(frame, (x, y), 4, S.red, -1)
-
+            self.disjiggle_pixel_landmark_list()
+               
         return self.lm_list
+
+    def draw_skeleton(self, frame):
+        connections = HAND_CONNECTIONS
+        for start, end in connections:
+            cv2.line(
+                frame,
+                self.lm_list[start][1:3],
+                self.lm_list[end][1:3],
+                S.white,
+                2
+            )
+        for id, *xy in self.lm_list:
+            cv2.circle(frame, xy, 4, S.white, -1)
+
+    def disjiggle_pixel_landmark_list(self):
+        for id, x,y in self.lm_list:
+            if S.position_median_buffer_size >= 3:
+                x, y = self.pixel_pos_anti_outliner[id].add_and_get((x, y))
+            if S.position_average_buffer_size >= 2:
+                x, y = self.pixel_pos_smoother[id].add_and_get((x, y))
+            self.lm_list[id][:] = id, int(x), int(y)
 
     # def get_biggest_distance_in_one_hand(self, frame=None,  draw=True):
     #     '''

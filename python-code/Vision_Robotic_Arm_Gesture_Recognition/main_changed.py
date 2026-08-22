@@ -14,8 +14,8 @@ from GUI import GuiOverlay
 from own_functions import ValueBuffer,ListBuffer, CSVWriter, tolist, screenshot, close_to, MoveDetector, get_globe_timeline_curvs , cv2_mouse_callback, MOUSE, valide_angle_zone, map_threshold
 from angle_handler import RoomAngleDetector
 
-from HandDetectorModule_changed import HandDetector as hdm
-from PoseDetectorModule_changed import poseDetector as pdm
+from HandDetectorModule_changed import HandDetector 
+from PoseDetectorModule_changed import poseDetector
 from analyse import SaveFrameStatus, save_list_to_file, find_files
 from gesture_handler import GestureDetector
 
@@ -103,7 +103,7 @@ def main(fps_cap=S.fps, show_fps=True, show_processing=True,source=0,
     frame = None
     process_ones = False
     upper_body_size = ValueBuffer(40)
-    hand_move = MoveDetector(min_speed=S.moving_speed, buffer_size=S.moving_buffer_size)
+    hand_move = MoveDetector()
     open_close_status_capturer = SaveFrameStatus(keys=(ord('1'), ord('2'), ord('3')), status=('hand open', 'hand closed', None))
 
     last_frame_time = time.perf_counter()
@@ -114,8 +114,8 @@ def main(fps_cap=S.fps, show_fps=True, show_processing=True,source=0,
     align_depth = S.align_depth
     cam_intrinsics = None
 
-    hand_detector = hdm()
-    pose_detector = pdm()
+    hand_detector = HandDetector()
+    pose_detector = poseDetector()
     angle_detector = RoomAngleDetector()
     communicator = SendOnChange((S.IPv4_audiosystem,S.port),show_processing)
     gesture_detector = GestureDetector()
@@ -441,19 +441,12 @@ def main(fps_cap=S.fps, show_fps=True, show_processing=True,source=0,
         # --------------------------------------------------
         if not paused and process:
 
-            draw_pose = True 
-            draw_landmarks = False
+            draw_skeleton = True 
 
-            pose_detector.findPose(
-                frame=frame_raw,
-                frame_to_draw=frame_overlay,
-                draw=show_processing and draw_pose
-            )
+            pose_detector.findPose(frame=frame_raw)
    
-            pose_landmarks = pose_detector.create_landmark_list(
-                    frame=frame_overlay,
-                    draw=show_processing and draw_landmarks
-                )
+            pose_landmarks = pose_detector.create_pixel_landmark_list()
+            
 
             pose_found = True if len(pose_landmarks) > 0 else False
             
@@ -464,13 +457,14 @@ def main(fps_cap=S.fps, show_fps=True, show_processing=True,source=0,
 
                 pose_world_landmarks = pose_detector.create_world_landmark_list(draw=False)
                 
-                # draw hand points from mediapipe pose landmarks 
-                if show_processing and draw_landmarks:
-                    hands = [15, 21,19,17, 16, 22, 20, 18, ]
-                    pose_detector.draw_landmarks(
-                        frame=frame_overlay, 
-                        landmark_ids=hands,
-                    )
+                if show_processing and draw_skeleton:
+                    pose_detector.draw_skeleton(frame=frame_overlay)
+                    
+                    # hands = [15, 21,19,17, 16, 22, 20, 18, ]
+                    # pose_detector.draw_landmarks(
+                    #     frame=frame_overlay, 
+                    #     landmark_ids=hands,
+                    # )
 
         # --------------------------------------------------
         # get hand center and coresponding shulder and max arm length, relative arm length
@@ -559,7 +553,7 @@ def main(fps_cap=S.fps, show_fps=True, show_processing=True,source=0,
             # if no roi_hand is there, no hand schoult be in the frame
             if roi_hand or not _roi_size: 
                 draw = True
-                draw_landmarks = draw and True
+                draw_skeleton = draw and True
                 draw_aperture = draw and True
                 draw_roi = draw and True
                 draw_max_distance = draw and True
@@ -568,7 +562,6 @@ def main(fps_cap=S.fps, show_fps=True, show_processing=True,source=0,
                     frame=frame_raw,
                     roi=roi_hand,
                     frame_to_draw=frame_overlay,
-                    draw_landmarks=show_processing and draw_landmarks,
                     draw_roi=show_processing and draw_roi,
                 )
 
@@ -580,11 +573,10 @@ def main(fps_cap=S.fps, show_fps=True, show_processing=True,source=0,
                                                         frame=frame_overlay, draw=show_processing and draw_max_distance, hand_side_index=hand_side_index)
                 
                 if valide_hand:
-                    hand_landmarks = hand_detector.create_landmark_list(
-                        frame=frame_overlay, 
-                        draw=False
-                        )
+                    hand_landmarks = hand_detector.create_pixel_landmark_list()
                     hand_found = len(hand_landmarks) > 0
+                if hand_found and show_processing and draw_skeleton:
+                    hand_detector.draw_skeleton(frame=frame_overlay)
         # --------------------------------------------------
         # overwrite the Hand center of pose by hand detection
         # --------------------------------------------------

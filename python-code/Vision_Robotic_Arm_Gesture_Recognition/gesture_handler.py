@@ -98,8 +98,8 @@ class GestureDetector():
                 if not self.give_the_finger_start_time:
                     self.give_the_finger_start_time = time.time()
                     return False
-                if time.time() - self.give_the_finger_start_time > 3: 
-                    # hold this gesture 3 sec
+                if time.time() - self.give_the_finger_start_time > 2: 
+                    # hold this gesture 2 sec
                     return True
                 return False
         # hand not in the correct position
@@ -174,12 +174,12 @@ class GestureDetector():
         eyes_dist = math.dist(eye_left, eye_right)
         hand_eye_dist_left = math.dist(hand_left, eye_left)
         hand_eye_dist_right = math.dist(hand_right, eye_right)
-        if hand_eye_dist_left < eyes_dist * 1.2 > hand_eye_dist_right:
+        if hand_eye_dist_left < eyes_dist * 1.4 > hand_eye_dist_right:
             # hands are close to the eyes
             if self.pose_visibilety[hl][1] and self.pose_visibilety[hr][1]:
                 # hands are visible
-                if not self.pose_movement[hl][1] and not self.pose_movement[hr][1]:
-                    # hands ar not moving
+                # if not self.pose_movement[hl][1] and not self.pose_movement[hr][1]:
+                #     # hands ar not moving
                     if not self.covered_eyes_start_time:
                         self.covered_eyes_start_time = time.time()
                         return False

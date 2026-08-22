@@ -4,8 +4,9 @@ from collections import deque
 
 import math
 
-t= [8,9,7]
-e = list(t)
-print(e, e == t)
-t=None
-print(e, e == t)
+t= [[8,4],[9,8],[7,0]]
+e = t[0]
+print(e, t)
+g=[1,2]
+t[0]= 987,334
+print(e, t)
