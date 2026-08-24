@@ -511,11 +511,9 @@ class GuiOverlay:
     def select(self, pointer_pos:tuple[int,int]):
         self.draw_pos = pointer_pos[:] # copy th pointer/hand pos
         if self.grabbing:
-            print('test1')
             self.volume_bar.interaced_with_instrument(self.selected, pointer_pos) 
             self.in_room_zone = valide_angle_zone(pointer_pos, self.frame.shape)
             if self.in_room_zone:
-                print('test')
                 self.show_valume_bar(True)
 
             return self.selected

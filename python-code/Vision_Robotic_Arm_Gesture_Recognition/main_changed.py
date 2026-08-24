@@ -661,7 +661,6 @@ def main(fps_cap=S.fps, show_fps=True, show_processing=True,source=0,
                         elif 'distance_dif' in hand_methode:
                             hand_status = hand_detector.open_or_close_distance_dif(frame_overlay, show_processing and draw_aperture, 
                                                                                     min_distance_difference=factor,
-                                                                                    frame_difference=S.hand_status_buffer_size*2,
                                                                                     )
 
                     else:   
@@ -1146,7 +1145,7 @@ if __name__ == "__main__":
     videos = [v7,v8,v10,v11]
     # videos.reverse()
     for v in bags:
-        for hand_methode in [ 'aperture_len_width']: #,'distance_dif__0.7','len_width_thr__1.5' ,   ]:
+        for hand_methode in [ 'aperture_len_width']: #,'distance_dif__1','len_width_thr__1.5' , aperture_len_width  ]:
             for buffer_size in [10]:
                 s = S.video_folder+v
                 r = main(

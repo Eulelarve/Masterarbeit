@@ -4,6 +4,7 @@ import math
 from statistics import median
 import numpy as np
 from collections import deque
+import time
 
 try:
     import settings as S
@@ -168,8 +169,9 @@ class ValueBuffer(ReturnModes):
 
     def add(self, value:any, ignore_none=False):
         if ignore_none and value is None:
-            return
+            return False
         self.buffer.append(value)
+        return True
 
     def get(self, mode:str|None=None)->any:
         if not mode:
@@ -333,6 +335,28 @@ class ValueBuffer(ReturnModes):
             return value[0]
         return None
 
+
+class ValueBufferTime(ValueBuffer):
+    def __init__(self, buffering_time:float, default_get_mode:str = S.default_buffer_mode):
+        """ buffering_time: time in secunds the buffer keeps values befor drop/ replace them """
+        self.buffer:list = []
+        self.times:list = []
+        self.buffering_time = buffering_time
+        self.last_majority = None # saves the last value that was the majority in the buffer, so that it can be returned if there is no majority in the current buffer
+        self.default_mode = default_get_mode
+
+    def add(self, value, ignore_none=False):
+        if ignore_none and value is None:
+            return False
+        self.buffer.append(value)
+        self.times.append(time.time())
+        while self.times[-1] - self.times[0] > self.buffering_time:
+            self.buffer.pop(0)
+            self.times.pop(0)
+    
+    @property
+    def majority_border(self):
+        return len(self.buffer)//2+1
 
 
 class ListBuffer(ReturnModes):

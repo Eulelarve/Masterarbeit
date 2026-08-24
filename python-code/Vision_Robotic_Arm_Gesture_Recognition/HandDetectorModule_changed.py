@@ -6,7 +6,7 @@ import math
 
 import time
 
-from own_functions import fit_roi_landmarks_to_frame, ValueBuffer, close_to, ListBuffer
+from own_functions import fit_roi_landmarks_to_frame, ValueBuffer, close_to, ListBuffer, ValueBufferTime
 import settings as S
 
 
@@ -405,7 +405,7 @@ class HandDetector():
         
         return distance
     
-    def open_or_close_distance_dif(self, frame=None, draw=True, min_distance_difference=0.7, frame_difference=20, ):
+    def open_or_close_distance_dif(self, frame=None, draw=True, min_distance_difference=0.7, time_difference=0.8, ):
         wrist_finger_tip = (0, 12)
         thump_pinky = (4, 20)
         red = (0, 0, 255)
@@ -413,22 +413,24 @@ class HandDetector():
         
         self.no_hand_counter = 0
         # get distance
-        distance = self.get_distance(*wrist_finger_tip) + self.get_distance(*thump_pinky)
+        distance = max(self.get_distance(*wrist_finger_tip), self.get_distance(*thump_pinky))
         # buffering
         if getattr(self, "dist_smoother", None) is None:
-            self.dist_smoother = ValueBuffer(2)
-            self.frame_buffer = ValueBuffer(frame_difference)
+            self.dist_smoother = ValueBuffer(3)
+            self.dist_and_time_buffer = ValueBufferTime(time_difference)
             self.is_hand_open = 1 # initialisie with hand opening
-        distance = self.dist_smoother.add_and_get_average(distance)
-        self.frame_buffer.add(distance)
+        distance = self.dist_smoother.add_and_get_median(distance)
+        self.dist_and_time_buffer.add(distance)
 
         # calcumation
-        rel_dif = abs(self.frame_buffer.difference / self.frame_buffer.min)
+        rel_dif = abs(self.dist_and_time_buffer.difference / self.dist_and_time_buffer.min)
         # desision
         if rel_dif >= min_distance_difference: # hand startus change
-            if self.frame_buffer.i_max > self.frame_buffer.i_min: 
+            if self.dist_and_time_buffer.i_max > self.dist_and_time_buffer.i_min: 
+                # max follows min value
                 self.is_hand_open = 1 # hand opening
             else:           
+                # min follows max value
                 self.is_hand_open = 0 # hand closing
 
         # drawing
@@ -444,7 +446,6 @@ class HandDetector():
     def buffer_clear(self):
         if getattr(self, "dist_smoother", None) is not None:
             self.dist_smoother.clear()
-            self.frame_buffer.clear()
         # if getattr(self, "status_smoother", None) is not None:
         #     self.status_smoother.clear()
     
@@ -508,10 +509,7 @@ class HandDetector():
         if getattr(self, "status_smoother", None) is None:
             self.status_smoother = ValueBuffer(buffer_size)
 
-        aperture = self.findHandAperture(
-                frame=frame, 
-                draw_aperture=draw_aperture,
-            )
+        aperture, aperture_line = self.findHandAperture()
         
         status = self.is_hand_open # stay like it is
         if aperture is not None:
@@ -519,11 +517,15 @@ class HandDetector():
                 status = 1 # open hand
             elif aperture <= thr_closed:
                 status = 0 # closed hand
-            
+
+        if draw_aperture:
+            cv2.line(frame,*aperture_line, S.blue if status else S.red, 3)
+
         self.is_hand_open = self.status_smoother.add_and_get_most_frequently(status)
+
         return self.is_hand_open
         
-    def findHandAperture(self, frame, aperture_range_len = [0.4, 1.7], aperture_range_width = [0.7, 1.7], draw_aperture=True,):
+    def findHandAperture(self, aperture_range_len = [0.4, 1.7], aperture_range_width = [0.7, 1.7])->tuple[float,tuple]:
         '''
         Finds the normalized hand aperture as distance between the mean point of the hand tips and the mean wrist and thumb base point divided by the palm lenght.
 
@@ -546,9 +548,9 @@ class HandDetector():
         aperture_len_norm = None
         aperture_wid_norm = None
         # hand length
-        wrist = self.lm_list[0][1:]
-        middle_mcp = self.lm_list[9][1:]
-        middle_tip = self.lm_list[12][1:]
+        wrist = self.lm_list[0][1:3]
+        middle_mcp = self.lm_list[9][1:3]
+        middle_tip = self.lm_list[12][1:3]
 
         palm_len = math.dist(wrist, middle_mcp)
         hand_len = math.dist(wrist, middle_tip)
@@ -558,10 +560,10 @@ class HandDetector():
             aperture_len_norm = np.round(np.interp(aperture_len, aperture_range_len, [0, 100]), 1)
 
         # hand width
-        pinky_mcp = self.lm_list[17][1:]
-        index_mcp = self.lm_list[5][1:]
-        thump_tip = np.array(self.lm_list[4][1:])
-        pinky_tip = np.array(self.lm_list[20][1:])
+        pinky_mcp = self.lm_list[17][1:3]
+        index_mcp = self.lm_list[5][1:3]
+        thump_tip = np.array(self.lm_list[4][1:3])
+        pinky_tip = np.array(self.lm_list[20][1:3])
 
         palm_width = math.dist(index_mcp, pinky_mcp)
         hand_width = math.dist(thump_tip, pinky_tip)
@@ -571,14 +573,10 @@ class HandDetector():
             aperture_wid_norm = np.round(np.interp(aperture_wid, aperture_range_width, [0, 100]), 1)
 
         use_len = hand_len > hand_width
+        if use_len:
+            return aperture_len_norm ,(wrist, middle_tip)
+        return aperture_wid_norm ,(thump_tip, pinky_tip)
 
-        if draw_aperture:
-            if use_len:
-                cv2.line(frame, wrist, middle_tip, S.blue, 3)
-            else:
-                cv2.line(frame,thump_tip, pinky_tip, S.blue, 3)
-
-        return aperture_len_norm if use_len else aperture_wid_norm
 
 # ---------------------------------------------------------------
 # MAIN SCRIPT EXAMPLE FOR REAL-TIME HAND TRACKING USING A WEBCAM
