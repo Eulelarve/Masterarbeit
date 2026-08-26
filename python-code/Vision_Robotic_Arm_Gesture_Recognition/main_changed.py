@@ -91,7 +91,7 @@ def main(fps_cap=S.fps, show_fps=True, show_processing=True,source=0,
     # pointing_azimuth = None
 
     # hand_status_dict = {'aperture':None, 'aperture_width':None,  'len_width_thr_1.2':None, 'len_width_thr_1.4':None, 'distance_dif_0.3':None,'distance_dif_0.4':None}
-    # hand_status_detected = {'aperture':[], 'aperture_width':[],  'len_width_thr_1.2':[], 'len_width_thr_1.4':[], 'distance_dif_0.3':[], 'distance_dif_0.4':[]}
+    hand_status_detected = {'aperture_7050':[], 'aperture_7055':[],  'aperture_7060':[], 'dif_0.8':[], 'dif_1':[],'dif_1.2':[]}
     # hand_status_buffer_dict = {'aperture':HandOpenClosedBuffer(buffer_size=S.hand_status_buffer_size), 'aperture_width':HandOpenClosedBuffer(buffer_size=S.hand_status_buffer_size), 
     #                             'len_width_thr_1.2':HandOpenClosedBuffer(buffer_size=S.hand_status_buffer_size), 'len_width_thr_1.4':HandOpenClosedBuffer(buffer_size=S.hand_status_buffer_size), 
     #                             'distance_dif_0.3':HandOpenClosedBuffer(buffer_size=1), 'distance_dif_0.4':HandOpenClosedBuffer(buffer_size=1)}
@@ -636,30 +636,44 @@ def main(fps_cap=S.fps, show_fps=True, show_processing=True,source=0,
                         # hand detected in frame
                         frame_counter_hand += 1
 
-
-
                         # ---------------------------------------
                         # choose a hand opening detection methode
                         # hand_methode = 'aperture_len_width__1.2' #  aperture_len_width__1.2   len_width_thr__1.2   distance_dif__0.5
-                        try:
-                            factor = float(hand_methode[hand_methode.find('__')+2:])
-                        except:
-                            factor = None
+            
+                        if capture_status:
+                            hand_status = hand_detector.open_or_close_aperture_thr(thr_open=70, thr_closed = 50, frame=frame_overlay, draw_aperture=show_processing and draw_aperture, buffer_size=S.hand_status_buffer_size)
+                            hand_status_detected['aperture_7050'].append(hand_status)
+                            hand_status = hand_detector.open_or_close_aperture_thr(thr_open=70, thr_closed = 55, frame=frame_overlay, draw_aperture=show_processing and draw_aperture, buffer_size=S.hand_status_buffer_size)
+                            hand_status_detected['aperture_7055'].append(hand_status)
+                            hand_status = hand_detector.open_or_close_aperture_thr(thr_open=70, thr_closed = 60, frame=frame_overlay, draw_aperture=show_processing and draw_aperture, buffer_size=S.hand_status_buffer_size)
+                            hand_status_detected['aperture_7060'].append(hand_status)
+                            hand_status = hand_detector.open_or_close_distance_dif(frame_overlay, show_processing and draw_aperture, min_distance_difference=0.8)
+                            hand_status_detected['dif_0.8'].append(hand_status)
+                            hand_status = hand_detector.open_or_close_distance_dif(frame_overlay, show_processing and draw_aperture, min_distance_difference=1)
+                            hand_status_detected['dif_1'].append(hand_status)
+                            hand_status = hand_detector.open_or_close_distance_dif(frame_overlay, show_processing and draw_aperture, min_distance_difference=1.2)
+                            hand_status_detected['dif_1.2'].append(hand_status)
 
-                        if 'aperture_len_width' in hand_methode:
-                            hand_status = hand_detector.open_or_close_aperture_thr(
-                                    frame=frame_overlay,
-                                    draw_aperture=show_processing and draw_aperture,
-                                    buffer_size=S.hand_status_buffer_size,
-                                )
-                        elif 'len_width_thr' in hand_methode:
-                            hand_status = hand_detector.open_or_close_len_width_thr(frame_overlay, show_processing and draw_aperture, 
-                                                                                        hand_opening_factor=1.4,
-                                                                                        use_len_if_larger_then_width=factor,
-                                                                                        buffer_size=S.hand_status_buffer_size,
-                                                                                        )
-                        elif 'distance_dif' in hand_methode:
-                            hand_status = hand_detector.open_or_close_distance_dif(frame_overlay, show_processing and draw_aperture, 
+                        else:
+                            try:
+                                factor = float(hand_methode[hand_methode.find('__')+2:])
+                            except:
+                                factor = None
+                                
+                            if 'aperture' in hand_methode:
+                                hand_status = hand_detector.open_or_close_aperture_thr(
+                                        frame=frame_overlay,
+                                        draw_aperture=show_processing and draw_aperture,
+                                        buffer_size=S.hand_status_buffer_size,
+                                    )
+                            # if 'len_width_thr' in hand_methode:
+                            #     hand_status = hand_detector.open_or_close_len_width_thr(frame_overlay, show_processing and draw_aperture, 
+                            #                                                                 hand_opening_factor=1.4,
+                            #                                                                 use_len_if_larger_then_width=factor,
+                            #                                                                 buffer_size=S.hand_status_buffer_size,
+                            #                                                                 )
+                            elif 'dif' in hand_methode:
+                                hand_status = hand_detector.open_or_close_distance_dif(frame_overlay, show_processing and draw_aperture, 
                                                                                     min_distance_difference=factor,
                                                                                     )
 
@@ -701,15 +715,6 @@ def main(fps_cap=S.fps, show_fps=True, show_processing=True,source=0,
         #         else:
         #             moved_angle = None
 
-
-
-        # --------------------------------------------------
-        # capture status comparsion 
-        # --------------------------------------------------
-        # if not paused:
-        #     if capture_status:
-        #         hand_status_detected.append(open_closed)
-                # open_close_status_capturer.add_comparison_status(open_closed)
         
         # --------------------------------------------------
         # capture status manually
@@ -1082,11 +1087,11 @@ def main(fps_cap=S.fps, show_fps=True, show_processing=True,source=0,
 
     # save_list_to_file(f'{source}_hand_pixel_moves.txt',hand_moves)
 
-    # if capture_status:
-    #     for methode in hand_status_dict.keys():
-    #         status = hand_status_buffer_dict[methode].most_frequently
-    #         data = hand_status_detected[methode]
-    #         save_list_to_file(source+f'-hand_detected_{methode}_no_hand_{hand_not_found_means}_no_movedetect_{skip_hand_move_detection}.txt',data)
+    if capture_status:
+        for key in hand_status_detected.keys():
+            data = hand_status_detected[key]
+            folder = r"C:\Users\Ampelman\Desktop\Masterarbeit\open close status data for videos\new_vedio_analyse/"
+            save_list_to_file(folder+video_name+f'-hand_detected_{key}_len_{len(data)}.txt',data)
 
     CSVWriter.write('HAND_detektionmethod_TEST.csv',
         name=source,
@@ -1142,32 +1147,30 @@ if __name__ == "__main__":
     # d5 = bags[4]
     # d6 = bags[5]
     # Video file input
-    videos = [v7,v8,v10,v11]
+    videos = [v1,v2,v3,v4,v5,v6]
     # videos.reverse()
-    for v in bags:
+    for v in videos:
         for hand_methode in [ 'aperture_len_width']: #,'distance_dif__1','len_width_thr__1.5' , aperture_len_width  ]:
-            for buffer_size in [10]:
-                s = S.video_folder+v
-                r = main(
-                    fps_cap=S.fps,
-                    show_fps=True,
-                    source=1,
-                    pause_frames=None,
-                    show_processing=True,
-                    capture_status_manually=False,
-                    capture_status = False,
-                    roi_size = None,
-                    start_frame=50,
-                    end_frame = None,
-                    foto_name='arm winkel perspektieve',
-                    foto_frames=None,
-                    hand_not_found_means=None,
-                    skip_hand_move_detection=False,
-                    show_globe=False,
-                    hand_methode=hand_methode,
-                    show_depth_frame = False,
-                )
-                if r == False:break
+            s = S.video_folder+v
+            r = main(
+                fps_cap=S.fps,
+                show_fps=True,
+                source=s,
+                pause_frames=None,
+                show_processing=True,
+                capture_status_manually=False,
+                capture_status = False,
+                roi_size = None,
+                start_frame=0,
+                end_frame = None,
+                foto_name='arm winkel perspektieve',
+                foto_frames=None,
+                hand_not_found_means=None,
+                skip_hand_move_detection=False,
+                show_globe=False,
+                hand_methode=hand_methode,
+                show_depth_frame = False,
+            )
             if r == False:break
         if r == False:break
     

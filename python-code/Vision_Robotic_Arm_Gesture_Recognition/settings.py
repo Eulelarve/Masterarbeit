@@ -13,7 +13,7 @@ window_size = (1280,720)#(1920, 1080)#
 hand_width_factor = 1.2
 hand_opening_factor = 1.3
 skip_frames = 100
-hand_status_buffer_size = 10
+hand_status_buffer_size = 6
 default_buffer_mode = 'median'
 no_hand_frame_count = 30 # by 30 FPS are 30 frames = one secund not hand, to get the no_hand status
 video_folder = r'..\test_videos (gitignore)/'

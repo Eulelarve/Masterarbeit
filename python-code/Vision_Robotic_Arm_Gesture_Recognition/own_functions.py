@@ -358,6 +358,10 @@ class ValueBufferTime(ValueBuffer):
     def majority_border(self):
         return len(self.buffer)//2+1
 
+    def clear(self):
+        self.times.clear()
+        return super().clear()
+
 
 class ListBuffer(ReturnModes):
     def __init__(self, buffer_size:int=5, default_get_mode:str=S.default_buffer_mode):
