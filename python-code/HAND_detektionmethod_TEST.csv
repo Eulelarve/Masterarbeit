@@ -1,7 +1,6 @@
 name,frame_x,frame_y,roi_size,frame_counter_processed,frame_counter_pose,pose_rate,frame_counter_hand,hand_rate,hand_not_found_means,skip_hand_move_detection,fps_mean,time
-..\test_videos (gitignore)/v01_32.5deg_1280x720p_long.mp4,1280,720,109,6125,6107,99.7,5000,81.6,,False,15.3,20260826_151702
-..\test_videos (gitignore)/v02_0deg_1280x720p_short_sleves.mp4,1280,720,152,3615,3615,100.0,2470,68.3,,False,15.2,20260826_152103
-..\test_videos (gitignore)/v03_0deg_640x480p_short_sleves.mp4,640,480,89,4092,4092,100.0,3159,77.2,,False,16.7,20260826_152512
-..\test_videos (gitignore)/v04_32.5deg_1280x720p_short_sleeves.mp4,1280,720,113,4664,4663,100.0,3551,76.1,,False,15.3,20260826_153021
-..\test_videos (gitignore)/v05_32.5deg_640x480p_short_sleves.mp4,640,480,67,4063,4063,100.0,2938,72.3,,False,16.5,20260826_153432
-..\test_videos (gitignore)/v06_0deg_1280x720p_15deg_steps_short_sleves.mp4,1280,720,153,4290,4290,100.0,2322,54.1,,False,15.2,20260826_153919
+..\test_videos (gitignore)/v01_32.5deg_1280x720p_long.mp4,1280,720,109,6125,6107,99.7,4667,76.2,,False,15.1,20260827_130952
+..\test_videos (gitignore)/v02_0deg_1280x720p_short_sleves.mp4,1280,720,152,3615,3615,100.0,2138,59.1,,False,14.9,20260827_131359
+..\test_videos (gitignore)/v03_0deg_640x480p_short_sleves.mp4,640,480,89,4092,4092,100.0,2882,70.4,,False,16.2,20260827_131817
+..\test_videos (gitignore)/v04_32.5deg_1280x720p_short_sleeves.mp4,1280,720,113,4664,4663,100.0,3185,68.3,,False,14.5,20260827_132342
+..\test_videos (gitignore)/v05_32.5deg_640x480p_short_sleves.mp4,640,480,67,4063,4063,100.0,2650,65.2,,False,15.9,20260827_132802

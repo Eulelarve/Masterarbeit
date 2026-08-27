@@ -271,12 +271,12 @@ class SaveFrameStatus(CaptureStatus):
         elif if_no_match_add_none:
             self.status_for_each_frame_comp.append(None)
 
-    def load_comp_from_file(self, filename, startframe=1):
+    def load_comp_from_file(self, filename, start_frame=1):
         self.status_for_each_frame_comp.clear()
         data = self.status_for_each_frame_comp
         super().load_from_file(filename=filename, data=data)
-        if startframe > 1:
-            self.set_comp_start_frame(startframe=startframe)
+        if start_frame > 1:
+            self.set_comp_start_frame(start_frame=start_frame)
 
     def load_from_file(self, filename):
         r = super().load_from_file(filename)
@@ -303,12 +303,12 @@ class SaveFrameStatus(CaptureStatus):
     def extend_comp(self, front=[], beck=[]):
         self.status_for_each_frame_comp = front + self.status_for_each_frame_comp + beck
 
-    def set_comp_start_frame(self, startframe=1):
+    def set_comp_start_frame(self, start_frame=1):
         """
             use if compareson data capturing started later at frame: startframe 
             startframe = 1 means no change
         """
-        front_extension = [None]*(startframe-1)
+        front_extension = [None]*(start_frame-1)
         self.extend_comp(front=front_extension)
         return len(self.status_for_each_frame_comp)
 
@@ -392,7 +392,7 @@ def results_for_parameters(parameters:list, results:dict, destination_folder:str
             if parameter in name:
                 parameters_indexes[parameter].append(i)
 
-    # results for each methode_combinations
+    # results for each methode_data_file_names
     parameter_results_dict = defaultdict(list)
     for parameter in parameters_indexes:
         indexes = parameters_indexes[parameter]
@@ -435,7 +435,7 @@ def results_for_parameters(parameters:list, results:dict, destination_folder:str
 def get_name_from_path(path:str):
     return Path(path).stem
 
-def process_one_video(right_file:str, comp_files:list[str],  results:defaultdict=None, save_folder:str='',save=False):
+def process_one_video(right_file:str, comp_files:list[str],  results:defaultdict=None, save_folder:str='',save=False,start_frame=1):
     print('--------------analysiren-----------------')
     if results is None or save:
         results = defaultdict(list)
@@ -445,7 +445,7 @@ def process_one_video(right_file:str, comp_files:list[str],  results:defaultdict
     for file_path in comp_files:
         name = get_name_from_path(file_path)
         results['name'].append(name)
-        fs.load_comp_from_file(file_path,startframe=250)
+        fs.load_comp_from_file(file_path,start_frame=start_frame)
         result = fs.copare_fram_by_frame()
         for key in result:
             results[key].append(result[key])
@@ -503,55 +503,51 @@ def get_files_for_one_video(video:str, right_folder:str, comp_folder:str, name_o
 
 def process_all():
     right_folder = r"C:\Users\Ampelman\Desktop\Masterarbeit\open close status data for videos/"
-    comp_folder = r"C:\Users\Ampelman\Desktop\Masterarbeit\open close status data for videos\methoden test/"
-    destination_folder = r'C:\Users\Ampelman\Desktop\Masterarbeit\open close status data for videos\methoden test comp/'
+    comp_folder = r"C:\Users\Ampelman\Desktop\Masterarbeit\open close status data for videos\new_vedio_analyse/"
+    destination_folder = r'C:\Users\Ampelman\Desktop\Masterarbeit\open close status data for videos\new_vedio_analyse\results/'
     right_files = find_files(right_folder,ending='txt', names_only=True)
     comp_files = find_files(comp_folder,ending='txt', names_only=True)
     methodes = [
-        'no_hand_0',
-        'no_hand_None',
-        'no_movedetect_False',
-        'no_movedetect_True',
-        'hand_detected_aperture_n',
-        'hand_detected_aperture_width',
-        'hand_detected_distance_dif_0.3',
-        'hand_detected_distance_dif_0.4',
-        'hand_detected_len_width_thr_1.2',
-        'hand_detected_len_width_thr_1.4',
+        'aperture_7050', 
+        'aperture_7055', 
+        'aperture_7060',
+        'dif_0.8',
+        'dif_1',
+        'dif_1.2'
     ]
-    methode_combinations = find_files(comp_folder,ending='txt', starts_with='v1_', names_only=True)
-    for i, combi in enumerate(methode_combinations):
+    methode_data_file_names = find_files(comp_folder,ending='txt', starts_with='v1_', names_only=True)
+    for i, combi in enumerate(methode_data_file_names):
         start_i = combi.find('-') + 1
         end_i = combi.find('.txt')
-        methode_combinations[i] = combi[start_i:end_i]
-    print('methode combinations found:', len(methode_combinations))
+        methode_data_file_names[i] = combi[start_i:end_i]
+    print('methode combinations found:', len(methode_data_file_names))
 
     videos =[
-        'v1_',
-        'v2_',
-        'v3_',
-        'v4_',
-        'v5_',
+        'v01_',
+        'v02_',
+        'v03_',
+        'v04_',
+        'v05_',
     ]
 
-    # results vor all videos and all methodes
+    # results vor all videos and all methodes, one file fore each video
     results=defaultdict(list)
     for v in videos:
         right_files, comp_files = get_files_for_one_video(v, right_folder=right_folder, comp_folder=comp_folder)
         print(f'use video {v} to compare to {len(comp_files)} compare files')
-        process_one_video(right_file=right_files[0], comp_files=comp_files, save=False, results=results, save_folder=destination_folder)
+        process_one_video(right_file=right_files[0], comp_files=comp_files, save=False, results=results, save_folder=destination_folder,start_frame=1)
 
-    # results for each combination of methodes
+    # results for each combination of methodes and vedio
     results_for_parameters(
-        parameters=methode_combinations, 
-        results=results, destination_folder=destination_folder+'/methode_combinations', 
+        parameters=methode_data_file_names, 
+        results=results, destination_folder=destination_folder+'/methode_results_for_each_video', 
         save=False,
         avarage_min_max=False
     )
     # results for each detection methodes
     results_for_parameters(
         parameters=methodes, 
-        results=results, destination_folder=destination_folder+'/detection_methodes', 
+        results=results, destination_folder=destination_folder+'/methode_results', 
         save=False
     )
        

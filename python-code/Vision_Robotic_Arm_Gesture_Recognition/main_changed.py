@@ -91,7 +91,8 @@ def main(fps_cap=S.fps, show_fps=True, show_processing=True,source=0,
     # pointing_azimuth = None
 
     # hand_status_dict = {'aperture':None, 'aperture_width':None,  'len_width_thr_1.2':None, 'len_width_thr_1.4':None, 'distance_dif_0.3':None,'distance_dif_0.4':None}
-    hand_status_detected = {'aperture_7050':[], 'aperture_7055':[],  'aperture_7060':[], 'dif_0.8':[], 'dif_1':[],'dif_1.2':[]}
+    hand_status_list_dict = {'aperture_7050':[], 'aperture_7055':[],  'aperture_7060':[], 'dif_0.8':[], 'dif_1':[],'dif_1.2':[]}
+    hand_status_dict = {'aperture_7050':None, 'aperture_7055':None,  'aperture_7060':None, 'dif_0.8':None, 'dif_1':None,'dif_1.2':None}
     # hand_status_buffer_dict = {'aperture':HandOpenClosedBuffer(buffer_size=S.hand_status_buffer_size), 'aperture_width':HandOpenClosedBuffer(buffer_size=S.hand_status_buffer_size), 
     #                             'len_width_thr_1.2':HandOpenClosedBuffer(buffer_size=S.hand_status_buffer_size), 'len_width_thr_1.4':HandOpenClosedBuffer(buffer_size=S.hand_status_buffer_size), 
     #                             'distance_dif_0.3':HandOpenClosedBuffer(buffer_size=1), 'distance_dif_0.4':HandOpenClosedBuffer(buffer_size=1)}
@@ -642,17 +643,17 @@ def main(fps_cap=S.fps, show_fps=True, show_processing=True,source=0,
             
                         if capture_status:
                             hand_status = hand_detector.open_or_close_aperture_thr(thr_open=70, thr_closed = 50, frame=frame_overlay, draw_aperture=show_processing and draw_aperture, buffer_size=S.hand_status_buffer_size)
-                            hand_status_detected['aperture_7050'].append(hand_status)
+                            hand_status_dict['aperture_7050'] = hand_status
                             hand_status = hand_detector.open_or_close_aperture_thr(thr_open=70, thr_closed = 55, frame=frame_overlay, draw_aperture=show_processing and draw_aperture, buffer_size=S.hand_status_buffer_size)
-                            hand_status_detected['aperture_7055'].append(hand_status)
+                            hand_status_dict['aperture_7055'] = hand_status
                             hand_status = hand_detector.open_or_close_aperture_thr(thr_open=70, thr_closed = 60, frame=frame_overlay, draw_aperture=show_processing and draw_aperture, buffer_size=S.hand_status_buffer_size)
-                            hand_status_detected['aperture_7060'].append(hand_status)
+                            hand_status_dict['aperture_7060'] = hand_status
                             hand_status = hand_detector.open_or_close_distance_dif(frame_overlay, show_processing and draw_aperture, min_distance_difference=0.8)
-                            hand_status_detected['dif_0.8'].append(hand_status)
+                            hand_status_dict['dif_0.8'] = hand_status
                             hand_status = hand_detector.open_or_close_distance_dif(frame_overlay, show_processing and draw_aperture, min_distance_difference=1)
-                            hand_status_detected['dif_1'].append(hand_status)
+                            hand_status_dict['dif_1'] = hand_status
                             hand_status = hand_detector.open_or_close_distance_dif(frame_overlay, show_processing and draw_aperture, min_distance_difference=1.2)
-                            hand_status_detected['dif_1.2'].append(hand_status)
+                            hand_status_dict['dif_1.2'] = hand_status
 
                         else:
                             try:
@@ -685,16 +686,20 @@ def main(fps_cap=S.fps, show_fps=True, show_processing=True,source=0,
                 else:
                     # if hand is moving curently, do not change the hand status
                     hand_status = hand_status
-                    hand_detector.buffer_clear() #test ?
-
-                    # for methode in hand_status_dict.keys():
-                    #     status = hand_status_buffer_dict[methode].most_frequently
-                    #     hand_status_detected[methode].append(status)
+                    hand_detector.buffer_clear() # fore distance difference methode #test ?
 
             else:
                 hand_status = None # no hand in frame (checked hand marke from pose)
-                # for methode in hand_status_dict.keys():
-                #         hand_status_detected[methode].append(None)
+   
+
+        if not paused and process and capture_status:
+                for methode in hand_status_list_dict.keys():
+                    if hand_status == None:
+                        add_status = None
+                    else:
+                        add_status = hand_status_dict[methode]
+                    hand_status_list_dict[methode].append(add_status)
+
         # --------------------------------------------------
         # hand status grapping
         if not paused and process and pose_found:   
@@ -783,7 +788,7 @@ def main(fps_cap=S.fps, show_fps=True, show_processing=True,source=0,
         
         # --------------------------------------------------
         # draw hand status
-        if not paused and process and pose_found and show_processing:
+        if not paused and process and show_processing:
                 
             no_hand_status = {'text':"no hand ", 'color':white}
             open_status = {'text':"open ", 'color':blue}
@@ -812,9 +817,9 @@ def main(fps_cap=S.fps, show_fps=True, show_processing=True,source=0,
         # --------------------------------------------------
         # draw arm angle
 
-        if not paused and process and pose_found and show_processing:
+        if not paused and process and show_processing:
             if pointing_azimuth is None:
-                text = 'angle: out of area'
+                text = 'a/e: out of area'
             else:
                 text = f'a/e: {pointing_azimuth}/{pointing_elevation}'
 
@@ -1088,8 +1093,8 @@ def main(fps_cap=S.fps, show_fps=True, show_processing=True,source=0,
     # save_list_to_file(f'{source}_hand_pixel_moves.txt',hand_moves)
 
     if capture_status:
-        for key in hand_status_detected.keys():
-            data = hand_status_detected[key]
+        for key in hand_status_list_dict.keys():
+            data = hand_status_list_dict[key]
             folder = r"C:\Users\Ampelman\Desktop\Masterarbeit\open close status data for videos\new_vedio_analyse/"
             save_list_to_file(folder+video_name+f'-hand_detected_{key}_len_{len(data)}.txt',data)
 
@@ -1159,7 +1164,7 @@ if __name__ == "__main__":
                 pause_frames=None,
                 show_processing=True,
                 capture_status_manually=False,
-                capture_status = False,
+                capture_status = True,
                 roi_size = None,
                 start_frame=0,
                 end_frame = None,
