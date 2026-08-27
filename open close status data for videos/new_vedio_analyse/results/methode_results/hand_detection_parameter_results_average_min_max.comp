@@ -1,0 +1,6 @@
+["max_right_rate", [["aperture_7055", 87.0]]]
+["min_right_rate", [["aperture_7055_average", 85.9]]]
+["max_false_rate", [["aperture_7055_average", 13.5]]]
+["min_false_rate", [["aperture_7055", 12.4]]]
+["max_not_detected_rate", [["aperture_7050", 0.6]]]
+["min_not_detected_rate", [["aperture_7050", 0.6]]]

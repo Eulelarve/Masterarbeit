@@ -512,7 +512,7 @@ def process_all():
         'aperture_7055', 
         'aperture_7060',
         'dif_0.8',
-        'dif_1',
+        'dif_1.0',
         'dif_1.2'
     ]
     methode_data_file_names = find_files(comp_folder,ending='txt', starts_with='v1_', names_only=True)
@@ -548,7 +548,7 @@ def process_all():
     results_for_parameters(
         parameters=methodes, 
         results=results, destination_folder=destination_folder+'/methode_results', 
-        save=False
+        save=True, avarage_min_max=True
     )
        
 
