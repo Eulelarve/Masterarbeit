@@ -457,53 +457,53 @@ class HandDetector():
             return True
         return False 
 
-    def open_or_close_len_width_thr(self, frame=None, draw=True, use_len_if_larger_then_width=1, hand_opening_factor = 1.4, buffer_size=10):
-        """ returns: 1: open hand: blue or 0: closed hand: red
-        """
-        red = (0, 0, 255)
-        blue = (255, 0, 0)
-        hand_len = (0, 9)
-        hand_width = (5, 17) 
-        wrist_finger_tip = (0, 12)
-        thump_pinky = (4, 18) # thump 1-4, pinky 17-20
+    # def open_or_close_len_width_thr(self, frame=None, draw=True, use_len_if_larger_then_width=1, hand_opening_factor = 1.4, buffer_size=10):
+    #     """ returns: 1: open hand: blue or 0: closed hand: red
+    #     """
+    #     red = (0, 0, 255)
+    #     blue = (255, 0, 0)
+    #     hand_len = (0, 9)
+    #     hand_width = (5, 17) 
+    #     wrist_finger_tip = (0, 12)
+    #     thump_pinky = (4, 18) # thump 1-4, pinky 17-20
 
 
-        self.no_hand_counter = 0
+    #     self.no_hand_counter = 0
 
-        # create buffer
-        if getattr(self, "status_smoother", None) is None:
-            self.status_smoother = ValueBuffer(buffer_size)
+    #     # create buffer
+    #     if getattr(self, "status_smoother", None) is None:
+    #         self.status_smoother = ValueBuffer(buffer_size)
 
 
         
 
-        measurments = [
-            (hand_len, red,0, hand_opening_factor),                                 # a hand colsed condition
-            (hand_width, red,0, hand_opening_factor*use_len_if_larger_then_width),  # a hand colsed condition
-            (wrist_finger_tip, blue,1, 1),                                          # a hand opened condition
-            (thump_pinky, blue,1, 1*use_len_if_larger_then_width)                   # a hand opened condition
-        ]
+    #     measurments = [
+    #         (hand_len, red,0, hand_opening_factor),                                 # a hand colsed condition
+    #         (hand_width, red,0, hand_opening_factor*use_len_if_larger_then_width),  # a hand colsed condition
+    #         (wrist_finger_tip, blue,1, 1),                                          # a hand opened condition
+    #         (thump_pinky, blue,1, 1*use_len_if_larger_then_width)                   # a hand opened condition
+    #     ]
 
-        show_distance:list = None
-        biggest:int = 0
-        won_status:int = None
-        for line, line_color, status, weighting in measurments:
-            value = self.get_distance(*line) * weighting 
-            # status with biggest value winns! value is distance times the weighting factor
-            if value > biggest:
-                biggest = value
-                show_distance = line
-                color = line_color
-                won_status = status
+    #     show_distance:list = None
+    #     biggest:int = 0
+    #     won_status:int = None
+    #     for line, line_color, status, weighting in measurments:
+    #         value = self.get_distance(*line) * weighting 
+    #         # status with biggest value winns! value is distance times the weighting factor
+    #         if value > biggest:
+    #             biggest = value
+    #             show_distance = line
+    #             color = line_color
+    #             won_status = status
         
-        self.is_hand_open = self.status_smoother.add_and_get_most_frequently(won_status)
+    #     self.is_hand_open = self.status_smoother.add_and_get_most_frequently(won_status)
 
-        if draw and frame is not None:
-            self.get_distance(*show_distance, frame=frame, draw=True, color=color)
+    #     if draw and frame is not None:
+    #         self.get_distance(*show_distance, frame=frame, draw=True, color=color)
         
-        return self.is_hand_open
+    #     return self.is_hand_open
 
-    def open_or_close_aperture_thr(self,frame, thr_open=70, thr_closed = 55, buffer_size=S.hand_status_buffer_size, draw_aperture=False):
+    def open_or_close_aperture_thr(self,frame, thr_open=75, thr_closed = 65, buffer_size=S.hand_status_buffer_size, draw_aperture=False):
         key = str(thr_open)+str(thr_closed)
         self.no_hand_counter = 0
 
@@ -523,7 +523,10 @@ class HandDetector():
         if draw_aperture:
             cv2.line(frame,*aperture_line, S.blue if status else S.red, 3)
 
-        self.is_hand_open = self.status_smoother[key].add_and_get_most_frequently(status)
+        self.status_smoother[key].add(status)
+        new_status = self.status_smoother[key].atleast(S.hand_status_buffer_atleast)
+        if new_status is not None:
+            self.is_hand_open = new_status
 
         return self.is_hand_open
         

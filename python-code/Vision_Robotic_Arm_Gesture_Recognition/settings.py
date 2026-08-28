@@ -14,10 +14,11 @@ hand_width_factor = 1.2
 hand_opening_factor = 1.3
 skip_frames = 100
 hand_status_buffer_size = 6
+hand_status_buffer_atleast = 5
 default_buffer_mode = 'median'
 no_hand_frame_count = 30 # by 30 FPS are 30 frames = one secund not hand, to get the no_hand status
 video_folder = r'..\test_videos (gitignore)/'
-moving_speed = 6#10 # pixel per frame, min needed to be detected as moving hand, choose between 2-20
+moving_speed = 10 # pixel per frame, min needed to be detected as moving hand, choose between 2-20
 moving_buffer_size = 5 # frames, the pixel moves are averaged over
 position_average_buffer_size = 0 # min 2 frames to be used, all positions are averaged over
 position_median_buffer_size = 0 # min 3 frames to be used, all positions are averaged over

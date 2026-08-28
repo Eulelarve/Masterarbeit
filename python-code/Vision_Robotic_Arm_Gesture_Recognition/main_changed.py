@@ -674,6 +674,7 @@ def main(fps_cap=S.fps, show_fps=True, show_processing=True,source=0,
                             #                                                                 buffer_size=S.hand_status_buffer_size,
                             #                                                                 )
                             elif 'dif' in hand_methode:
+                                if not factor: factor = 1
                                 hand_status = hand_detector.open_or_close_distance_dif(frame_overlay, show_processing and draw_aperture, 
                                                                                     min_distance_difference=factor,
                                                                                     )
@@ -934,7 +935,7 @@ def main(fps_cap=S.fps, show_fps=True, show_processing=True,source=0,
         
         if is_playback:
             # per mouse 
-            mouse_pos = np.int16(np.array(MOUSE.pos)*S.live_stream_resulutuin/S.window_size)
+            mouse_pos = np.int16(np.array(MOUSE.pos))
             overlay.select(mouse_pos)
             if MOUSE.is_pressed():
                 overlay.grap()  
@@ -1035,10 +1036,12 @@ def main(fps_cap=S.fps, show_fps=True, show_processing=True,source=0,
         # --------------------------------------------------
         # Display the processed frame - opens a window 
         # --------------------------------------------------
-
+        if not is_playback and S.window_size != S.live_stream_resulutuin:
+            frame_overlay = cv2.resize(frame_overlay, S.window_size)
+            
         cv2.imshow(
             window_name,
-            cv2.resize(frame_overlay, S.window_size)
+            frame_overlay
         )
 
         if use_rs_depth and show_depth_frame:
@@ -1160,7 +1163,7 @@ if __name__ == "__main__":
             r = main(
                 fps_cap=S.fps,
                 show_fps=True,
-                source=s,
+                source=1,
                 pause_frames=None,
                 show_processing=True,
                 capture_status_manually=False,
