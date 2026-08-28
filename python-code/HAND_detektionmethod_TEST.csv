@@ -1,6 +1,29 @@
 name,frame_x,frame_y,roi_size,frame_counter_processed,frame_counter_pose,pose_rate,frame_counter_hand,hand_rate,hand_not_found_means,skip_hand_move_detection,fps_mean,time
-..\test_videos (gitignore)/v01_32.5deg_1280x720p_long.mp4,1280,720,109,6125,6107,99.7,4667,76.2,,False,15.1,20260827_130952
-..\test_videos (gitignore)/v02_0deg_1280x720p_short_sleves.mp4,1280,720,152,3615,3615,100.0,2138,59.1,,False,14.9,20260827_131359
-..\test_videos (gitignore)/v03_0deg_640x480p_short_sleves.mp4,640,480,89,4092,4092,100.0,2882,70.4,,False,16.2,20260827_131817
-..\test_videos (gitignore)/v04_32.5deg_1280x720p_short_sleeves.mp4,1280,720,113,4664,4663,100.0,3185,68.3,,False,14.5,20260827_132342
-..\test_videos (gitignore)/v05_32.5deg_640x480p_short_sleves.mp4,640,480,67,4063,4063,100.0,2650,65.2,,False,15.9,20260827_132802
+..\test_videos (gitignore)/v01_32.5deg_1280x720p_long.mp4,1280,720,109,6125,6107,99.7,4639,75.7,,False,16.8,20260828_002958
+..\test_videos (gitignore)/v02_0deg_1280x720p_short_sleves.mp4,1280,720,167,200,200,100.0,147,73.5,,False,17.0,20260828_003011
+..\test_videos (gitignore)/v01_32.5deg_1280x720p_long.mp4,1280,720,64,238,237,99.6,45,18.9,,False,15.8,20260828_003825
+..\test_videos (gitignore)/v02_0deg_1280x720p_short_sleves.mp4,1280,720,298,14,14,100.0,0,0.0,,False,18.6,20260828_003826
+..\test_videos (gitignore)/v01_32.5deg_1280x720p_long.mp4,1280,720,109,6125,6107,99.7,4641,75.8,,False,16.9,20260828_004454
+..\test_videos (gitignore)/v02_0deg_1280x720p_short_sleves.mp4,1280,720,152,3615,3615,100.0,2113,58.5,,False,16.3,20260828_004840
+..\test_videos (gitignore)/v03_0deg_640x480p_short_sleves.mp4,640,480,89,4092,4092,100.0,2892,70.7,,False,18.0,20260828_005232
+..\test_videos (gitignore)/v04_32.5deg_1280x720p_short_sleeves.mp4,1280,720,113,4664,4663,100.0,3151,67.6,,False,16.3,20260828_005723
+..\test_videos (gitignore)/v05_32.5deg_640x480p_short_sleves.mp4,640,480,67,4063,4063,100.0,2647,65.1,,False,17.6,20260828_010118
+..\test_videos (gitignore)/v01_32.5deg_1280x720p_long.mp4,1280,720,75,23,23,100.0,0,0.0,,False,14.9,20260828_010522
+..\test_videos (gitignore)/v01_32.5deg_1280x720p_long.mp4,1280,720,71,42,42,100.0,0,0.0,,False,15.0,20260828_010618
+..\test_videos (gitignore)/v01_32.5deg_1280x720p_long.mp4,1280,720,109,6125,6107,99.7,4643,75.8,,False,15.3,20260828_011312
+..\test_videos (gitignore)/v02_0deg_1280x720p_short_sleves.mp4,1280,720,153,3615,3615,100.0,2057,56.9,,False,16.2,20260828_011703
+..\test_videos (gitignore)/v03_0deg_640x480p_short_sleves.mp4,640,480,89,4092,4092,100.0,2930,71.6,,False,17.7,20260828_012058
+..\test_videos (gitignore)/v04_32.5deg_1280x720p_short_sleeves.mp4,1280,720,113,4664,4663,100.0,3176,68.1,,False,15.9,20260828_012557
+..\test_videos (gitignore)/v05_32.5deg_640x480p_short_sleves.mp4,640,480,67,4063,4063,100.0,2668,65.7,,False,17.2,20260828_012958
+..\test_videos (gitignore)/v01_32.5deg_1280x720p_long.mp4,1280,720,103,6125,6107,99.7,0,0.0,,False,15.4,20260828_013846
+..\test_videos (gitignore)/v02_0deg_1280x720p_short_sleves.mp4,1280,720,306,3615,3615,100.0,0,0.0,,False,23.7,20260828_014120
+..\test_videos (gitignore)/v03_0deg_640x480p_short_sleves.mp4,640,480,188,4092,4092,100.0,0,0.0,,False,27.1,20260828_014352
+..\test_videos (gitignore)/v04_32.5deg_1280x720p_short_sleeves.mp4,1280,720,95,4664,4663,100.0,0,0.0,,False,15.5,20260828_014856
+..\test_videos (gitignore)/v05_32.5deg_640x480p_short_sleves.mp4,640,480,73,4063,4063,100.0,0,0.0,,False,27.2,20260828_015127
+1,1280,720,243,696,682,98.0,4,0.6,,False,14.7,20260828_023643
+1,1280,720,296,160,160,100.0,0,0.0,,False,22.6,20260828_023739
+1,1280,720,151,711,706,99.3,401,56.4,,False,15.7,20260828_023827
+..\test_videos (gitignore)/v01_32.5deg_1280x720p_long.mp4,1280,720,103,588,587,99.8,0,0.0,,False,15.7,20260828_023921
+..\test_videos (gitignore)/v01_32.5deg_1280x720p_long.mp4,1280,720,102,927,926,99.9,675,72.8,,False,16.9,20260828_024155
+..\test_videos (gitignore)/v01_32.5deg_1280x720p_long.mp4,1280,720,119,376,376,100.0,261,69.4,,False,17.1,20260828_024230
+..\test_videos (gitignore)/v01_32.5deg_1280x720p_long.mp4,1280,720,118,355,355,100.0,252,71.0,,False,17.1,20260828_024315

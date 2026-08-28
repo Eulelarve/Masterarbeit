@@ -503,17 +503,17 @@ def get_files_for_one_video(video:str, right_folder:str, comp_folder:str, name_o
 
 def process_all():
     right_folder = r"C:\Users\Ampelman\Desktop\Masterarbeit\open close status data for videos/"
-    comp_folder = r"C:\Users\Ampelman\Desktop\Masterarbeit\open close status data for videos\new_vedio_analyse/"
-    destination_folder = r'C:\Users\Ampelman\Desktop\Masterarbeit\open close status data for videos\new_vedio_analyse\results/'
+    comp_folder = r"C:\Users\Ampelman\Desktop\Masterarbeit\open close status data for videos\average3_pos_buffer_test/"
+    destination_folder = r'C:\Users\Ampelman\Desktop\Masterarbeit\open close status data for videos\average3_pos_buffer_test\results/'
     right_files = find_files(right_folder,ending='txt', names_only=True)
     comp_files = find_files(comp_folder,ending='txt', names_only=True)
     methodes = [
         'aperture_7050', 
-        'aperture_7055', 
+        'aperture_7065', 
         'aperture_7060',
-        'dif_0.8',
+        'dif_0.6',
         'dif_1.0',
-        'dif_1.2'
+        'dif_1.4'
     ]
     methode_data_file_names = find_files(comp_folder,ending='txt', starts_with='v1_', names_only=True)
     for i, combi in enumerate(methode_data_file_names):
@@ -548,7 +548,7 @@ def process_all():
     results_for_parameters(
         parameters=methodes, 
         results=results, destination_folder=destination_folder+'/methode_results', 
-        save=True, avarage_min_max=True
+        save=True, avarage_min_max=False
     )
        
 

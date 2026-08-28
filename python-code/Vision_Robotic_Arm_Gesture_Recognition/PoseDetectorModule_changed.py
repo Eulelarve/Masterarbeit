@@ -85,9 +85,9 @@ class poseDetector():
         self.move_detectors = [MoveDetector(S.moving_speed, S.moving_buffer_size) for _ in self.lm_range]
         self.pixel_pos_smoother = [ListBuffer(S.position_average_buffer_size,'average') for _ in self.lm_range]
         self.world_pos_smoother = [ListBuffer(S.position_average_buffer_size,'average') for _ in self.lm_range]
-        self.pixel_pos_anti_outliner = [ListBuffer(S.position_average_buffer_size,'median') for _ in self.lm_range]
-        self.world_pos_anti_outliner = [ListBuffer(S.position_average_buffer_size,'median') for _ in self.lm_range]
-        self.visibility_anti_outliner = [ValueBuffer(S.position_average_buffer_size,'median') for _ in self.lm_range]
+        self.pixel_pos_anti_outliner = [ListBuffer(S.position_median_buffer_size,'median') for _ in self.lm_range]
+        self.world_pos_anti_outliner = [ListBuffer(S.position_median_buffer_size,'median') for _ in self.lm_range]
+        self.visibility_anti_outliner = [ValueBuffer(S.position_median_buffer_size,'median') for _ in self.lm_range]
 
         self.left_hand_points = S.left_hand_landmark_ids
         self.right_hand_points = S.right_hand_landmark_ids
@@ -167,7 +167,10 @@ class poseDetector():
             pose = self.results.pose_landmarks
             for id, lm in enumerate(pose.landmark):
                 if self.landmarke_in_frame(id):
-                    vis = self.visibility_anti_outliner[id].add_and_get(lm.visibility)
+                    if S.position_median_buffer_size >= 3:
+                        vis = self.visibility_anti_outliner[id].add_and_get(lm.visibility)
+                    else:
+                        vis = lm.visibility
                     vis = vis > S.visibility_threshold
                 else:
                     vis = False
