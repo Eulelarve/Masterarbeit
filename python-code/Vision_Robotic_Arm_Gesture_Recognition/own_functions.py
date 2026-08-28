@@ -71,30 +71,26 @@ def get_globe_timeline_curvs(r, cx=0, cy=0, deg_steps=15, line_steps=50, frame=N
 
 
 class MoveDetector:
-    def __init__(self,min_speed:int=S.moving_speed, buffer_size:int=S.moving_buffer_size):
+    def __init__(self,min_speed:int=S.moving_speed, buffer_time:int=S.moving_buffer_time):
         self.pos = None
-        self.speed_buffer = ValueBuffer(buffer_size=buffer_size)
-        self.status_buffer = ValueBuffer(buffer_size=buffer_size)
+        self.pos_buffer = ValueBufferTime(buffering_time=buffer_time)
         self.min_speed = min_speed
-        self.speed = 0
-        self.smoothed_speed = 0
     
-    def is_moving(self, new_pos:list=None)->bool|None:
-        self.set_new_pos(new_pos)
-        if self.speed >= self.min_speed:
-            return self.speed
+    def is_moving(self, new_pos:list=None)->int:
+        pix_per_sec = self.get_speed(new_pos)
+        if pix_per_sec >= self.min_speed:
+            return pix_per_sec
         return 0
-
-    def is_moving_status_buffered(self, new_pos:list)->bool:
-        self.status_buffer.add(self.is_moving(new_pos))
-        return self.status_buffer.most_frequently
     
     def stands_still(self, new_pos:list)->bool:
         return not self.is_moving(new_pos)
 
     def get_speed(self, new_pos:tuple=None)->float:
-        self.set_new_pos(new_pos)
-        return self.speed
+        """ retruns the speed in pixel per second"""
+        self.pos_buffer.add(new_pos)
+        dist = self.pos_buffer.distance()
+        pix_per_sec = dist / self.pos_buffer.buffering_time
+        return pix_per_sec
 
     def get_smoothed_speed(self, new_pos:tuple=None)->float:
             if new_pos is not None:
@@ -362,6 +358,8 @@ class ValueBufferTime(ValueBuffer):
         self.times.clear()
         return super().clear()
 
+    def distance(self)->float:
+        return math.dist(self.buffer[0], self.buffer[-1])
 
 class ListBuffer(ReturnModes):
     def __init__(self, buffer_size:int=5, default_get_mode:str=S.default_buffer_mode):

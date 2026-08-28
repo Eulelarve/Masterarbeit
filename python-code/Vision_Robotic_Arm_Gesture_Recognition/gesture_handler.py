@@ -1,5 +1,6 @@
 import time 
 import math
+from own_functions import ValueBufferTime
 
 class GestureDetector():
     

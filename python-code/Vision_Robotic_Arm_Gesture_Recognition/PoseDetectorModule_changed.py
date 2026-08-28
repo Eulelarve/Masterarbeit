@@ -82,7 +82,7 @@ class poseDetector():
                                      min_detection_confidence=self.detCon,
                                      min_tracking_confidence=self.trackCon)
         self.mpDraw = mp.solutions.drawing_utils
-        self.move_detectors = [MoveDetector(S.moving_speed, S.moving_buffer_size) for _ in self.lm_range]
+        self.move_detectors = [MoveDetector(S.moving_speed, S.moving_buffer_time) for _ in self.lm_range]
         self.pixel_pos_smoother = [ListBuffer(S.position_average_buffer_size,'average') for _ in self.lm_range]
         self.world_pos_smoother = [ListBuffer(S.position_average_buffer_size,'average') for _ in self.lm_range]
         self.pixel_pos_anti_outliner = [ListBuffer(S.position_median_buffer_size,'median') for _ in self.lm_range]
