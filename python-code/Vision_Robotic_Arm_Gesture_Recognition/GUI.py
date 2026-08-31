@@ -1,5 +1,6 @@
 import cv2
 from own_functions import insert, keep_rect_inside, valide_angle_zone
+from analyse import find_files
 import settings as S
 import numpy as np
 
@@ -140,14 +141,23 @@ class GUITile:
             self.image = cv2_create_text_image(text, (w,h), back_ground_color, text_color,line_size,text_outline)
     
     def set_image(self, image_path:str|None):
+        if not image_path:
+            image_path = self._find_image()
         if image_path:
             self.image = cv2.imread(image_path)
-            if self.image.shape[2] == 3:
-                self.image = cv2.cvtColor(self.image, cv2.COLOR_BGR2BGRA) # converte to imate with alpher cannle
             if self.image is None:
-                self._create_image()
-        elif self.image is None:
+                self.image = cv2.imdecode(np.fromfile(image_path, dtype=np.uint8), cv2.IMREAD_UNCHANGED)                   
+            if self.image.shape[2] == 3:
+                self.image = cv2.cvtColor(self.image, cv2.COLOR_BGR2BGRA) # converte to image with alpher cannle
+        if self.image is None:
             self._create_image()
+
+    def _find_image(self):
+        folder = "../icons/"
+        path_list = find_files(folder=folder,contains=self.name, names_only=False)
+        if path_list:
+            return path_list[0]
+        return None
 
     def _adjust_icon(self):
         if self.rect is None:
@@ -192,7 +202,7 @@ class Instrument(GUITile):
     
     def _create_image(self):
         size = 120
-        name = self.name[:2].upper()
+        name = self.name[:4].upper()
         self.image = cv2_create_text_image(name, size)
     
     def get_info(self):

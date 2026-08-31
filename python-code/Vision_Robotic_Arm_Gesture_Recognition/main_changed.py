@@ -71,10 +71,10 @@ def main(fps_cap=S.fps, show_fps=True, show_processing=True,source=0,
 
     window_name = "Hand and Pose Detection"
     overlay = GuiOverlay()
-    overlay.add_instrument("Scalpel")
-    overlay.add_instrument("Pinzette")
-    overlay.add_instrument("Schere")
-    overlay.add_instrument("violin",r"..\icons\icon_geige.png")
+    overlay.add_instrument("flute")
+    overlay.add_instrument("trumpet")
+    overlay.add_instrument("piano")
+    overlay.add_instrument("violin")
 
     frame_counter_processed = 0
     frame_counter_pose = 0
