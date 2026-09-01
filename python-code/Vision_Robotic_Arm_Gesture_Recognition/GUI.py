@@ -234,8 +234,8 @@ class Instrument(GUITile):
 
 class VolumeBar(GUITile):
     def __init__(self ,gui_object:object, ):
-        self.width_factor = 0.5  # halbe Bildbreite
-        self.height_factor = 0.15
+        self.width_factor = 0.35  # halbe Bildbreite
+        self.height_factor = 0.12
         name = "volume"
         self.volume = 0.0
         super().__init__(gui_object, name, None, 'VolumeBar')
@@ -308,8 +308,6 @@ class CloseButton(GUITile):
     def function(self):
         super().function()
         self.parent.add_info(self.get_info())
-
-
 
     
 class ResetInstruments(GUITile):
@@ -438,19 +436,19 @@ class GuiOverlay:
         
         if instrument in self.room:
             self.room.remove(instrument)
-
-        if position is None:
-            position = instrument.bar_pos
-        insert(self.bar, position, instrument)
+        if instrument not in self.bar:
+            insert(self.bar, 
+                   instrument.bar_pos if position is None else position, 
+                   instrument)
 
     def _add_to_room(self, instrument:Instrument):
         if instrument in self.room:
             return False
         if instrument in self.bar:
             self.bar.remove(instrument)
-        
-        self.selected_size_change(self.room_size)
-        self.room.append(instrument)
+        if instrument not in self.room:
+            self.selected_size_change(self.room_size)
+            self.room.append(instrument)
 
     def define_bar_tile_pos_and_size(self):
         tile_max_size = 120

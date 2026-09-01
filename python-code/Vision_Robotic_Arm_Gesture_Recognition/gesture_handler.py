@@ -112,8 +112,19 @@ class GestureDetector():
             self.feel_slighted()
 
     def feel_slighted(self):
-        print('f**k you self!\nI am out!')
         self.termination_gesture = True
+        print()
+        print("     ╭─────────╮")
+        print("    ╱           ╲")
+        print("   │   ╭╮   ╭╮   │      ╭───────────────────────────────╮")
+        print("   │   ╰╯   ╰╯   │      |   down't show me the finger!  |")
+        print("   │      ╥      │   ╭──╯   I am out!                   |")
+        print("   │    ╭───╮    │  ─╯  ╰───────────────────────────────╯")
+        print("   │    ╰───╯    │")
+        print("    ╲           ╱")
+        print("     ╰─────────╯")
+        print("       ╥     ╥")
+        print("      ╥       ╥")
                 
     def find_grap(self)-> bool|None:
         """ set and returns if the hand is grabbing or releasing now

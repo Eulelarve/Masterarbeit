@@ -258,7 +258,6 @@ class RoomAngleDetector:
 
         if draw:
             self.draw_arm_angles()
-
         return self.room_angles
 
     def find_arm_angles(self)->list|None:
@@ -318,7 +317,7 @@ class RoomAngleDetector:
         for i, angle in enumerate(self.room_angles):
             if angle is None:
                 continue
-            self.room_angles[i] = round(angle/res)*res
+            self.room_angles[i] = -round(angle/res)*res
 
     def pointion_into_camera_check(self,use_pixel_coordinats=False):
         """ if shoulder and hand are overlapping in the frame, persine is pointing to the camera """

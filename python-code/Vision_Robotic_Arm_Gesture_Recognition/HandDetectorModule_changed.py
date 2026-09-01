@@ -530,7 +530,7 @@ class HandDetector():
 
         return self.is_hand_open
         
-    def findHandAperture(self, aperture_range_len = [0.5, 1.7], aperture_range_width = [0.7, 1.7])->tuple[float,tuple]:
+    def findHandAperture(self, aperture_range_len = [0.7, 1.7], aperture_range_width = [1.0, 1.7])->tuple[float,tuple]:
         '''
         Finds the normalized hand aperture as distance between the mean point of the hand tips and the mean wrist and thumb base point divided by the palm lenght.
 

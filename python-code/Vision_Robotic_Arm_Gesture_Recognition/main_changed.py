@@ -896,7 +896,7 @@ def main(fps_cap=S.fps, show_fps=True, show_processing=True,source=0,
                 (10, y+100),
                 cv2.FONT_HERSHEY_PLAIN,
                 2,
-                (255, 255, 255),
+                green,
                 2
             )
 
@@ -1163,7 +1163,7 @@ if __name__ == "__main__":
             r = main(
                 fps_cap=S.fps,
                 show_fps=True,
-                source=1,
+                source='depth',
                 pause_frames=None,
                 show_processing=True,
                 capture_status_manually=False,
