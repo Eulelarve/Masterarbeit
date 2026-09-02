@@ -133,14 +133,19 @@ def rey_tracing_to_room_border(room_size:tuple,origin:tuple, start_point:tuple, 
     y = origin[1] + start_point[1]
     z = origin[2] + start_point[2]
     step = resulution
+    # calculate Directional components 
+    sin_azi = math.sin(math.radians(azimuth_angle))
+    cos_azi = math.cos(math.radians(azimuth_angle))
+    sin_ele = math.sin(math.radians(elevation_angle)) if elevation_angle else 0
+    cos_ele = math.cos(math.radians(elevation_angle)) if elevation_angle else 1
     # ray tracing
     room_diagonal = math.hypot(*room_size)
     max_steps = math.ceil(room_diagonal/step)
     for _ in range(max_steps):
         # follow slope
-        x += math.sin(math.radians(azimuth_angle)) * step
-        y += (math.sin(math.radians(elevation_angle)) * step) if elevation_angle else 0
-        z -= math.cos(math.radians(azimuth_angle)) * step
+        x += step * sin_azi * cos_ele 
+        y += step * sin_ele
+        z -= step * cos_azi * cos_ele
         # checking room borders
         if x >= right_wall:
             x = right_wall

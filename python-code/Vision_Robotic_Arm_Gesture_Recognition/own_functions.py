@@ -71,7 +71,7 @@ def get_globe_timeline_curvs(r, cx=0, cy=0, deg_steps=15, line_steps=50, frame=N
 
 
 class MoveDetector:
-    def __init__(self,min_speed:int=S.moving_speed, buffer_time:int=S.moving_buffer_time):
+    def __init__(self,min_speed:int=S.moving_min_speed, buffer_time:int=S.moving_check_time):
         self.pos = None
         self.pos_buffer = ValueBufferTime(buffering_time=buffer_time)
         self.min_speed = min_speed

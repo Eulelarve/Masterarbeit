@@ -473,7 +473,7 @@ def main(fps_cap=S.fps, show_fps=True, show_processing=True,source=0,
         if not paused and process and pose_found:
             draw_hand_center = True
             # hand and shulder
-            pose_detector.find_specific_points('moving',gesture_detector.is_grabbing, True)
+            pose_detector.find_specific_points(S.choose_hand_mode, overlay.grabbing, True)
             i_hand , *hand_center = pose_detector.hand_center[:]
             i_shulder, *shulder = pose_detector.shulder[:] 
             i_hip, *hip = pose_detector.hip[:]
@@ -1163,7 +1163,7 @@ if __name__ == "__main__":
             r = main(
                 fps_cap=S.fps,
                 show_fps=True,
-                source='depth',
+                source=1,
                 pause_frames=None,
                 show_processing=True,
                 capture_status_manually=False,

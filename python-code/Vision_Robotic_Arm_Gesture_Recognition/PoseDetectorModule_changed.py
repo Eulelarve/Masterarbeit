@@ -82,7 +82,7 @@ class poseDetector():
                                      min_detection_confidence=self.detCon,
                                      min_tracking_confidence=self.trackCon)
         self.mpDraw = mp.solutions.drawing_utils
-        self.move_detectors = [MoveDetector(S.moving_speed, S.moving_buffer_time) for _ in self.lm_range]
+        self.move_detectors = [MoveDetector(S.moving_min_speed, S.moving_check_time) for _ in self.lm_range]
         self.pixel_pos_smoother = [ListBuffer(S.position_average_buffer_size,'average') for _ in self.lm_range]
         self.world_pos_smoother = [ListBuffer(S.position_average_buffer_size,'average') for _ in self.lm_range]
         self.pixel_pos_anti_outliner = [ListBuffer(S.position_median_buffer_size,'median') for _ in self.lm_range]
@@ -183,7 +183,7 @@ class poseDetector():
             return True
         return False
 
-    def find_specific_points(self,mode:str='top', just_update_pos:bool=False, mirrowed:bool=False):
+    def find_specific_points(self,mode:str, just_update_pos:bool=False, mirrowed:bool=False):
         landmarks = self.lm_list
         if not just_update_pos:
             self.hand_side = self.get_hand_side(mode, mirrowed)
@@ -366,8 +366,7 @@ class poseDetector():
     def get_hand_side(self, choose:str='top', mirrored:bool=False)->str:
         """ choose between left, right or top hand based on the pose landmarks
         Args:
-            pose_landmarks: list of pose landmarks
-            left_right_top: 'left', 'right' or 'top'
+            choose: 'left', 'right', 'top' or 'moving'
             mirrored: if the image is mirrored, left and right are switched
         Returns:
             hand_center: index of the chosen wrist landmark (15 for left, 16 for right)
@@ -392,21 +391,30 @@ class poseDetector():
         #     left_hand_points, right_hand_points = right_hand_points, left_hand_points
 
         if choose == "Top":
-            hand_points = self.get_upper_points([lm_left, lm_right])
+            top_hand = self.get_upper_points([lm_left, lm_right])
+            if top_hand == lm_left:
+                return left
+            return right
 
         elif choose == "Left":
-            hand_points = left if not mirrored else right
+            return left if not mirrored else right
 
         elif choose == "Right":
-            hand_points = right if not mirrored else left
+            return right if not mirrored else left
 
         elif choose in ['Moving','Move','Fastest']:
-            moving = self.get_fastest_hand()
-            if moving:
-                return moving
+            fhp = self.get_fastest_hand_point()
+            if fhp:
+                speed = self.lm_movment_list[fhp][1]
+                if speed >= S.hand_change_min_speed:
+                    if fhp in self.left_hand_points:
+                        return 'left'
+                    elif fhp in self.right_hand_points:
+                        return 'right'
         else:
             print(f"Invalid hand selection mode: {choose}. Please choose 'top', 'left', 'right' or 'moving'.")
-        
+
+        # return the last safed choosen hand side
         return self.hand_side
 
     def get_fastest_point(self, point_ids:list=None):
@@ -421,15 +429,11 @@ class poseDetector():
                 fastest_id = id
         return fastest_id
 
-    def get_fastest_hand(self)->str:
+    def get_fastest_hand_point(self)->str:
         hand_ids = [*self.left_hand_points, *self.right_hand_points]
         fastest = self.get_fastest_point(hand_ids)
-        if fastest in self.left_hand_points:
-            return 'left'
-        elif fastest in self.right_hand_points:
-            return 'right'
-        return None
-    
+        return fastest
+
     def get_upper_body_length(self):
         if self.lm_list:
             marks = self.lm_list
