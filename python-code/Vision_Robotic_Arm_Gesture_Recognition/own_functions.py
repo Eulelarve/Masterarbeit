@@ -69,6 +69,19 @@ def get_globe_timeline_curvs(r, cx=0, cy=0, deg_steps=15, line_steps=50, frame=N
         cv2.circle(frame,[cx,cy],width+2,color,-1)
     return timelines
 
+def fit_in_frame(frame, image):
+    org_size = image.shape[:2]
+    ih, iw = org_size
+    fh, fw = frame.shape[:2]
+    if iw > fw: 
+        iw, ih = fw, int(ih / iw * fw)
+    if ih > fh: 
+        iw, ih = int(iw / ih * fh), fh
+
+    if org_size != (ih ,iw):
+        return cv2.resize(image, (iw, ih))
+    return image
+
 
 class MoveDetector:
     def __init__(self,min_speed:int=S.moving_min_speed, buffer_time:int=S.moving_check_time):

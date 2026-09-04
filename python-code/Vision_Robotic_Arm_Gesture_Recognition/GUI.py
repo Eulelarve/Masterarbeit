@@ -1,5 +1,5 @@
 import cv2
-from own_functions import insert, keep_rect_inside, valide_angle_zone
+from own_functions import insert, keep_rect_inside, valide_angle_zone, fit_in_frame
 from analyse import find_files
 import settings as S
 import numpy as np
@@ -505,8 +505,8 @@ class GuiOverlay:
             overlay_image(self.frame,self.overlay_bot_zone,(0, y))
 
         if self.show_info_menu:
+            self.info_menu_image = fit_in_frame(self.frame, self.info_menu_image)
             overlay_image(self.frame, self.info_menu_image, self.info_menu_pos)
-            self.show_info_menu = False
         else:
             for tile in [ *self.bar, *self.room, *self.menu,]:
                 tile.draw(self.frame)
@@ -548,6 +548,7 @@ class GuiOverlay:
             inst.show = show
     
     def set_gui_visibility(self, mode:str):
+        print('set GUI visibility mode to ',mode)
         show_all = 'gui' in mode
         for tile in [ *self.bar, *self.room, *self.menu,]:
                     tile.show = show_all
@@ -573,10 +574,11 @@ class GuiOverlay:
         self.selected.change_size_by(size_change)
 
     def reset_instruments(self):
-        for inst in self.bar:
-            inst.volume = S.instrument_start_volume
-        self.clear_room()
-        # self.reset_btn.show = False
+        if not self.grabbing:
+            print('reset all instruments')
+            for inst in self.bar:
+                inst.volume = S.instrument_start_volume
+            self.clear_room()
 
     def clear_room(self,):
         for inst in self.room.copy():

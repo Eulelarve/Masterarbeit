@@ -48,7 +48,7 @@ cam_intrinsics = 'xxx'
 left_hand_landmark_ids = [ 15,17,19, 21 ] # left hand landmarks from mediapipe pose
 right_hand_landmark_ids = [ 16,18,20, 22 ] # right hand landmarks from mediapipe pose
 gui_info_image_path = r"..\icons\into_image.png"
-overlay_visibilety_modes = {0:'show gui and processing', 1:'show gui', 2:'show buttons',3:'show buttons and processing' }
+overlay_visibilety_modes = {0:'show gui and processing', 1:'show gui',}# 2:'show buttons',3:'show buttons and processing' }
 
 # d455 intrinsiks color frame:              [ 1280x720  p[638.568 367.388]  f[640.329 638.932]  Inverse Brown Conrady [-0.055931 0.0683116 -0.000836038 0.000658576 -0.0223113] ]
 # d455 intrinsiks depth frame (unaligned):  [ 1280x720  p[643.714 366.77]  f[653.798 653.798]  Brown Conrady [0 0 0 0 0] ]

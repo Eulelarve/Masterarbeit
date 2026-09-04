@@ -101,6 +101,9 @@ def main(fps_cap=S.fps, show_fps=True, show_processing=True,source=0,
 
     paused = False
     process = True
+    change_visibilety_per_key = False
+    reset_instruments_per_key = False
+    show_info_window_per_key = False
     frame = None
     process_ones = False
     upper_body_size = ValueBuffer(40)
@@ -276,6 +279,12 @@ def main(fps_cap=S.fps, show_fps=True, show_processing=True,source=0,
         hand_found = False
         hand_stands_still = False
         arm_in_angle_area = False
+        change_visibilety_per_key = False
+        change_visibilety_per_gesture = False
+        reset_instruments_per_gesture = False
+        show_info_window_per_gesture = False
+
+        
         show_processing = 'process' in visibilety_mode_loop_list[0]
         # released_angle = None
         time_stemp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -315,7 +324,7 @@ def main(fps_cap=S.fps, show_fps=True, show_processing=True,source=0,
 
         if key == 27: # esc
             return_value = False
-            break
+            break            
 
         elif key == ord(' '): # space -> Pause
             paused = not paused
@@ -325,6 +334,15 @@ def main(fps_cap=S.fps, show_fps=True, show_processing=True,source=0,
 
         elif key == ord('p'): # p -> screen shot
             screenshot(frame=frame, name=foto_name, ask_name=True)
+
+        elif key == ord('v'): # v -> change displayed informationes
+            change_visibilety_per_key = True
+
+        elif key == ord('c'): # c -> reset all instruments 
+            reset_instruments_per_key = True
+
+        elif key == ord('i'): # i -> show info window with gesture controles
+            show_info_window_per_key = not show_info_window_per_key
 
         # --------------------------------------------------
         # Video frame navigation
@@ -747,29 +765,33 @@ def main(fps_cap=S.fps, show_fps=True, show_processing=True,source=0,
             gesture_detector.pose_movement = list(pose_detector.lm_movment_list)
             gesture_detector.active_hand_id = i_hand
             gesture_detector.upper_body_len = upper_body_size.get()
-
-            if gesture_detector.find_info_gesture():
-                overlay.show_info_menu = True
+           
             if gesture_detector.find_termination_gesture():
-                print('termination gesture detected')
                 return_value = False
                 break
-            if gesture_detector.find_visibilety_mode_trigger():
-                first_mode = visibilety_mode_loop_list.pop(0)
-                visibilety_mode_loop_list.append(first_mode) 
-                overlay.set_gui_visibility(visibilety_mode_loop_list[0])
-                print('change visibilety to',visibilety_mode_loop_list[0])#test
-            if gesture_detector.find_clear_gesture():
-                print('instroments reseted')#test
-                overlay.reset_instruments()
 
+            show_info_window_per_gesture = gesture_detector.find_info_gesture()
+            change_visibilety_per_gesture = gesture_detector.find_visibilety_mode_trigger()
+            reset_instruments_per_gesture = gesture_detector.find_clear_gesture()
 
         # --------------------------------------------------
         # frame is fully processed 
         # --------------------------------------------------
         if not paused and process:
             frame_counter_processed += 1
-        
+
+        # --------------------------------------------------
+        # alppy controles 
+        # --------------------------------------------------
+        overlay.show_info_menu = show_info_window_per_gesture or show_info_window_per_key
+
+        if change_visibilety_per_gesture or change_visibilety_per_key:
+            first_mode = visibilety_mode_loop_list.pop(0)
+            visibilety_mode_loop_list.append(first_mode) 
+            overlay.set_gui_visibility(visibilety_mode_loop_list[0])
+        if reset_instruments_per_gesture or reset_instruments_per_key:
+            overlay.reset_instruments()
+    
         # ##################################################
         # Status overlay - end of video processing
         # ##################################################
@@ -1155,7 +1177,7 @@ if __name__ == "__main__":
     # d5 = bags[4]
     # d6 = bags[5]
     # Video file input
-    videos = [v1,v2,v3,v4,v5]
+    videos = [v6,v2,v3,v4,v5]
     # videos.reverse()
     for v in videos:
         for hand_methode in [ 'aperture']: #,'distance_dif__1','len_width_thr__1.5' , aperture_len_width  ]:

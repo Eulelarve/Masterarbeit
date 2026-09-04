@@ -149,6 +149,8 @@ class GestureDetector():
     def find_termination_gesture(self)->bool:
         self.termination_gesture = self.arms_crossed() 
         self._()
+        if self.termination_gesture:
+            print('gesture detected: termination')
         return self.termination_gesture
 
 
@@ -214,6 +216,7 @@ class GestureDetector():
             if last_check == False:
                 # gusture triggered just now  
                 self.visibilety_mode_trigger = True
+                print('gesture detected: visibilety_mode_trigger')
         return self.visibilety_mode_trigger          
 
     def arm_swipe(self)->bool:
@@ -248,6 +251,8 @@ class GestureDetector():
 
     def find_clear_gesture(self)->bool:
         self.clear_gesture = self.arm_swipe()
+        if self.clear_gesture:
+            print('gesture detected: clear')
         return self.clear_gesture
 
 
