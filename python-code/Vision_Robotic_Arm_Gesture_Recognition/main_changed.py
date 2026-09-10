@@ -33,7 +33,7 @@ def main(fps_cap=S.fps, show_fps=True, show_processing=True,source=0,
          hand_not_found_means=None,
          skip_hand_move_detection=False,
          show_globe = False,
-         hand_methode = 'aperture_len_width__1.2',
+         grab_detection_methode = S.grab_detection_methode,
          show_depth_frame = False,
          full_screen=False,
          ):
@@ -675,23 +675,17 @@ def main(fps_cap=S.fps, show_fps=True, show_processing=True,source=0,
 
                         else:
                             try:
-                                factor = float(hand_methode[hand_methode.find('__')+2:])
+                                factor = float(grab_detection_methode[grab_detection_methode.find('__')+2:])
                             except:
                                 factor = None
                                 
-                            if 'aperture' in hand_methode:
+                            if 'aperture' in grab_detection_methode:
                                 hand_status = hand_detector.open_or_close_aperture_thr(
                                         frame=frame_overlay,
                                         draw_aperture=show_processing and draw_aperture,
                                         buffer_size=S.hand_status_buffer_size,
                                     )
-                            # if 'len_width_thr' in hand_methode:
-                            #     hand_status = hand_detector.open_or_close_len_width_thr(frame_overlay, show_processing and draw_aperture, 
-                            #                                                                 hand_opening_factor=1.4,
-                            #                                                                 use_len_if_larger_then_width=factor,
-                            #                                                                 buffer_size=S.hand_status_buffer_size,
-                            #                                                                 )
-                            elif 'dif' in hand_methode:
+                            elif 'dif' in grab_detection_methode:
                                 if not factor: factor = 1
                                 hand_status = hand_detector.open_or_close_distance_dif(frame_overlay, show_processing and draw_aperture, 
                                                                                     min_distance_difference=factor,
@@ -995,7 +989,7 @@ def main(fps_cap=S.fps, show_fps=True, show_processing=True,source=0,
         # if not paused and process:
         #     if gesture_detector.releas:
         #         print(f'Frame {frame_now}: arm moved {moved_angle}° wich grap at {grasped_angle}° and releas at {released_angle}°')
-        #         moves_dict[hand_methode].append([frame_now, moved_angle])
+        #         moves_dict[grab_detection_methode].append([frame_now, moved_angle])
 
         # --------------------------------------------------
         # foto at frame 
@@ -1136,11 +1130,11 @@ def main(fps_cap=S.fps, show_fps=True, show_processing=True,source=0,
         time = time_stemp
     )
 
-    frames_and_moves = moves_dict[hand_methode]
-    CSVWriter.write('Move_detection_hand_methode_test.csv',
+    frames_and_moves = moves_dict[grab_detection_methode]
+    CSVWriter.write('Move_grab_detection_methode_test.csv',
         frames_and_moves= frames_and_moves,
         buffer_size=S.hand_status_buffer_size,
-        methode= hand_methode,
+        methode= grab_detection_methode,
         video=video_name,
         time = time_stemp,
     )
@@ -1180,7 +1174,7 @@ if __name__ == "__main__":
     videos = [v6,v2,v3,v4,v5]
     # videos.reverse()
     for v in videos:
-        for hand_methode in [ 'aperture']: #,'distance_dif__1','len_width_thr__1.5' , aperture_len_width  ]:
+        for grab_detection_methode in [ 'aperture']: #,'distance_dif__1','len_width_thr__1.5' , aperture_len_width  ]:
             s = S.video_folder+v
             r = main(
                 fps_cap=S.fps,
@@ -1198,7 +1192,7 @@ if __name__ == "__main__":
                 hand_not_found_means=None,
                 skip_hand_move_detection=False,
                 show_globe=False,
-                hand_methode=hand_methode,
+                grab_detection_methode=grab_detection_methode,
                 show_depth_frame = False,
             )
             if r == False:break
