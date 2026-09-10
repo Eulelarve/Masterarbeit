@@ -69,15 +69,19 @@ def get_globe_timeline_curvs(r, cx=0, cy=0, deg_steps=15, line_steps=50, frame=N
         cv2.circle(frame,[cx,cy],width+2,color,-1)
     return timelines
 
-def fit_in_frame(frame, image):
+def fit_in_frame(frame, image, marge=0):
     org_size = image.shape[:2]
+    print(org_size)#test
     ih, iw = org_size
     fh, fw = frame.shape[:2]
+    if marge:
+        fh -= marge*2
+        fw -= marge*2
     if iw > fw: 
         iw, ih = fw, int(ih / iw * fw)
     if ih > fh: 
         iw, ih = int(iw / ih * fh), fh
-
+    print(org_size, ih,iw,'frame',fh,fw,'###########################test')#test
     if org_size != (ih ,iw):
         return cv2.resize(image, (iw, ih))
     return image

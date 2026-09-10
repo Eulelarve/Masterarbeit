@@ -371,19 +371,18 @@ class ChangeVisibility(GUITile):
 
 class InfoButton(GUITile):
     def __init__(self, gui_object:object):
-        name = 'info'
+        name = 'info_button'
         type = 'button'
-        self.width_factor = 0.15
-        self.height_factor = 0.1
+        self.size_factor = 0.15
         super().__init__(gui_object, name, None, type)
 
     def update_rect(self, frame):
         margin = 10
-        fh, fw = frame.shape[:2]
-        w = int(fw * self.width_factor)
-        h = int(fh * self.height_factor)
+        ih, iw = self.image.shape[:2]
+        h = int(frame.shape[0] * self.size_factor)
+        w = int(iw / ih * h)
         x = margin
-        y = margin * 3
+        y = margin 
         self.rect = [x, y, w, h]
 
     def select(self):
@@ -491,9 +490,13 @@ class GuiOverlay:
         self.room_bot = int(self.frame.shape[0] * S.arm_decection_border_bot)
         self.create_border_zone_indicator()
         self.define_bar_tile_pos_and_size()
-        x = int((self.frame.shape[1] - self.info_menu_image.shape[1])/2)
-        y = int((self.frame.shape[0] - self.info_menu_image.shape[0])/2)
-        self.info_menu_pos = x,y
+
+    def calc_info_image_pos(self, frame):
+        x = int((frame.shape[1] - self.info_menu_image.shape[1])/2)
+        y = int((frame.shape[0] - self.info_menu_image.shape[0])/2)
+        x = max(x,0)
+        y = max(y,0)
+        self.info_menu_pos = x, y 
 
     def draw(self, frame):
         if self.frame is not frame:
@@ -505,7 +508,8 @@ class GuiOverlay:
             overlay_image(self.frame,self.overlay_bot_zone,(0, y))
 
         if self.show_info_menu:
-            self.info_menu_image = fit_in_frame(self.frame, self.info_menu_image)
+            self.info_menu_image = fit_in_frame(self.frame, self.info_menu_image, 10)
+            self.calc_info_image_pos(frame)
             overlay_image(self.frame, self.info_menu_image, self.info_menu_pos)
         else:
             for tile in [ *self.bar, *self.room, *self.menu,]:
@@ -661,7 +665,7 @@ def cv2_create_text_image(text:str, size:tuple[int,int]|int=100, back_ground_col
         cv2_set_fitting_text(img, text, text_color,text_outline,line_size)
         return img
 
-def cv2_set_fitting_text(img, text:str, color=(255,255,255,255), outlined=1, line_size = 4,margin = 10,):
+def cv2_set_fitting_text(img, text:str, color=(255,255,255,255), outlined=1, line_size = 4, margin = 10,):
     if len(color) != 4:
             raise "color must be a tuple of 4 ... BGRA"
     color_outline = (0,0,0,255)
