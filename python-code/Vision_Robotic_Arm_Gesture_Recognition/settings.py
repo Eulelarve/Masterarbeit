@@ -13,8 +13,8 @@ window_size = (1920, 1080)#
 hand_width_factor = 1.2
 hand_opening_factor = 1.3
 skip_frames = 100
-hand_status_buffer_size = 6
-hand_status_buffer_atleast = 5
+hand_status_buffer_size = 3
+hand_status_buffer_atleast = 2
 default_buffer_mode = 'median'
 no_hand_frame_count = 30 # by 30 FPS are 30 frames = one secund not hand, to get the no_hand status
 video_folder = r'..\test_videos (gitignore)/'
@@ -48,7 +48,9 @@ cam_intrinsics = 'xxx'
 left_hand_landmark_ids = [ 15,17,19, 21 ] # left hand landmarks from mediapipe pose
 right_hand_landmark_ids = [ 16,18,20, 22 ] # right hand landmarks from mediapipe pose
 gui_info_image_path = r"..\icons\into_image.png"
+gui_tile_max_size = 120
 overlay_visibilety_modes = {0:'show gui and processing', 1:'show gui',}# 2:'show buttons',3:'show buttons and processing' }
+
 
 # d455 intrinsiks color frame:              [ 1280x720  p[638.568 367.388]  f[640.329 638.932]  Inverse Brown Conrady [-0.055931 0.0683116 -0.000836038 0.000658576 -0.0223113] ]
 # d455 intrinsiks depth frame (unaligned):  [ 1280x720  p[643.714 366.77]  f[653.798 653.798]  Brown Conrady [0 0 0 0 0] ]

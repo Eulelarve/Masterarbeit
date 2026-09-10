@@ -117,17 +117,22 @@ class GUITile:
         cv2.rectangle(frame, (x, y), (x+w, y+h), color1, width)
         cv2.rectangle(frame, (x , y), (x+w, y+h), color2, 1)
 
-    def change_size_by(self, size_change:tuple|int):
+    def resize(self, new_size:tuple|int):
+        """ 
+            change the size but keep the center position
+        """
         if self.rect:
-            if type(size_change) is int:
-                x = size_change
-                y = size_change
+            if type(new_size) is int:
+                w = new_size
+                h = new_size
             else:
-                x,y = size_change
-            self.rect[0] -= x//2
-            self.rect[1] -= y//2
-            self.rect[2] += x
-            self.rect[3] += y
+                w,h = new_size
+            dx = w-self.rect[2]
+            dy = h-self.rect[3]
+            self.rect[0] -= dx//2
+            self.rect[1] -= dy//2
+            self.rect[2] += dx
+            self.rect[3] += dy
             return True
         return False
     
@@ -402,8 +407,9 @@ class GuiOverlay:
         self.menu:list[GUITile] = []
         self.selected:GUITile|Instrument = None
         self.grabbing = False
-        self.sel_size = 10
-        self.room_size = -20
+        self.sel_tile_size = []
+        self.room_tile_size = []
+        self.bar_tile_size = []
         self.draw_pos = None
         self.info_dict_list:list[dict] = []
         self.overlay_top_zone = None
@@ -427,12 +433,12 @@ class GuiOverlay:
     def add_instrument(self, name, image_path='', position=-1):
         instrument = Instrument(self, name, image_path)
         self._add_to_bar(instrument, position)
-        self.define_bar_tile_pos_and_size()
+        self.define_tile_size_and_bar_pos()
     
     def _add_to_bar(self, instrument:Instrument, position:int=None):
         if instrument.bar_rect:
             instrument.rect = instrument.bar_rect.copy() # get the old bar position beck
-        
+        instrument.resize(self.bar_tile_size)
         if instrument in self.room:
             self.room.remove(instrument)
         if instrument not in self.bar:
@@ -441,16 +447,18 @@ class GuiOverlay:
                    instrument)
 
     def _add_to_room(self, instrument:Instrument):
+        instrument.resize(self.room_tile_size)
         if instrument in self.room:
             return False
         if instrument in self.bar:
             self.bar.remove(instrument)
         if instrument not in self.room:
-            self.selected_size_change(self.room_size)
             self.room.append(instrument)
 
-    def define_bar_tile_pos_and_size(self):
-        tile_max_size = 120
+    def define_tile_size_and_bar_pos(self):
+        selected_tile_size_factor = 0.85
+        room_tile_size_factor = 0.7
+        tile_max_size = S.gui_tile_max_size
 
         if not self.bar:
             return False
@@ -460,16 +468,16 @@ class GuiOverlay:
         margin = 10
         n = len(self.bar)
 
-        tile_size = min(
-            tile_max_size,
-            (self.frame.shape[1] - margin * (n - 1)) // n,
-        )
-        w = n * (tile_size + margin) - margin 
+        tile_size = min(tile_max_size, (self.frame.shape[1] - margin * (n - 1)) / n)
+        self.bar_tile_size = int(tile_size), int(tile_size)
+        self.room_tile_size = int(tile_size *room_tile_size_factor),  int(tile_size *room_tile_size_factor)
+        self.sel_tile_size = int(tile_size *selected_tile_size_factor),  int(tile_size *selected_tile_size_factor)
+        w = n * (self.bar_tile_size[0] + margin) - margin 
         edge = (self.frame.shape[1] - w) // 2
 
         for i, inst in enumerate(self.bar):
-            x = edge + i * (tile_size + margin)
-            inst.update_rect([x, self.hight, tile_size, tile_size])
+            x = edge + i * (self.bar_tile_size[0] + margin)
+            inst.update_rect([x, self.hight, *self.bar_tile_size])
             inst.bar_pos = i
         
         return True
@@ -489,7 +497,7 @@ class GuiOverlay:
         self.room_top = int(self.frame.shape[0] * S.arm_decection_border_top)
         self.room_bot = int(self.frame.shape[0] * S.arm_decection_border_bot)
         self.create_border_zone_indicator()
-        self.define_bar_tile_pos_and_size()
+        self.define_tile_size_and_bar_pos()
 
     def calc_info_image_pos(self, frame):
         x = int((frame.shape[1] - self.info_menu_image.shape[1])/2)
@@ -568,14 +576,10 @@ class GuiOverlay:
                 # self.reset_btn.show = False
                 self._set_grap_mode(True)
                 self.selected.turn_on()
-
+                self.selected.resize(self.sel_tile_size)
             elif self.selected in self.menu:
                 self.selected.function()
-
         return True
-    
-    def selected_size_change(self, size_change:int):
-        self.selected.change_size_by(size_change)
 
     def reset_instruments(self):
         if not self.grabbing:
@@ -596,10 +600,6 @@ class GuiOverlay:
             # self.x.show = not on
             self.info_btn.show = not on
             self.selected.activated = on
-            if self.selected in self.bar:
-                self.selected_size_change(self.sel_size * (1-2*on))
-            elif self.selected in self.room:
-                self.selected_size_change(self.sel_size* -(1-2*on))
 
     def release(self, )->bool:
         if self.selected is None:
