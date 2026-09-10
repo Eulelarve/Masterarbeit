@@ -75,6 +75,10 @@ def main(fps_cap=S.fps, show_fps=True, show_processing=True,source=0,
     overlay.add_instrument("trumpet")
     overlay.add_instrument("piano")
     overlay.add_instrument("violin")
+    overlay.add_instrument("trommel")
+    overlay.add_instrument("xylo")
+    overlay.add_instrument("r2d2")
+    overlay.add_instrument("no image")
 
     frame_counter_processed = 0
     frame_counter_pose = 0
@@ -1053,12 +1057,11 @@ def main(fps_cap=S.fps, show_fps=True, show_processing=True,source=0,
         # Display the processed frame - opens a window 
         # --------------------------------------------------
         if not is_playback and S.window_size != S.live_stream_resulutuin:
-            frame_overlay = cv2.resize(frame_overlay, S.window_size)
+            frame_out = cv2.resize(frame_overlay, S.window_size)
+        else:
+            frame_out = frame_overlay.copy()
             
-        cv2.imshow(
-            window_name,
-            frame_overlay
-        )
+        cv2.imshow(window_name, frame_out)
 
         if use_rs_depth and show_depth_frame:
             cv2.imshow(

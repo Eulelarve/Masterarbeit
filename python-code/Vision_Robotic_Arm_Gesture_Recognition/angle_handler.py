@@ -22,7 +22,6 @@ def angle_between_points(p1:tuple, p2:tuple, p3:tuple)->float:
     v1 = np.array(p1) - np.array(p2)
     v2 = np.array(p3) - np.array(p2)
     return angle_between_vectors(v1,v2)
-  
 
 def angle_between_vectors(v1:tuple, v2:tuple, between_0_and_180_deg = False)->float:
     """ 

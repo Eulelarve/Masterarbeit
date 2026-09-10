@@ -4,12 +4,5 @@ from collections import deque, defaultdict
 
 import math
 
-t= defaultdict(lambda: ValueBuffer(6))
-t['w'].add(4)
-t['w'].add(4)
-t['w'].add(4)
-t['e'].add(5)
-t['e'].add(5)
-t['e'].add(5)
-print(t['e'].average, t['w'].average)
+print(*[1,2,3,4][::-1])
 

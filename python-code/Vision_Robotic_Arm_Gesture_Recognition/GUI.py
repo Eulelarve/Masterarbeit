@@ -1,5 +1,5 @@
 import cv2
-from own_functions import insert, keep_rect_inside, valide_angle_zone, fit_in_frame
+from own_functions import insert, keep_rect_inside, valide_angle_zone, fit_in_frame, make_image_fit_in_rect
 from analyse import find_files
 import settings as S
 import numpy as np
@@ -159,7 +159,9 @@ class GUITile:
 
     def _find_image(self):
         folder = "../icons/"
-        path_list = find_files(folder=folder,contains=self.name, names_only=False)
+        name = self.name.replace("-", "").replace(" ", "")
+        name = name.lower()
+        path_list = find_files(folder=folder,contains=name, names_only=False)
         if path_list:
             return path_list[0]
         return None
@@ -185,8 +187,10 @@ class GUITile:
         edge = self.icon_farme_edge
         w, h = self.rect[2:]
         new_size = w - 2* edge, h -2* edge
-        
-        self.icon = cv2.resize(self.image, new_size)
+        self.icon = np.ones((*new_size[::-1], 4), dtype=np.uint8) * 255
+        image = make_image_fit_in_rect(self.image, new_size)
+        pos = int((new_size[0]-image.shape[1])/2), int((new_size[1]-image.shape[0])/2)
+        overlay_image(self.icon, image, pos)
         return True # was shaped
 
 
@@ -291,7 +295,7 @@ class VolumeBar(GUITile):
 
     def _create_image(self):
         text = f"- : : : : : volume {self.volume:.2f} : : : : : +"
-        super()._create_image(text)
+        super()._create_image(text, line_size=2)
 
 class CloseButton(GUITile):
     def __init__(self, gui_object:object):
@@ -383,11 +387,14 @@ class InfoButton(GUITile):
 
     def update_rect(self, frame):
         margin = 10
-        ih, iw = self.image.shape[:2]
-        h = int(frame.shape[0] * self.size_factor)
-        w = int(iw / ih * h)
         x = margin
         y = margin 
+        h = int(frame.shape[0] * self.size_factor)
+        if self.image is None:
+            w = int(frame.shape[1] *self.size_factor)
+        else:
+            ih, iw = self.image.shape[:2]
+            w = int(iw / ih * h)
         self.rect = [x, y, w, h]
 
     def select(self):
@@ -753,7 +760,7 @@ def overlay_image(frame: np.ndarray, overlay: np.ndarray, pos: tuple[int, int]):
         x1 - x:x2 - x
     ]
 
-    roi = frame[y1:y2, x1:x2]
+    roi = frame[y1:y2, x1:x2, :3]
 
     # Alpha-Kanal
     alpha = overlay_crop[:, :, 3:4] / 255.0
