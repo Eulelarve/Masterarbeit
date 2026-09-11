@@ -21,7 +21,7 @@ from gesture_handler import GestureDetector
 
 import settings as S
 
-def main(fps_cap=S.fps, show_fps=True, show_processing=True,source=0, 
+def main(fps_cap=S.fps, show_fps=True,source=0, 
          pause_frames:list=None, 
          capture_status_manually:bool=False, 
          capture_status:bool=False,
@@ -125,7 +125,7 @@ def main(fps_cap=S.fps, show_fps=True, show_processing=True,source=0,
     hand_detector = HandDetector()
     pose_detector = poseDetector()
     angle_detector = RoomAngleDetector()
-    communicator = SendOnChange((S.IPv4_audiosystem,S.port),show_processing)
+    communicator = SendOnChange((S.IPv4_audiosystem,S.port))
     gesture_detector = GestureDetector()
 
     time.sleep(0.5)
@@ -793,22 +793,80 @@ def main(fps_cap=S.fps, show_fps=True, show_processing=True,source=0,
         # ##################################################
         # Status overlay - end of video processing
         # ##################################################
+      
+        # --------------------------------------------------
+        # FPS overlay
+        x = 10
+        y = 30
+        margin = 40
+        if not paused and show_processing:
+            if show_fps:
 
+                cv2.putText(
+                    frame_overlay,
+                    f"FPS: {round(fps, 1)}",
+                    (x, y),
+                    cv2.FONT_HERSHEY_PLAIN,
+                    2,
+                    (0, 255, 0),
+                    2
+                )
         # --------------------------------------------------
-        # draw glode limelines
+        #  video / Live status overlay
+        y += margin
+        if show_processing:
+            status = "LIVE" if not is_playback else "VIDEO"
+
+            cv2.putText(
+                frame_overlay,
+                status,
+                (x, y),
+                cv2.FONT_HERSHEY_PLAIN,
+                2,
+                (0, 255, 0),
+                2
+            )
         # --------------------------------------------------
-        if not paused and process and pose_found:
-            if show_globe:
-                r = 260
-                get_globe_timeline_curvs(r,
-                                        *shulder,
-                                        frame=frame_overlay,
-                                        draw=show_globe
-                                        )
-                            
-        
+        # pause status
+        if paused:
+            x = 120
+            cv2.putText(
+                frame_overlay,
+                "PAUSED",
+                (x, y),
+                cv2.FONT_HERSHEY_PLAIN,
+                2,
+                (0, 0, 255),
+                2
+            )
+        # --------------------------------------------------
+        # frame counter overlay
+        x = 10
+        y += margin
+        if show_processing:
+            text = f"Frame: {frame_now}"
+            if is_playback:
+                text += '/'
+                if use_realsense:
+                    play_time = playback.get_duration().total_seconds()
+                    fps_db3 = profile.get_stream(rs.stream.color).as_video_stream_profile().fps()
+                    text += str(int(fps_db3*play_time))
+                else:
+                    text += str(int(video_capture.get(cv2.CAP_PROP_FRAME_COUNT)))
+
+            cv2.putText(
+                frame_overlay,
+                text,
+                (x, y),
+                cv2.FONT_HERSHEY_PLAIN,
+                2,
+                green,
+                2
+            )
         # --------------------------------------------------
         # draw hand status
+        x = 10
+        y +=  margin
         if not paused and process and show_processing:
                 
             no_hand_status = {'text':"no hand ", 'color':white}
@@ -829,7 +887,7 @@ def main(fps_cap=S.fps, show_fps=True, show_processing=True,source=0,
             cv2.putText(
                 frame_overlay,
                 text,
-                (10, 150),
+                (x,y),
                 cv2.FONT_HERSHEY_PLAIN,
                 2,
                 color,
@@ -837,97 +895,32 @@ def main(fps_cap=S.fps, show_fps=True, show_processing=True,source=0,
             )
         # --------------------------------------------------
         # draw arm angle
-
+        x = 10
+        y +=  margin
         if not paused and process and show_processing:
             if pointing_azimuth is None:
                 text = 'a/e: out of area'
             else:
                 text = f'a/e: {pointing_azimuth}/{pointing_elevation}'
-
             cv2.putText(
                 frame_overlay,
                 text,
-                (10, 250),
+                (x,y),
                 cv2.FONT_HERSHEY_PLAIN,
                 2,
                 S.green,
                 2
             )
-        # --------------------------------------------------
-        # FPS overlay
-        if not paused and show_processing:
-            if show_fps:
-                x = frame_overlay.shape[1] - 170
-                y = 200
-                cv2.putText(
-                    frame_overlay,
-                    f"FPS: {round(fps, 1)}",
-                    (x, y),
-                    cv2.FONT_HERSHEY_PLAIN,
-                    2,
-                    (0, 255, 0),
-                    2
-                )
-
-        # --------------------------------------------------
-        #  video status overlay
-        if show_processing:
-            status = "LIVE" if not is_playback else "VIDEO"
-            cv2.putText(
-                frame_overlay,
-                status,
-                (10, y),
-                cv2.FONT_HERSHEY_PLAIN,
-                2,
-                (0, 255, 0),
-                2
-            )
-        
-        # --------------------------------------------------
-        # pause status
-        
-        if paused:
-            cv2.putText(
-                frame_overlay,
-                "PAUSED",
-                (120, y),
-                cv2.FONT_HERSHEY_PLAIN,
-                2,
-                (0, 0, 255),
-                2
-            )
-
-        # --------------------------------------------------
-        # frame counter overlay
-        if show_processing:
-            text = f"Frame: {frame_now}"
-            if is_playback:
-                text += '/'
-                if use_realsense:
-                    play_time = playback.get_duration().total_seconds()
-                    fps_db3 = profile.get_stream(rs.stream.color).as_video_stream_profile().fps()
-                    text += str(int(fps_db3*play_time))
-                else:
-                    text += str(int(video_capture.get(cv2.CAP_PROP_FRAME_COUNT)))
-
-            cv2.putText(
-                frame_overlay,
-                text,
-                (10, y+100),
-                cv2.FONT_HERSHEY_PLAIN,
-                2,
-                green,
-                2
-            )
 
         # --------------------------------------------------
         # controls overlay
-
+        x = 10
+        y =  frame_overlay.shape[0] - 10
         text = "SPACE=Pause | ENTER=processing on/off"
         cv2.putText(
             frame_overlay,
             text,
-            (10, frame_overlay.shape[0] - 10),
+            (x, y),
             cv2.FONT_HERSHEY_PLAIN,
             1,
             (0, 255, 0),
@@ -947,7 +940,18 @@ def main(fps_cap=S.fps, show_fps=True, show_processing=True,source=0,
                 (0, 255, 0),
                 1
             )
-        
+          
+        # --------------------------------------------------
+        # draw glode limelines
+        # --------------------------------------------------
+        if not paused and process and pose_found:
+            if show_globe:
+                r = 260
+                get_globe_timeline_curvs(r,
+                                        *shulder,
+                                        frame=frame_overlay,
+                                        draw=show_globe
+                                        )
         # --------------------------------------------------
         # draw GUI overlas
         # --------------------------------------------------
@@ -980,13 +984,8 @@ def main(fps_cap=S.fps, show_fps=True, show_processing=True,source=0,
         # --------------------------------------------------
         if gui_info:
             if gui_info['type'] == S.type_instrument:
-                communicator.send(**gui_info) # some error after add elevation
+                communicator.send(show_processing, **gui_info) # some error after add elevation
 
-        # --------------------------------------------------
-        # show - Change visibility mode
-        # --------------------------------------------------
-        if gui_info and gui_info['type'] == 'ChangeVisibility':
-            show_processing = 'processing' in gui_info['function']
         # --------------------------------------------------
         # print out events 
         # --------------------------------------------------
@@ -1184,7 +1183,6 @@ if __name__ == "__main__":
                 show_fps=True,
                 source=1,
                 pause_frames=None,
-                show_processing=True,
                 capture_status_manually=False,
                 capture_status = False,
                 roi_size = None,

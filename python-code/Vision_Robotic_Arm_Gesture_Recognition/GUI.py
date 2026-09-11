@@ -387,14 +387,15 @@ class InfoButton(GUITile):
 
     def update_rect(self, frame):
         margin = 10
-        x = margin
-        y = margin 
-        h = int(frame.shape[0] * self.size_factor)
+        fh, fw = frame.shape[:2]
+        h = int(fh * self.size_factor)
         if self.image is None:
-            w = int(frame.shape[1] *self.size_factor)
+            w = int(fw *self.size_factor)
         else:
             ih, iw = self.image.shape[:2]
             w = int(iw / ih * h)
+        x = fw - w - margin
+        y = margin
         self.rect = [x, y, w, h]
 
     def select(self):

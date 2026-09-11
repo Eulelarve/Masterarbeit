@@ -7,12 +7,11 @@ class SendOnChange:
     Sends information only if at least one value has changed.
     """
 
-    def __init__(self, device:tuple[str:int], printout=False):
+    def __init__(self, device:tuple[str:int]):
         self.device = device
-        self.printout = printout
         self._last_infos = {}
 
-    def send(self, **infos):
+    def send(self, printout, **infos):
         """
         Sends the given information only if it differs from the
         previously sent values.
@@ -34,7 +33,7 @@ class SendOnChange:
 
         return send_info_to(
             self.device,
-            printout=self.printout,
+            printout=printout,
             **infos
         )
 
