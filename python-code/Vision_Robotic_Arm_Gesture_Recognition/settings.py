@@ -13,8 +13,8 @@ window_size = (1920, 1080)#
 hand_width_factor = 1.2
 hand_opening_factor = 1.3
 skip_frames = 100
-hand_status_buffer_size = 10
-hand_status_buffer_atleast = 9
+hand_status_buffer_size = 6
+hand_status_buffer_atleast = 5
 default_buffer_mode = 'median'
 no_hand_frame_count = 30 # by 30 FPS are 30 frames = one secund not hand, to get the no_hand status
 video_folder = r'..\test_videos (gitignore)/'
@@ -51,6 +51,8 @@ gui_info_image_path = r"..\icons\into_image.png"
 gui_tile_max_size = 120
 overlay_visibilety_modes = {0:'show gui and processing', 1:'show gui',}# 2:'show buttons',3:'show buttons and processing' }
 grab_detection_methode = 'aperture' # can be 'aperture' or 'difference'
+dynamic_grab_distance_difference = 1
+dynamic_grab_time_difference = 1
 
 
 # d455 intrinsiks color frame:              [ 1280x720  p[638.568 367.388]  f[640.329 638.932]  Inverse Brown Conrady [-0.055931 0.0683116 -0.000836038 0.000658576 -0.0223113] ]

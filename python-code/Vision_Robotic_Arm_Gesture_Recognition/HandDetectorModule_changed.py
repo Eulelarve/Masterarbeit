@@ -406,7 +406,7 @@ class HandDetector():
         
         return distance
     
-    def open_or_close_distance_dif(self, frame=None, draw=True, min_distance_difference=1, time_difference=0.8):# test 1.5 normal 0.8
+    def open_or_close_distance_dif(self, frame=None, draw=True, min_distance_difference=S.dynamic_grab_distance_difference, time_difference=S.dynamic_grab_time_difference):
         wrist_finger_tip = (0, 12)
         thump_pinky = (4, 20)
         red = (0, 0, 255)

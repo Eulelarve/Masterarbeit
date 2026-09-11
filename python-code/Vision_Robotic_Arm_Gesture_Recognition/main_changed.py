@@ -691,9 +691,7 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
                                     )
                             elif 'dif' in grab_detection_methode:
                                 if not factor: factor = 1
-                                hand_status = hand_detector.open_or_close_distance_dif(frame_overlay, show_processing and draw_aperture, 
-                                                                                    min_distance_difference=factor,
-                                                                                    )
+                                hand_status = hand_detector.open_or_close_distance_dif(frame_overlay, show_processing and draw_aperture)
 
                     else:   
                         # if hand probably there but not found. closed hand are more likly to be not found
@@ -703,7 +701,7 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
                 else:
                     # if hand is moving curently, do not change the hand status
                     hand_status = hand_status
-                    hand_detector.buffer_clear() # fore distance difference methode #test ?
+                    # hand_detector.buffer_clear() # fore distance difference methode #test ?
 
             else:
                 hand_status = None # no hand in frame (checked hand marke from pose)
