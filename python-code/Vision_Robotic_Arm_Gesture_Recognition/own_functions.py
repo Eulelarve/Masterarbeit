@@ -69,11 +69,11 @@ def get_globe_timeline_curvs(r, cx=0, cy=0, deg_steps=15, line_steps=50, frame=N
         cv2.circle(frame,[cx,cy],width+2,color,-1)
     return timelines
 
-def fit_in_frame(frame, image, margin=0):
+def fit_in_frame(frame:np.ndarray, image:np.ndarray, margin=0):
     rect = frame.shape[1], frame.shape[0]
     return make_image_fit_in_rect(image=image,rect=rect,margin=margin)
 
-def make_image_fit_in_rect(image, rect:tuple[int, int], margin=0):
+def make_image_fit_in_rect(image:np.ndarray, rect:tuple[int, int], margin=0):
     org_size = image.shape[:2]
     ih, iw = org_size
     w,h = rect
@@ -630,7 +630,7 @@ def tolist(list_or_not, keep_None=True):
         return [list_or_not]
 
 
-def screenshot(frame,
+def screenshot(frame:np.ndarray,
                name="screenshot",
                timestamp=True,
                printout=True,
@@ -799,3 +799,65 @@ def keep_rect_inside(inner_rect, outer_rect):
 
 def valide_angle_zone(pos:list[int,int], frame_shape):
     return S.arm_decection_border_top <= pos[1]/frame_shape[0] <= S.arm_decection_border_bot
+
+
+def cv2_draw_dict(frame:np.ndarray, data:dict, pos:tuple[int, int], font_size=0.5, color=(255,255,255,255),line_size = 2, outlined=2):
+    """
+    Zeichnet alle Dictionary-Einträge untereinander.
+    Wenn die Liste nach unten über den Bildrand hinausgehen würde,
+    wird sie stattdessen nach oben gezeichnet.
+    """
+    x, y = pos
+    # Abstand zwischen den Zeilen abhängig von der Schriftgröße
+    line_spacing = int(35 * font_size)
+    # Anzahl der Einträge
+    number_of_entries = len(data)
+    # Benötigte Höhe für die komplette Liste
+    total_height = number_of_entries * line_spacing
+    # Bildhöhe
+    frame_height = frame.shape[0]
+    # Prüfen, ob die Liste nach unten aus dem Bild laufen würde
+    if y + total_height > frame_height:
+        y = y - total_height
+    # Dictionary zeichnen
+    for name, value in data.items():
+        text = f"{name}: {value}"
+        cv2_putText_outlined(
+            frame,
+            text,
+            (x, y),
+            font_size,
+            color,
+            line_size,
+            outlined
+        )
+        y += line_spacing
+    return frame
+
+def cv2_putText_outlined(img:np.ndarray, text:str, pos:tuple[int,int], font_scale, color=(255,255,255,255), line_size = 4, outlined=2):
+    if len(color) == 3: 
+            # add alpher chanle
+            color = (*color,255)
+    color_outline = (0,0,0,255)
+    # Vertikal zentrieren (Baseline beachten!)
+    if outlined:
+        cv2.putText(
+            img,
+            text,
+            pos,
+            cv2.FONT_HERSHEY_SIMPLEX,
+            font_scale,
+            color_outline,
+            line_size+outlined,
+            cv2.LINE_AA,
+            )
+    cv2.putText(
+        img,
+        text,
+        pos,
+        cv2.FONT_HERSHEY_SIMPLEX,
+        font_scale,
+        color,
+        line_size,
+        cv2.LINE_AA,
+        )

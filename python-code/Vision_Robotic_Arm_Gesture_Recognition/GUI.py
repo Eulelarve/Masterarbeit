@@ -1,5 +1,5 @@
 import cv2
-from own_functions import insert, keep_rect_inside, valide_angle_zone, fit_in_frame, make_image_fit_in_rect
+from own_functions import insert, keep_rect_inside, valide_angle_zone, fit_in_frame, make_image_fit_in_rect, cv2_draw_dict, cv2_putText_outlined
 from analyse import find_files
 import settings as S
 import numpy as np
@@ -75,7 +75,7 @@ class GUITile:
     def remove(self):
         self.group.remove(self)
 
-    def draw(self, frame):
+    def draw(self, frame, show_info_dict = False):
         if self.show:
             if self.rect is None:
                 self.update_rect(frame)
@@ -95,6 +95,8 @@ class GUITile:
 
             overlay_image(frame,self.icon,(x +edge, y +edge))
             # frame[y +edge : y + h -edge , x +edge : x + w -edge ] = self.icon
+            if show_info_dict:
+                cv2_draw_dict(frame, self.info_dict, (x+w+10,y), font_size=0.5, line_size=1, outlined=1, color=S.white)
         return True
 
     def update_rect(self, frame):
@@ -514,7 +516,7 @@ class GuiOverlay:
         y = max(y,0)
         self.info_menu_pos = x, y 
 
-    def draw(self, frame):
+    def draw(self, frame, show_processing):
         if self.frame is not frame:
             self._set_frame(frame)
 
@@ -525,11 +527,12 @@ class GuiOverlay:
 
         if self.show_info_menu:
             self.info_menu_image = fit_in_frame(self.frame, self.info_menu_image, 10)
-            self.calc_info_image_pos(frame)
+            self.calc_info_image_pos(self.frame)
             overlay_image(self.frame, self.info_menu_image, self.info_menu_pos)
         else:
             for tile in [ *self.bar, *self.room, *self.menu,]:
-                tile.draw(self.frame)
+                show_infos = show_processing and tile in self.room
+                tile.draw(self.frame, show_infos)
 
         if self.draw_pos is not None:
             cv2.circle(self.frame, self.draw_pos, 5, S.red, -1)
@@ -661,7 +664,7 @@ class GuiOverlay:
         self.info_dict_list.append(info_dict)
 
 
-def cv2_create_text_image(text:str, size:tuple[int,int]|int=100, back_ground_color = (0, 0, 0, 100), text_color=(255,255,255,255), line_size=4, text_outline=1):
+def cv2_create_text_image(text:str, size:tuple[int,int]|int=100, back_ground_color = (0, 0, 0, 100), text_color=(255,255,255,255), line_size=4, text_outline=2):
         if type(size) is int:
             x = size
             y = size
@@ -673,11 +676,7 @@ def cv2_create_text_image(text:str, size:tuple[int,int]|int=100, back_ground_col
         cv2_set_fitting_text(img, text, text_color,text_outline,line_size)
         return img
 
-def cv2_set_fitting_text(img, text:str, color=(255,255,255,255), outlined=1, line_size = 4, margin = 10,):
-    if len(color) != 4:
-            raise "color must be a tuple of 4 ... BGRA"
-    color_outline = (0,0,0,255)
-
+def cv2_set_fitting_text(img, text:str, color=(255,255,255,255), outlined=2, line_size = 4, margin = 10,):
     h, w = img.shape[:2]
 
     # Textbreite bei fontScale=1 bestimmen
@@ -700,31 +699,9 @@ def cv2_set_fitting_text(img, text:str, color=(255,255,255,255), outlined=1, lin
     )
 
     x = margin
-
-    # Vertikal zentrieren (Baseline beachten!)
     y = (h + text_h) // 2
-    if outlined:
-        cv2.putText(
-            img,
-            text,
-            (x, y),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            font_scale,
-            color_outline,
-            line_size+2*outlined,
-            cv2.LINE_AA,
-            )
-
-    cv2.putText(
-        img,
-        text,
-        (x, y),
-        cv2.FONT_HERSHEY_SIMPLEX,
-        font_scale,
-        color,
-        line_size,
-        cv2.LINE_AA,
-        )
+    # Vertikal zentrieren (Baseline beachten!)
+    return cv2_putText_outlined(img=img,pos=(x,y),text=text,font_scale=font_scale,line_size=line_size,color=color, outlined=outlined)
 
 
 def overlay_image(frame: np.ndarray, overlay: np.ndarray, pos: tuple[int, int]):

@@ -967,7 +967,7 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
             overlay.move(mouse_pos,azimuth=None,elevation=None)
             if MOUSE.is_release():
                 overlay.release()
-            overlay.draw(frame_overlay)
+            overlay.draw(frame_overlay, show_processing)
         else:
             # per arm and hand 
             if not paused and process and pose_found:
@@ -977,7 +977,7 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
                 overlay.move(hand_center,azimuth=pointing_azimuth,elevation=pointing_elevation)
                 if gesture_detector.releas:
                     overlay.release()
-            overlay.draw(frame_overlay)
+            overlay.draw(frame_overlay, show_processing)
         gui_info = overlay.get_info()
         # --------------------------------------------------
         # comunikation Audiosystem
