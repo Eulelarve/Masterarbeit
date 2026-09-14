@@ -3,6 +3,6 @@ from Vision_Robotic_Arm_Gesture_Recognition.own_functions import ValueBuffer, cl
 from collections import deque, defaultdict
 
 import math
-i = [1,2]
-print(i == [1,2])
+i = [[1,2],[2,3]]
+print(i[1:1])
 

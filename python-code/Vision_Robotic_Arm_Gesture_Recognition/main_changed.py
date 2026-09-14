@@ -489,15 +489,14 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
                     # )
 
         # --------------------------------------------------
-        # get hand center and coresponding shulder and max arm length, relative arm length
+        # get hand center and coresponding shoulder and max arm length, relative arm length
         # --------------------------------------------------
         if not paused and process and pose_found:
             draw_hand_center = True
-            # hand and shulder
-            pose_detector.find_specific_points(S.choose_hand_mode, overlay.grabbing, True)
-            i_hand , *hand_center = pose_detector.hand_center[:]
-            i_shulder, *shulder = pose_detector.shulder[:] 
-            i_hip, *hip = pose_detector.hip[:]
+            # hand and shoulder
+            pose_detector.find_specific_points(S.active_hand, overlay.grabbing, True)
+            i_hand , *hand_center = pose_detector.hand_center[0][:]
+            i_shoulder, *shoulder = pose_detector.shoulder[0][:] 
             hand_side = pose_detector.hand_side
             if show_processing and draw_hand_center:
                 x,y = hand_center
@@ -513,7 +512,7 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
                 )
             # arm
             pose_detector.calibrate_arm_length(time_to_calibrate=2)
-            rel_arm_len = math.dist(hand_center, shulder)
+            rel_arm_len = math.dist(hand_center, shoulder)
        
     
         # --------------------------------------------------
@@ -612,7 +611,7 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
         # if not paused and process and pose_found:
         #     if use_rs_depth:
         #         hand_center_3d = rs_pixel_to_3d(depth_frame, cam_intrinsics,*hand_center, True)
-        #         shoulder_3d = rs_pixel_to_3d(depth_frame, cam_intrinsics,*shulder, True)
+        #         shoulder_3d = rs_pixel_to_3d(depth_frame, cam_intrinsics,*shoulder, True)
 
         # --------------------------------------------------
         # hand is moving
@@ -628,16 +627,17 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
 
             draw = draw_angles and show_processing
             if use_rs_depth:
-                angle_detector.find_room_angle_with_depth_frame(depth_frame,hand_center, shulder, frame_overlay, draw)
+                angle_detector.find_room_angle_with_depth_frame(depth_frame,hand_center, shoulder, frame_overlay, draw)
             else:
                 hand_world_lm = pose_world_landmarks[i_hand][1:4]
-                shoulder_world_lm = pose_world_landmarks[i_shulder][1:4]
+                shoulder_world_lm = pose_world_landmarks[i_shoulder][1:4]
                 if cam_intrinsics:
                     hand_world_depth = hand_world_lm[2] + S.dist_cam_to_room_center
                     shoulder_world_depth = shoulder_world_lm[2] + S.dist_cam_to_room_center
-                    angle_detector.find_room_angle_with_intrinsics(cam_intrinsics, hand_center , shulder, hand_world_depth, shoulder_world_depth, frame_overlay, draw)
+                    angle_detector.find_room_angle_with_intrinsics(cam_intrinsics, hand_center , shoulder, hand_world_depth, shoulder_world_depth, frame_overlay, draw)
                 else:
-                    angle_detector.find_room_angles_45_deg_aprox(hand_side, hand_world_lm, shoulder_world_lm, hand_center, shulder, frame_overlay,draw)
+                    print(hand_center, shoulder)#test
+                    angle_detector.find_room_angles_45_deg_aprox(hand_side, hand_world_lm, shoulder_world_lm, hand_center, shoulder, frame_overlay,draw)
 
             pointing_azimuth = angle_detector.azimuth
             pointing_elevation = angle_detector.elevation
@@ -942,7 +942,7 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
             if show_globe:
                 r = 260
                 get_globe_timeline_curvs(r,
-                                        *shulder,
+                                        *shoulder,
                                         frame=frame_overlay,
                                         draw=show_globe
                                         )

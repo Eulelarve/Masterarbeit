@@ -185,36 +185,45 @@ class poseDetector():
 
     def find_specific_points(self,mode:str, just_update_pos:bool=False, mirrowed:bool=False):
         landmarks = self.lm_list
-        if not just_update_pos:
-            self.hand_side = self.get_hand_side(mode, mirrowed)
-        
-        if self.hand_side == 'left': # left hand
-            self.shulder = landmarks[11] # left shulder
-            self.hip = landmarks[23]
-            hand_points = self.left_hand_points
-        elif self.hand_side == 'right': # right hand
-            self.shulder = landmarks[12] # right shulder
-            self.hip = landmarks[24]
-            hand_points = self.right_hand_points
+        if mode.lower() == 'both':
+            hand_points = [self.left_hand_points, self.right_hand_points]
+            self.shoulder = [landmarks[11], [landmarks[12]]] 
+            self.hip = [landmarks[23], landmarks[24]]
+            self.hand_side = 'left right'
+        else:
+            if not just_update_pos:
+                self.hand_side = self.get_hand_side(mode, mirrowed)
+            
+            if self.hand_side == 'left': # left hand
+                self.shoulder = [landmarks[11]] # left shoulder
+                self.hip = [landmarks[23]]
+                hand_points = [self.left_hand_points]
+            elif self.hand_side == 'right': # right hand
+                self.shoulder = [landmarks[12]] # right shoulder
+                self.hip = [landmarks[24]]
+                hand_points = [self.right_hand_points]
 
-        self.hand_center = get_center_of_landmarks(landmarks,hand_points[1:3]) # just take 17, 19 (left) or 18, 20 (right) to get the hand center
-        self.hand_center.insert(0, hand_points[2]) # [hand_point_index , x, y]  while 15,17,19 or 21 for left, 16, 18, 20 or 22 for right hand
+        self.hand_center = []
+        for hand in hand_points:
+            center = get_center_of_landmarks(landmarks,hand[1:3]) # just take 17, 19 (left) or 18, 20 (right) to get the hand center
+            center.insert(0, hand[2]) # [hand_point_index , x, y]  while 15,17,19 or 21 for left, 16, 18, 20 or 22 for right hand
+            self.hand_center.append(center)
 
     
     def calibrate_arm_length(self,time_to_calibrate=2.0, max_rel_hight_diff=1/4):
         left_hand_center = get_center_of_landmarks(self.lm_list,[17,19])
         right_hand_center = get_center_of_landmarks(self.lm_list,[18,20])
-        left_shulder = self.lm_list[11][1:]
-        right_shulder = self.lm_list[12][1:]
+        left_shoulder = self.lm_list[11][1:]
+        right_shoulder = self.lm_list[12][1:]
         left_hip = self.lm_list[23][1:]
         
-        max_y_pixel_diff = (left_hip[1] - left_shulder[1]) * max_rel_hight_diff
-        if close_to(max_y_pixel_diff, right_shulder,
-                    left_hand_center,right_hand_center,left_shulder):
+        max_y_pixel_diff = (left_hip[1] - left_shoulder[1]) * max_rel_hight_diff
+        if close_to(max_y_pixel_diff, right_shoulder,
+                    left_hand_center,right_hand_center,left_shoulder):
             
             if self.calibranion_start_time > time_to_calibrate:
-                left_arm = math.dist(left_hand_center,left_shulder)
-                right_arm = math.dist(right_hand_center,right_shulder)
+                left_arm = math.dist(left_hand_center,left_shoulder)
+                right_arm = math.dist(right_hand_center,right_shoulder)
                 self.arm_len = (left_arm + right_arm)/2
 
         else:
@@ -385,24 +394,24 @@ class poseDetector():
             if v16: return right
             
         # only the first leter is capital letter, so it is uniform for all spelling options
-        choose = choose.capitalize() 
+        choose = choose.lower() 
 
         # if mirrored:
         #     left_hand_points, right_hand_points = right_hand_points, left_hand_points
 
-        if choose == "Top":
+        if choose == "top":
             top_hand = self.get_upper_points([lm_left, lm_right])
             if top_hand == lm_left:
                 return left
             return right
 
-        elif choose == "Left":
+        elif choose == "left":
             return left if not mirrored else right
 
-        elif choose == "Right":
+        elif choose == "right":
             return right if not mirrored else left
 
-        elif choose in ['Moving','Move','Fastest']:
+        elif choose in ['moving','move','fastest']:
             fhp = self.get_fastest_hand_point()
             if fhp:
                 speed = self.lm_movment_list[fhp][1]
@@ -441,11 +450,11 @@ class poseDetector():
             marks = self.lm_3dlist
         else:
             raise Exception('Landmark list is empty, use this function only after using the FindPose and FindPosePosition methods')
-        x_y_shulder = (np.array(marks[12][1:3]) + marks[13][1:3]) / 2 # midle between ledt and right sholder side
+        x_y_shoulder = (np.array(marks[12][1:3]) + marks[13][1:3]) / 2 # midle between ledt and right sholder side
         x_y_hip = (np.array(marks[24][1:3]) + marks[23][1:3]) / 2 
 
         # compute upper body lenght as L2 norm between the upper palm midpoint and lower palm midpoint
-        body_len = np.linalg.norm(x_y_shulder - x_y_hip, ord=2)
+        body_len = np.linalg.norm(x_y_shoulder - x_y_hip, ord=2)
         return body_len
 
 # ---------------------------------------------------------------

@@ -14,13 +14,13 @@ hand_width_factor = 1.2
 hand_opening_factor = 1.3
 skip_frames = 100
 
+active_hand = 'moving' # Available modules are: right, left, moving, top, both | 'moving' means take the fastest hand, 'top' means take the most top hand, 'right' means always right hand ...
 default_buffer_mode = 'median'
 no_hand_frame_count = 30 # by 30 FPS are 30 frames = one secund not hand, to get the no_hand status
 video_folder = r'..\test_videos (gitignore)/'
 moving_min_speed = 150 # in pixel per sec. min speed needed to be detected as moving 
 moving_check_time = 0.3 # in secunds. the pixel moves are checked over x secunds
 hand_change_min_speed = 200 # in pixel per sec. min speed needed to detected a hand in choose 'moving' hand mode 
-choose_hand_mode = 'moving' # choose the active hand by... available modes: 'moving', 'top', 'left' or 'right' | 'moving' means take the fastest hand, 'top' means take the most top hand, 'right' means always right hand ...
 position_average_buffer_size = 0 # min 2 frames to be used, all positions are averaged over
 position_median_buffer_size = 0 # min 3 frames to be used, all positions are averaged over
 angle_buffer_size = 5 # frames, pointing angle averaged over
