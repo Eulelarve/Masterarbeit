@@ -6,6 +6,7 @@ import numpy as np
 from collections import deque
 import time
 
+
 try:
     import settings as S
 except:
@@ -650,12 +651,11 @@ def screenshot(frame:np.ndarray,
         name += datetime.now().strftime("_%Y%m%d_%H%M%S")
 
     name += ".png"
-
-    success = cv2.imwrite(name, frame)
+    full_path = os.path.abspath(S.screenshots_folder)+'/'+name
+    success = cv2.imwrite(full_path, frame)
 
     if printout:
-        print(f"Screenshot: {name}")
-        print("...Saved" if success else "...Failed!")
+        print(f"saved Screenshot: {full_path}" if success else "...fail to save shreenshot!")
 
     return success
 

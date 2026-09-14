@@ -261,6 +261,11 @@ class InstrumentSelection(GUITile):
         y = int(self.pos[1] * fh -h/2)
         self.rect = [x,y,h,w]
 
+    def set_center(self, pos):
+        super().set_center(pos)
+        self.gui.define_selecton_bar()
+        self.gui.volume_bar.set_center(pos)
+
 class VolumeBar(GUITile):
     def __init__(self ,gui_object:object, ):
         self.width_factor = 0.35  # halbe Bildbreite
@@ -544,10 +549,10 @@ class GuiOverlay:
         self.frame = frame
         self.hight = int(self.frame.shape[0] * (1 - S.gui_hight))
         # self.create_border_zone_indicator()
-        self.define_menu_rects()
+        self.init_menu_rects()
         self.define_selecton_bar()
 
-    def define_menu_rects(self):
+    def init_menu_rects(self):
         for tile in self.menu:
             tile.update_rect(self.frame)
         self.volume_bar.set_center(self.selection_btn.center)
@@ -602,7 +607,8 @@ class GuiOverlay:
             if self.grabbing:
                 self.show_volume_bar(True)
         if self.grabbing:
-            self.volume_bar.interaced_with_instrument(self.selected, pointer_pos) 
+            if type(self.selected) is Instrument:
+                self.volume_bar.interaced_with_instrument(self.selected, pointer_pos) 
             # self.in_room_zone = valide_angle_zone(pointer_pos, self.frame.shape)
             # if self.in_room_zone:
                 # self.show_valume_bar(True)
@@ -649,8 +655,12 @@ class GuiOverlay:
                 self._set_grap_mode(True)
                 self.selected.turn_on()
                 self.selected.resize(self.sel_tile_size)
+
             elif self.selected in self.menu:
                 self.selected.function()
+                if type(self.selected) is InstrumentSelection:
+                    self._set_grap_mode(True)
+                
         return True
 
     def reset_instruments(self):
@@ -678,13 +688,14 @@ class GuiOverlay:
             return False
         
         if self.grabbing:
-            if self.pointer_in_reset_zoon():
-                self._add_to_bar(self.selected, True)
-                self.selected.turn_off()
-                self.selected.set_angle(None, None)
-                self.add_info(self.selected.get_info())
-            else:
-                self._add_to_room(self.selected)
+            if type(self.selected) is Instrument:
+                if self.pointer_in_reset_zoon():
+                    self._add_to_bar(self.selected, True)
+                    self.selected.turn_off()
+                    self.selected.set_angle(None, None)
+                    self.add_info(self.selected.get_info())
+                else:
+                    self._add_to_room(self.selected)
             self.show_volume_bar(False)
             # if self.room or [inst for inst in self.bar if inst.volume != S.instrument_start_volume]:
             #     self.reset_btn.show = True
@@ -696,9 +707,10 @@ class GuiOverlay:
     def move(self, pos:tuple[int,int], azimuth:float=None, elevation:float=None,)-> bool:
         if not self.grabbing:
             return False
-        self.selected.set_angle(azimuth=azimuth, elevation=elevation)
         self.selected.set_center(pos)
-        self.add_info(self.selected.get_info())
+        if type(self.selected) is Instrument:
+            self.selected.set_angle(azimuth=azimuth, elevation=elevation)
+            self.add_info(self.selected.get_info())
 
 
         return True

@@ -28,7 +28,6 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
          roi_size:int=None,
          start_frame:int = None,
          end_frame:int=None,
-         foto_name:str='hand_detection',
          foto_frames:list=None,
          hand_not_found_means=None,
          skip_hand_move_detection=False,
@@ -287,6 +286,7 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
         change_visibilety_per_gesture = False
         reset_instruments_per_gesture = False
         show_info_window_per_gesture = False
+        did_a_shot = False
 
         
         show_processing = 'process' in visibilety_mode_loop_list[0]
@@ -337,7 +337,8 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
             process = not process
 
         elif key == ord('p'): # p -> screen shot
-            screenshot(frame=frame, name=foto_name, ask_name=True)
+            did_a_shot = screenshot(frame=frame_overlay, name='shreenshot', ask_name=False)
+            frame_overlay[:] = 255
 
         elif key == ord('v'): # v -> change displayed informationes
             change_visibilety_per_key = True
@@ -1052,7 +1053,10 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
             frame_out = cv2.resize(frame_overlay, S.window_size)
         else:
             frame_out = frame_overlay.copy()
-            
+
+        if did_a_shot:
+            frame_out[:] = S.white
+
         cv2.imshow(window_name, frame_out)
 
         if use_rs_depth and show_depth_frame:
@@ -1181,7 +1185,6 @@ if __name__ == "__main__":
                 roi_size = None,
                 start_frame=1,
                 end_frame = None,
-                foto_name='arm winkel perspektieve',
                 foto_frames=None,
                 hand_not_found_means=None,
                 skip_hand_move_detection=False,
