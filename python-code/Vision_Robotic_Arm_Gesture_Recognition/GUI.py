@@ -1,12 +1,13 @@
 import cv2
-from own_functions import insert, keep_rect_inside, valide_angle_zone, fit_in_frame, make_image_fit_in_rect, cv2_draw_dict, cv2_putText_outlined
+from own_functions import insert, keep_rect_inside, fit_in_frame, make_image_fit_in_rect, cv2_draw_dict, cv2_putText_outlined, point_rect_collision
 from analyse import find_files
 import settings as S
 import numpy as np
+import math
 
 class GUITile:
     def __init__(self, gui_object:object, name:str, image_path:str|None, type='GUITile'):
-        self.parent:GuiOverlay = gui_object
+        self.gui:GuiOverlay = gui_object
         self.type = type
         self.name = name
         self.icon = None
@@ -56,12 +57,7 @@ class GUITile:
         if self.show:
             if self.rect is None:
                 return None
-
-            px, py = pos
-            x, y, w, h = self.rect
-
-            if x <= px <= x + w and y <= py <= y + h:
-                return True
+            return point_rect_collision(pos, self.rect)
         return False
     
     @property
@@ -243,6 +239,26 @@ class Instrument(GUITile):
         self.set_angle(azimuth, elevation)
         self.volume = volue
 
+class InstrumentSelection(GUITile):
+    def __init__(self, gui_object):
+        self.pos = 0.5, 0.9
+        self.size = S.gui_tile_max_size
+        name = 'instrument_selection_button'
+        type = 'button'
+        super().__init__(gui_object, name, None, type)
+
+    def select(self):
+        self.gui.show_selection(True)
+        return super().select()
+
+    def update_rect(self, frame):
+        fh, fw = frame.shape[:2]
+        w = self.size
+        h = w
+        x = int(self.pos[0] * fw -w/2)
+        y = int(self.pos[1] * fh -h/2)
+        self.rect = [x,y,h,w]
+
 class VolumeBar(GUITile):
     def __init__(self ,gui_object:object, ):
         self.width_factor = 0.35  # halbe Bildbreite
@@ -293,7 +309,7 @@ class VolumeBar(GUITile):
 
     def function(self):
         super().function()
-        self.set_volume_from_position(self.parent.draw_pos)
+        self.set_volume_from_position(self.gui.draw_pos)
 
     def _create_image(self):
         text = f"- : : : : : volume {self.volume:.2f} : : : : : +"
@@ -318,7 +334,7 @@ class CloseButton(GUITile):
 
     def function(self):
         super().function()
-        self.parent.add_info(self.get_info())
+        self.gui.add_info(self.get_info())
 
     
 class ResetInstruments(GUITile):
@@ -346,45 +362,45 @@ class ResetInstruments(GUITile):
 
     def function(self):
         super().function()
-        self.parent.reset_instruments()
+        self.gui.reset_instruments()
 
-class ChangeVisibility(GUITile):
-    def __init__(self, gui_object:object):
-        name = 'show'
-        type = 'ChangeVisibility'
-        self.width_factor = 0.15
-        self.height_factor = 0.1
-        super().__init__(gui_object, name, None, type)
-        self._function = 'show gui'
-        self.modes = {0:'show buttons',1:'show gui', 2:'show gui and processing', 3:'show buttons and processing'}
-        self.mode_counter = 1
+# class ChangeVisibility(GUITile):
+#     def __init__(self, gui_object:object):
+#         name = 'show'
+#         type = 'ChangeVisibility'
+#         self.width_factor = 0.15
+#         self.height_factor = 0.1
+#         super().__init__(gui_object, name, None, type)
+#         self._function = 'show gui'
+#         self.modes = {0:'show buttons',1:'show gui', 2:'show gui and processing', 3:'show buttons and processing'}
+#         self.mode_counter = 1
 
-    def function(self):
-        super().function()
-        self.next_mode()
-        self.parent.set_gui_visibility(self._function)
-        self.parent.add_info(self.get_info())
+#     def function(self):
+#         super().function()
+#         self.next_mode()
+#         self.gui.set_gui_visibility(self._function)
+#         self.gui.add_info(self.get_info())
 
-    def next_mode(self):
-        self.mode_counter += 1
-        nr = self.mode_counter % len(self.modes)
-        self._function = self.modes[nr]
+#     def next_mode(self):
+#         self.mode_counter += 1
+#         nr = self.mode_counter % len(self.modes)
+#         self._function = self.modes[nr]
   
-    def update_rect(self, frame):
-        margin = 10
-        fh, fw = frame.shape[:2]
-        w = int(fw * self.width_factor)
-        h = int(fh * self.height_factor)
-        x = margin
-        y = margin * 3
+#     def update_rect(self, frame):
+#         margin = 10
+#         fh, fw = frame.shape[:2]
+#         w = int(fw * self.width_factor)
+#         h = int(fh * self.height_factor)
+#         x = margin
+#         y = margin * 3
 
-        self.rect = [x, y, w, h]
+#         self.rect = [x, y, w, h]
 
 class InfoButton(GUITile):
     def __init__(self, gui_object:object):
         name = 'info_button'
         type = 'button'
-        self.size_factor = 0.15
+        self.size_factor = 0.2
         super().__init__(gui_object, name, None, type)
 
     def update_rect(self, frame):
@@ -406,7 +422,7 @@ class InfoButton(GUITile):
 
     def function(self):
         super().function()
-        self.parent.show_info_menu = True
+        self.gui.show_info_menu = True
 
     
 class GuiOverlay:
@@ -420,11 +436,12 @@ class GuiOverlay:
         self.sel_tile_size = []
         self.room_tile_size = []
         self.bar_tile_size = []
-        self.draw_pos = None
+        self.pointer_pos = None
         self.info_dict_list:list[dict] = []
         self.overlay_top_zone = None
         self.overlay_bot_zone = None
         self.in_room_zone = None
+        self.selection_rect:tuple = None
         self.info_menu_image = cv2.imread(S.gui_info_image_path, cv2.IMREAD_UNCHANGED)
         self.show_info_menu = False
         self.volume_bar = VolumeBar(self)
@@ -432,6 +449,7 @@ class GuiOverlay:
         # self.reset_btn = ResetInstruments(self)
         # self.show = ChangeVisibility(self)
         self.info_btn = InfoButton(self)
+        self.selection_btn = InstrumentSelection(self)
 
         self.volume_bar.show = False
         self.menu.append(self.volume_bar)
@@ -439,11 +457,14 @@ class GuiOverlay:
         # self.menu.append(self.reset_btn)
         # self.menu.append(self.show)
         self.menu.append(self.info_btn)
+        self.menu.append(self.selection_btn)
+
+        self.define_tile_sizes()
 
     def add_instrument(self, name, image_path='', position=-1):
         instrument = Instrument(self, name, image_path)
         self._add_to_bar(instrument, position)
-        self.define_tile_size_and_bar_pos()
+        self.define_selecton_bar()
     
     def _add_to_bar(self, instrument:Instrument, position:int=None):
         if instrument.bar_rect:
@@ -465,31 +486,43 @@ class GuiOverlay:
         if instrument not in self.room:
             self.room.append(instrument)
 
-    def define_tile_size_and_bar_pos(self):
+    def show_selection(self, show):
+        self.show_bar_instrument(show)
+        self.show_room_instrument(not show)
+
+    def define_tile_sizes(self):
         selected_tile_size_factor = 0.85
         room_tile_size_factor = 0.7
-        tile_max_size = S.gui_tile_max_size
+        tile_size = S.gui_tile_max_size
+        self.bar_tile_size = int(tile_size), int(tile_size)
+        self.room_tile_size = int(tile_size *room_tile_size_factor),  int(tile_size *room_tile_size_factor)
+        self.sel_tile_size = int(tile_size *selected_tile_size_factor),  int(tile_size *selected_tile_size_factor)
 
+    def define_selecton_bar(self):
         if not self.bar:
             return False
         if self.frame is None:
             return False
-
         margin = 10
-        n = len(self.bar)
-
-        tile_size = min(tile_max_size, (self.frame.shape[1] - margin * (n - 1)) / n)
-        self.bar_tile_size = int(tile_size), int(tile_size)
-        self.room_tile_size = int(tile_size *room_tile_size_factor),  int(tile_size *room_tile_size_factor)
-        self.sel_tile_size = int(tile_size *selected_tile_size_factor),  int(tile_size *selected_tile_size_factor)
-        w = n * (self.bar_tile_size[0] + margin) - margin 
-        edge = (self.frame.shape[1] - w) // 2
-
+        n = len(self.bar) + 1
+        rows = int(n**0.5)
+        cols = math.ceil(n/rows)
+        dx = self.bar_tile_size[0] + margin
+        dy = self.bar_tile_size[1] + margin
+        sel_pos = self.selection_btn.rect[:2]
+        start_x = sel_pos[0] - cols//2 * dx
+        start_y = sel_pos[1] 
+        slots = []
+        for row in range(rows):
+            y = start_y - row * dy
+            for col in range(cols):
+                x = start_x + col * dx
+                if [x,y] != sel_pos:
+                    slots.append([x,y])
+        self.selection_rect = (start_x, y , cols * dx , rows * dy)
         for i, inst in enumerate(self.bar):
-            x = edge + i * (self.bar_tile_size[0] + margin)
-            inst.update_rect([x, self.hight, *self.bar_tile_size])
+            inst.update_rect([*slots[i], *self.bar_tile_size])
             inst.bar_pos = i
-        
         return True
     
     def _set_frame(self, frame):
@@ -504,10 +537,13 @@ class GuiOverlay:
     def _set_frame_and_dependencies(self, frame):
         self.frame = frame
         self.hight = int(self.frame.shape[0] * (1 - S.gui_hight))
-        self.room_top = int(self.frame.shape[0] * S.arm_decection_border_top)
-        self.room_bot = int(self.frame.shape[0] * S.arm_decection_border_bot)
-        self.create_border_zone_indicator()
-        self.define_tile_size_and_bar_pos()
+        # self.create_border_zone_indicator()
+        self.define_menu_rects()
+        self.define_selecton_bar()
+
+    def define_menu_rects(self):
+        for tile in self.menu:
+            tile.update_rect(self.frame)
 
     def calc_info_image_pos(self, frame):
         x = int((frame.shape[1] - self.info_menu_image.shape[1])/2)
@@ -534,42 +570,48 @@ class GuiOverlay:
                 show_infos = show_processing and tile in self.room
                 tile.draw(self.frame, show_infos)
 
-        if self.draw_pos is not None:
-            cv2.circle(self.frame, self.draw_pos, 5, S.red, -1)
-            self.draw_pos = None
+        if self.pointer_pos is not None:
+            cv2.circle(self.frame, self.pointer_pos, 5, S.red, -1)
+            self.pointer_pos = None
 
         
     def select(self, pointer_pos:tuple[int,int]):
-        self.draw_pos = pointer_pos[:] # copy th pointer/hand pos
+        self.pointer_pos = pointer_pos[:] # copy th pointer/hand pos
+        if self.selection_rect:
+            if not point_rect_collision(pointer_pos, self.selection_rect):
+                self.show_selection(False)
+                if self.grabbing:
+                    self.show_volume_bar(True)
         if self.grabbing:
             self.volume_bar.interaced_with_instrument(self.selected, pointer_pos) 
-            self.in_room_zone = valide_angle_zone(pointer_pos, self.frame.shape)
-            if self.in_room_zone:
-                self.show_valume_bar(True)
-
+            # self.in_room_zone = valide_angle_zone(pointer_pos, self.frame.shape)
+            # if self.in_room_zone:
+                # self.show_valume_bar(True)
             return self.selected
         else: 
             self.selected = None
-
             for tile in  [*self.bar, *self.room, *self.menu]:
-
                 if tile.pointer_selection(pointer_pos):
                     self.selected = tile
                     return tile
         return None
-    
-    def show_valume_bar(self, show:bool):
-        if self.volume_bar.show == show:
-            return
-        self.show_instrument_bar(not show)
-        self.volume_bar.show = show
 
-    def show_instrument_bar(self, show:bool):
+    def show_bar_instrument(self, show:bool):
         for inst in self.bar:
             if inst is self.selected:
                 continue
             inst.show = show
-    
+
+    def show_room_instrument(self, show:bool):
+        for inst in self.room:
+            if inst is self.selected:
+                continue
+            inst.show = show
+
+    def show_volume_bar(self, show:bool):
+        self.volume_bar.show = show
+        self.selection_btn.show = not show
+
     def set_gui_visibility(self, mode:str):
         print('set GUI visibility mode to ',mode)
         show_all = 'gui' in mode
@@ -617,22 +659,18 @@ class GuiOverlay:
             return False
         
         if self.grabbing:
-            if valide_angle_zone(self.selected.center, self.frame.shape):
-                self._add_to_room(self.selected)
-            else:
+            if self.selection_btn.collide(self.pointer_pos):
                 self._add_to_bar(self.selected, True)
                 self.selected.turn_off()
                 self.selected.set_angle(None, None)
                 self.add_info(self.selected.get_info())
-
-            self.in_room_zone = None
-            self.show_valume_bar(False)
-
+            else:
+                self._add_to_room(self.selected)
+            self.show_volume_bar(False)
             # if self.room or [inst for inst in self.bar if inst.volume != S.instrument_start_volume]:
             #     self.reset_btn.show = True
             # else:
             #     self.reset_btn.show = False
-
             self._set_grap_mode(False)
         return True
 

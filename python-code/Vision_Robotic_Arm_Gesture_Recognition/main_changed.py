@@ -11,7 +11,7 @@ from collections import defaultdict
 
 from comunication import SendOnChange
 from GUI import GuiOverlay
-from own_functions import ValueBuffer,ListBuffer, CSVWriter, tolist, screenshot, close_to, MoveDetector, get_globe_timeline_curvs , cv2_mouse_callback, MOUSE, valide_angle_zone, map_threshold
+from own_functions import ValueBuffer,ListBuffer, CSVWriter, tolist, screenshot, close_to, MoveDetector, get_globe_timeline_curvs , cv2_mouse_callback, MOUSE, map_threshold
 from angle_handler import RoomAngleDetector
 
 from HandDetectorModule_changed import HandDetector 
@@ -625,28 +625,23 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
         # Analyze arm angle / pointing direction
         # --------------------------------------------------
         if not paused and process and pose_found:
-            arm_in_angle_area = valide_angle_zone(hand_center, frame_raw.shape)
-            if  not arm_in_angle_area:
-                pointing_azimuth = None
-                pointing_elevation = None
+            draw_angles = True
+
+            draw = draw_angles and show_processing
+            if use_rs_depth:
+                angle_detector.find_room_angle_with_depth_frame(depth_frame,hand_center, shulder, frame_overlay, draw)
             else:
-                draw_angles = True
-
-                draw = draw_angles and show_processing
-                if use_rs_depth:
-                    angle_detector.find_room_angle_with_depth_frame(depth_frame,hand_center, shulder, frame_overlay, draw)
+                hand_world_lm = pose_world_landmarks[i_hand][1:4]
+                shoulder_world_lm = pose_world_landmarks[i_shulder][1:4]
+                if cam_intrinsics:
+                    hand_world_depth = hand_world_lm[2] + S.dist_cam_to_room_center
+                    shoulder_world_depth = shoulder_world_lm[2] + S.dist_cam_to_room_center
+                    angle_detector.find_room_angle_with_intrinsics(cam_intrinsics, hand_center , shulder, hand_world_depth, shoulder_world_depth, frame_overlay, draw)
                 else:
-                    hand_world_lm = pose_world_landmarks[i_hand][1:4]
-                    shoulder_world_lm = pose_world_landmarks[i_shulder][1:4]
-                    if cam_intrinsics:
-                        hand_world_depth = hand_world_lm[2] + S.dist_cam_to_room_center
-                        shoulder_world_depth = shoulder_world_lm[2] + S.dist_cam_to_room_center
-                        angle_detector.find_room_angle_with_intrinsics(cam_intrinsics, hand_center , shulder, hand_world_depth, shoulder_world_depth, frame_overlay, draw)
-                    else:
-                        angle_detector.find_room_angles_45_deg_aprox(hand_side, hand_world_lm, shoulder_world_lm, hand_center, shulder, frame_overlay,draw)
+                    angle_detector.find_room_angles_45_deg_aprox(hand_side, hand_world_lm, shoulder_world_lm, hand_center, shulder, frame_overlay,draw)
 
-                pointing_azimuth = angle_detector.azimuth
-                pointing_elevation = angle_detector.elevation
+            pointing_azimuth = angle_detector.azimuth
+            pointing_elevation = angle_detector.elevation
 
 
         # --------------------------------------------------

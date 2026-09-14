@@ -796,11 +796,6 @@ def keep_rect_inside(inner_rect, outer_rect):
     return (x, y, w, h)
 
 
-
-def valide_angle_zone(pos:list[int,int], frame_shape):
-    return S.arm_decection_border_top <= pos[1]/frame_shape[0] <= S.arm_decection_border_bot
-
-
 def cv2_draw_dict(frame:np.ndarray, data:dict, pos:tuple[int, int], font_size=0.5, color=(255,255,255,255),line_size = 2, outlined=2):
     """
     Zeichnet alle Dictionary-Einträge untereinander.
@@ -861,3 +856,10 @@ def cv2_putText_outlined(img:np.ndarray, text:str, pos:tuple[int,int], font_scal
         line_size,
         cv2.LINE_AA,
         )
+
+def point_rect_collision(point:tuple[float,float], rect:tuple[float,float,float,float])->bool:
+    px, py = point
+    x, y, w, h = rect
+    if x <= px <= x + w and y <= py <= y + h:
+        return True
+    return False
