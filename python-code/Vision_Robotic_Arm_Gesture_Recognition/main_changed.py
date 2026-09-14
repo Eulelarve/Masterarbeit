@@ -106,7 +106,6 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
     process = True
     change_visibilety_per_key = False
     reset_instruments_per_key = False
-    show_info_window_per_key = False
     frame = None
     process_ones = False
     upper_body_size = ValueBuffer(40)
@@ -285,7 +284,6 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
         change_visibilety_per_key = False
         change_visibilety_per_gesture = False
         reset_instruments_per_gesture = False
-        show_info_window_per_gesture = False
         did_a_shot = False
 
         
@@ -347,7 +345,7 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
             reset_instruments_per_key = True
 
         elif key == ord('i'): # i -> show info window with gesture controles
-            show_info_window_per_key = not show_info_window_per_key
+            overlay.show_info_menu = not overlay.show_info_menu
 
         # --------------------------------------------------
         # Video frame navigation
@@ -762,7 +760,9 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
                 return_value = False
                 break
 
-            show_info_window_per_gesture = gesture_detector.find_info_gesture()
+            if gesture_detector.find_info_trigger():
+                overlay.show_info_menu = not overlay.show_info_menu
+
             change_visibilety_per_gesture = gesture_detector.find_visibilety_mode_trigger()
             reset_instruments_per_gesture = gesture_detector.find_clear_gesture()
 
@@ -775,7 +775,6 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
         # --------------------------------------------------
         # alppy controles 
         # --------------------------------------------------
-        overlay.show_info_menu = show_info_window_per_gesture or show_info_window_per_key
 
         if change_visibilety_per_gesture or change_visibilety_per_key:
             first_mode = visibilety_mode_loop_list.pop(0)
@@ -910,16 +909,17 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
         # controls overlay
         x = 10
         y =  frame_overlay.shape[0] - 10
-        text = "SPACE=Pause | ENTER=processing on/off"
-        cv2.putText(
-            frame_overlay,
-            text,
-            (x, y),
-            cv2.FONT_HERSHEY_PLAIN,
-            1,
-            (0, 255, 0),
-            1
-        )
+        if show_processing:
+            text = "SPACE: Pause | ENTER: processing on/off | P: screenshot | ESC: exit"
+            cv2.putText(
+                frame_overlay,
+                text,
+                (x, y),
+                cv2.FONT_HERSHEY_PLAIN,
+                1,
+                (0, 255, 0),
+                1
+            )
 
         # video file controls
         if is_playback:

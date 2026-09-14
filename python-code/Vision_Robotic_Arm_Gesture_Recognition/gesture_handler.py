@@ -24,11 +24,13 @@ class GestureDetector():
         self.arms_crossed_start_time:int|None = None
         self.covered_eyes_start_time:int|None = None
         self.info_gesture = False
+        self.info_trigger = False
         self.termination_gesture = False
         self.visibilety_mode_gesture = False
         self.visibilety_mode_trigger = False
         self.clear_gesture = False
         self.swipe_course:list[dict] = []
+        self.hand_to_hand_dist_course = ValueBufferTime(None)
         self.hand_shoulder_x_diff_max:int|None = None
         self.hand_shoulder_x_diff_max_time:int|None = None
         self.swiping_hand_id:int|None = None
@@ -38,6 +40,16 @@ class GestureDetector():
         """
         self.hand_lm = list(hand)
         self.pose_lm = list(pose)
+
+    def find_info_trigger(self):
+            self.info_trigger = False # reset trigger
+            last_check = self.info_gesture # save results of the last check
+            if self.find_info_gesture():
+                if last_check == False:
+                    # gusture triggered just now  
+                    self.info_trigger = True
+                    print('gesture detected: info_trigger')
+            return self.info_trigger 
 
     def find_info_gesture(self)->bool:
         self.info_gesture = self.index_pointing_up()
@@ -67,8 +79,8 @@ class GestureDetector():
                 if not self.pointing_up_start_time:
                     self.pointing_up_start_time = time.time()
                     return False
-                if time.time() - self.pointing_up_start_time > 1: 
-                    # hold this gesture 1 sec
+                if time.time() - self.pointing_up_start_time > 0.7: 
+                    # hold this gesture 0.7 sec
                     return True
                 return False
         # hand not in the correct position
@@ -248,9 +260,29 @@ class GestureDetector():
                 return True
         # hand moves not fare or fast enough
         return False
+    
+    def double_arm_swipe(self)->bool:
+        gesture_max_time = 0.7
+        self.hand_to_hand_dist_course.buffering_time = gesture_max_time
+        x_hand_l = self.pose_lm[15][1]
+        x_hand_r = self.pose_lm[16][1]
+        distance = x_hand_l - x_hand_r
+        self.hand_to_hand_dist_course.add(distance)
+        if self.hand_to_hand_dist_course.difference > self.upper_body_len * 2:
+            print('dist')#test
+            # swipe distanze is large enough
+            min_dist = self.hand_to_hand_dist_course.min
+            max_dist = self.hand_to_hand_dist_course.max
+            if min_dist < -self.upper_body_len * 0.7 and  max_dist > self.upper_body_len * 0.7:
+                # arms are crossing during swiping
+                print('dist_x')#test
+                print(min_dist,max_dist)#test
+                return True
+        # hand moves not fare or fast enough
+        return False
 
     def find_clear_gesture(self)->bool:
-        self.clear_gesture = self.arm_swipe()
+        self.clear_gesture = self.double_arm_swipe()
         if self.clear_gesture:
             print('gesture detected: clear')
         return self.clear_gesture
