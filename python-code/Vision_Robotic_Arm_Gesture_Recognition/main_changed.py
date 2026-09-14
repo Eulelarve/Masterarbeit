@@ -1169,7 +1169,7 @@ if __name__ == "__main__":
     videos = [v6,v2,v3,v4,v5]
     # videos.reverse()
     for v in videos:
-        for grab_detection_methode in [ 'aperture']: #,'distance_dif__1','len_width_thr__1.5' , aperture_len_width  ]:
+        for grab_detection_methode in [ 'dif']: #,'distance_dif__1','len_width_thr__1.5' , aperture_len_width  ]:
             s = S.video_folder+v
             r = main(
                 fps_cap=S.fps,

@@ -196,7 +196,7 @@ class Instrument(GUITile):
     def __init__(self, gui_object:object, name:str, image_path:str|None):
         super().__init__(gui_object, name, image_path, S.type_instrument)
         self.bar_pos:int = None
-        self.bar_rect:list = None
+        self.rect_bar:list = None
         self.elevation:float = None
         self.azimuth:float = None
         self.volume:float = S.instrument_start_volume
@@ -205,7 +205,7 @@ class Instrument(GUITile):
     def update_rect(self, rect):
         x,y,w,h = rect
         self.rect = [x,y,w,h]
-        self.bar_rect = [x,y,w,h]
+        self.rect_bar = [x,y,w,h]
     
     def _create_image(self):
         size = 120
@@ -241,15 +241,17 @@ class Instrument(GUITile):
 
 class InstrumentSelection(GUITile):
     def __init__(self, gui_object):
-        self.pos = 0.5, 0.9
+        self.pos = 0.5, 0.85
         self.size = S.gui_tile_max_size
         name = 'instrument_selection_button'
         type = 'button'
         super().__init__(gui_object, name, None, type)
 
     def select(self):
+        if self.selected:
+            return
+        super().select()
         self.gui.show_selection(True)
-        return super().select()
 
     def update_rect(self, frame):
         fh, fw = frame.shape[:2]
@@ -313,7 +315,7 @@ class VolumeBar(GUITile):
 
     def _create_image(self):
         text = f"- : : : : : volume {self.volume:.2f} : : : : : +"
-        super()._create_image(text, line_size=2)
+        super()._create_image(text,S.green, line_size=2)
 
 class CloseButton(GUITile):
     def __init__(self, gui_object:object):
@@ -441,7 +443,7 @@ class GuiOverlay:
         self.overlay_top_zone = None
         self.overlay_bot_zone = None
         self.in_room_zone = None
-        self.selection_rect:tuple = None
+        self.bar_rect:tuple = None
         self.info_menu_image = cv2.imread(S.gui_info_image_path, cv2.IMREAD_UNCHANGED)
         self.show_info_menu = False
         self.volume_bar = VolumeBar(self)
@@ -467,8 +469,8 @@ class GuiOverlay:
         self.define_selecton_bar()
     
     def _add_to_bar(self, instrument:Instrument, position:int=None):
-        if instrument.bar_rect:
-            instrument.rect = instrument.bar_rect.copy() # get the old bar position beck
+        if instrument.rect_bar:
+            instrument.rect = instrument.rect_bar.copy() # get the old bar position beck
         instrument.resize(self.bar_tile_size)
         if instrument in self.room:
             self.room.remove(instrument)
@@ -487,8 +489,12 @@ class GuiOverlay:
             self.room.append(instrument)
 
     def show_selection(self, show):
+        if show:
+            self.define_selecton_bar()
+        else:
+            self.bar_rect = None
         self.show_bar_instrument(show)
-        self.show_room_instrument(not show)
+        # self.show_room_instrument(not show)
 
     def define_tile_sizes(self):
         selected_tile_size_factor = 0.85
@@ -510,7 +516,7 @@ class GuiOverlay:
         dx = self.bar_tile_size[0] + margin
         dy = self.bar_tile_size[1] + margin
         sel_pos = self.selection_btn.rect[:2]
-        start_x = sel_pos[0] - cols//2 * dx
+        start_x = sel_pos[0] - (cols-1)//2 * dx
         start_y = sel_pos[1] 
         slots = []
         for row in range(rows):
@@ -519,7 +525,7 @@ class GuiOverlay:
                 x = start_x + col * dx
                 if [x,y] != sel_pos:
                     slots.append([x,y])
-        self.selection_rect = (start_x, y , cols * dx , rows * dy)
+        self.bar_rect = (start_x, y , cols * dx , rows * dy)
         for i, inst in enumerate(self.bar):
             inst.update_rect([*slots[i], *self.bar_tile_size])
             inst.bar_pos = i
@@ -544,6 +550,7 @@ class GuiOverlay:
     def define_menu_rects(self):
         for tile in self.menu:
             tile.update_rect(self.frame)
+        self.volume_bar.set_center(self.selection_btn.center)
 
     def calc_info_image_pos(self, frame):
         x = int((frame.shape[1] - self.info_menu_image.shape[1])/2)
@@ -566,7 +573,7 @@ class GuiOverlay:
             self.calc_info_image_pos(self.frame)
             overlay_image(self.frame, self.info_menu_image, self.info_menu_pos)
         else:
-            for tile in [ *self.bar, *self.room, *self.menu,]:
+            for tile in [*self.room, *self.bar,  *self.menu,]:
                 show_infos = show_processing and tile in self.room
                 tile.draw(self.frame, show_infos)
 
@@ -574,14 +581,26 @@ class GuiOverlay:
             cv2.circle(self.frame, self.pointer_pos, 5, S.red, -1)
             self.pointer_pos = None
 
+    def pos_in_bar_zoon(self, pos):
+        if not self.bar_rect:
+            return None
+        return point_rect_collision(pos, self.bar_rect)
+
+    def pointer_in_reset_zoon(self):
+        if self.pos_in_bar_zoon(self.pointer_pos):
+            return True
+        if self.volume_bar.collide(self.pointer_pos):
+            return True
+        if self. selection_btn.collide(self.pointer_pos):
+            return True
+        return False
         
     def select(self, pointer_pos:tuple[int,int]):
         self.pointer_pos = pointer_pos[:] # copy th pointer/hand pos
-        if self.selection_rect:
-            if not point_rect_collision(pointer_pos, self.selection_rect):
-                self.show_selection(False)
-                if self.grabbing:
-                    self.show_volume_bar(True)
+        if self.pointer_in_reset_zoon() == False:
+            self.show_selection(False)
+            if self.grabbing:
+                self.show_volume_bar(True)
         if self.grabbing:
             self.volume_bar.interaced_with_instrument(self.selected, pointer_pos) 
             # self.in_room_zone = valide_angle_zone(pointer_pos, self.frame.shape)
@@ -659,7 +678,7 @@ class GuiOverlay:
             return False
         
         if self.grabbing:
-            if self.selection_btn.collide(self.pointer_pos):
+            if self.pointer_in_reset_zoon():
                 self._add_to_bar(self.selected, True)
                 self.selected.turn_off()
                 self.selected.set_angle(None, None)
@@ -708,8 +727,8 @@ def cv2_create_text_image(text:str, size:tuple[int,int]|int=100, back_ground_col
             y = size
         else:
             x,y = size
-        if len(back_ground_color) != 4:
-            raise "back_ground_color must be a tuple of 4 ... BGRA"
+        if len(back_ground_color) < 4:
+            back_ground_color = (*back_ground_color, 255)
         img = np.full((y, x, 4), back_ground_color, np.uint8)
         cv2_set_fitting_text(img, text, text_color,text_outline,line_size)
         return img
