@@ -636,7 +636,6 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
                     shoulder_world_depth = shoulder_world_lm[2] + S.dist_cam_to_room_center
                     angle_detector.find_room_angle_with_intrinsics(cam_intrinsics, hand_center , shoulder, hand_world_depth, shoulder_world_depth, frame_overlay, draw)
                 else:
-                    print(hand_center, shoulder)#test
                     angle_detector.find_room_angles_45_deg_aprox(hand_side, hand_world_lm, shoulder_world_lm, hand_center, shoulder, frame_overlay,draw)
 
             pointing_azimuth = angle_detector.azimuth
@@ -1172,26 +1171,25 @@ if __name__ == "__main__":
     # Video file input
     videos = [v6,v2,v3,v4,v5]
     # videos.reverse()
-    for v in videos:
-        for grab_detection_methode in [ 'dif']: #,'distance_dif__1','len_width_thr__1.5' , aperture_len_width  ]:
-            s = S.video_folder+v
-            r = main(
-                fps_cap=S.fps,
-                show_fps=True,
-                source=1,
-                pause_frames=None,
-                capture_status_manually=False,
-                capture_status = False,
-                roi_size = None,
-                start_frame=1,
-                end_frame = None,
-                foto_frames=None,
-                hand_not_found_means=None,
-                skip_hand_move_detection=False,
-                show_globe=False,
-                grab_detection_methode=grab_detection_methode,
-                show_depth_frame = False,
-            )
-            if r == False:break
+    r = True
+    while r: #for v in videos:
+        # s = S.video_folder+v
+        r = main(
+            fps_cap=S.fps,
+            show_fps=True,
+            source=1,
+            pause_frames=None,
+            capture_status_manually=False,
+            capture_status = False,
+            roi_size = None,
+            start_frame=1,
+            end_frame = None,
+            foto_frames=None,
+            hand_not_found_means=None,
+            skip_hand_move_detection=False,
+            show_globe=False,
+            # grab_detection_methode=grab_detection_methode,
+            show_depth_frame = False,
+        )
         if r == False:break
     

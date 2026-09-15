@@ -690,6 +690,7 @@ class GuiOverlay:
         if self.grabbing:
             if type(self.selected) is Instrument:
                 if self.pointer_in_reset_zoon():
+                    self.selected.show = False
                     self._add_to_bar(self.selected, True)
                     self.selected.turn_off()
                     self.selected.set_angle(None, None)
