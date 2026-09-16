@@ -4,5 +4,5 @@ from collections import deque, defaultdict
 
 import math
 i = [[1,2],[2,3]]
-print(i[1:1])
+print('r' in ['r'])
 

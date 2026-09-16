@@ -82,7 +82,6 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
     frame_counter_pose = 0
     frame_counter_hand = 0
     frame_now = start_frame - 1
-    size_sum = 0
     hand_status:int = None 
     hand_status_before:int = None
     pointing_azimuth = None
@@ -106,7 +105,7 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
     process = True
     frame = None
     process_ones = False
-    upper_body_size = ValueBuffer(40)
+    upper_body_len_buffer = ValueBuffer(40)
     hand_move = MoveDetector()
     open_close_status_capturer = SaveFrameStatus(keys=(ord('1'), ord('2'), ord('3')), status=('hand open', 'hand closed', None))
 
@@ -284,6 +283,7 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
         roi_hand = None
         trigger_info_menu = False
         display_flash = None
+        hands = []
 
         
         # released_angle = None
@@ -493,12 +493,25 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
         # get hand center and coresponding shoulder and max arm length, relative arm length
         # --------------------------------------------------
         if not paused and process and pose_found:
-            draw_hand_center = True
             # hand and shoulder
             pose_detector.find_specific_points(S.active_hand, overlay.grabbing, True)
-            i_hand , *hand_center = pose_detector.hand_center[0][:]
-            i_shoulder, *shoulder = pose_detector.shoulder[0][:] 
-            hand_side = pose_detector.hand_side
+            hands = pose_detector.hand_center[:]
+            shoulders = pose_detector.shoulder[:] 
+
+            length = pose_detector.get_upper_body_length()
+            upper_body_pixel_len = int(upper_body_len_buffer.add_and_get_average(length))
+           
+            # arm
+            # pose_detector.calibrate_arm_length(time_to_calibrate=2)
+            # rel_arm_len = math.dist(hand_center, shoulder)
+       
+        for _i in range(len(hands)):
+            i_hand , *hand_center = hands[_i]
+            i_shoulder, *shoulder = shoulders[_i]
+            hand_side = pose_detector.hand_side[_i]
+            
+
+            draw_hand_center = True
             if show_processing and draw_hand_center:
                 x,y = hand_center
                 y += 30
@@ -511,214 +524,236 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
                     (0, 255, 0),
                     1
                 )
-            # arm
-            pose_detector.calibrate_arm_length(time_to_calibrate=2)
-            rel_arm_len = math.dist(hand_center, shoulder)
-       
-    
-        # --------------------------------------------------
-        # chose ROI for hand detection
-        # --------------------------------------------------
-        if not paused and process:
-            if pose_found:
-                # --------------------------------------------------
-                # hand ROI size from body length
-                pixel = int(pose_detector.get_upper_body_length())
-                upper_budy_pixel_len = upper_body_size.add_and_get_average(pixel)
-                _roi_size = int(upper_budy_pixel_len * 1)
-                size_sum += _roi_size
+
+            # --------------------------------------------------
+            # chose ROI for hand detection
+            # --------------------------------------------------
+            if not paused and process:
+                if pose_found:
+                    # --------------------------------------------------
+                    # hand ROI size from body length
+
+                    # if len(hands) == 2 :#test 
+                    #     # roi for both hands
+                    #     dx = abs(hands[0][1] - hands[1][1])
+                    #     dy = abs(hands[0][2] - hands[1][2])
+                    #     _roi_size = int(dx + upper_body_pixel_len), int(dy + upper_body_pixel_len)
+                    #     roi_center = (hands[0][1] + hands[1][1])//2 , (hands[0][2] + hands[1][2])//2
+                    # for one hand
+                    _roi_size = (int(upper_body_pixel_len * 1), int(upper_body_pixel_len * 1))
+                    roi_center = hand_center
+                                    
+                    # --------------------------------------------------
+                    # difine hand ROI area in frame
+                    if _roi_size:
+                        roi_width, roi_height = _roi_size
+
+                        # dont try if less then min window size
+                        min_width = 50
+                        min_height = 50
+
+                        start_x = roi_center[0] - roi_width // 2
+                        start_y = roi_center[1] - roi_height // 2
+                        end_x = start_x + roi_width
+                        end_y = start_y + roi_height
+                        # ensure the ROI is within the frame boundaries
+                        start_x = max(0, start_x)
+                        start_y = max(0, start_y)
+                        end_x = min(frame_raw.shape[1], end_x)
+                        end_y = min(frame_raw.shape[0], end_y)
+                        # update width and height based on the adjusted ROI
+                        roi_width = end_x - start_x
+                        roi_height = end_y - start_y
+                        # only use the ROI if it is large enough
+                        if roi_width >= min_width and roi_height >= min_height:
+                            roi_hand = (start_x, start_y, roi_width, roi_height)
+
+
+            # --------------------------------------------------
+            # Hand detection
+            # --------------------------------------------------
+            if not paused and process and pose_found:
+
+                hand_status_before = hand_status
+                # if no roi_hand is there, no hand schoult be in the frame
+                if roi_hand or not _roi_size: 
+                    draw = True
+                    draw_skeleton = draw and True
+                    draw_aperture = draw and True
+                    draw_roi = draw and True
+                    draw_max_distance = draw and True
+
+                    hand_detector.findHands(
+                        frame=frame_raw,
+                        roi=roi_hand,
+                        frame_to_draw=frame_overlay,
+                        draw_roi=show_processing and draw_roi,
+                    )
+
+                    # _, index = hand_detector.choose_hand("top")
+                    hand_side_index = hand_detector.choose_hand("first")
+                    valide_hand =  hand_detector.hand_close_to(hand_center, 
+                                                            max_distance=upper_body_pixel_len/4,
+                                                            frame=frame_overlay, draw=show_processing and draw_max_distance, hand_side_index=hand_side_index)
+                    if valide_hand:
+                        hand_landmarks = hand_detector.create_pixel_landmark_list()
+                        hand_found = len(hand_landmarks) > 0
+                    if hand_found and show_processing and draw_skeleton:
+                        hand_detector.draw_skeleton(frame=frame_overlay)
+            # --------------------------------------------------
+            # overwrite the Hand center of pose by hand detection
+            # --------------------------------------------------
+            if not paused and process and pose_found and hand_found:
+                hand_center = np.int16(hand_detector.get_hand_centers(frame_overlay)[0])
                 
-                # --------------------------------------------------
-                # difine hand ROI area in frame
-                if _roi_size:
-                    roi_width = _roi_size
-                    roi_height = _roi_size
-
-                    # dont try if less then min window size
-                    min_width = 50
-                    min_height = 50
-
-                    start_x = hand_center[0] - roi_width // 2
-                    start_y = hand_center[1] - roi_height // 2
-                    end_x = start_x + roi_width
-                    end_y = start_y + roi_height
-                    # ensure the ROI is within the frame boundaries
-                    start_x = max(0, start_x)
-                    start_y = max(0, start_y)
-                    end_x = min(frame_raw.shape[1], end_x)
-                    end_y = min(frame_raw.shape[0], end_y)
-                    # update width and height based on the adjusted ROI
-                    roi_width = end_x - start_x
-                    roi_height = end_y - start_y
-                    # only use the ROI if it is large enough
-                    if roi_width >= min_width and roi_height >= min_height:
-                        roi_hand = (start_x, start_y, roi_width, roi_height)
-
-
-        # --------------------------------------------------
-        # Hand detection
-        # --------------------------------------------------
-        if not paused and process and pose_found:
-
-            hand_status_before = hand_status
-            # if no roi_hand is there, no hand schoult be in the frame
-            if roi_hand or not _roi_size: 
-                draw = True
-                draw_skeleton = draw and True
-                draw_aperture = draw and True
-                draw_roi = draw and True
-                draw_max_distance = draw and True
-
-                hand_detector.findHands(
-                    frame=frame_raw,
-                    roi=roi_hand,
-                    frame_to_draw=frame_overlay,
-                    draw_roi=show_processing and draw_roi,
-                )
-
-                # _, index = hand_detector.choose_hand("top")
-                hand_side_index = hand_detector.choose_hand("first")
-                # if S.arm_decection_border_top <= hand_center[1]:
-                valide_hand =  hand_detector.hand_close_to(hand_center, 
-                                                        max_distance=_roi_size/4,
-                                                        frame=frame_overlay, draw=show_processing and draw_max_distance, hand_side_index=hand_side_index)
                 
-                if valide_hand:
-                    hand_landmarks = hand_detector.create_pixel_landmark_list()
-                    hand_found = len(hand_landmarks) > 0
-                if hand_found and show_processing and draw_skeleton:
-                    hand_detector.draw_skeleton(frame=frame_overlay)
-        # --------------------------------------------------
-        # overwrite the Hand center of pose by hand detection
-        # --------------------------------------------------
-        if not paused and process and pose_found and hand_found:
-            hand_center = np.int16(hand_detector.get_hand_centers(frame_overlay)[0])
-            
-            
-        # --------------------------------------------------
-        # 3D room points for hand center and shoulder
-        # --------------------------------------------------
-        # if not paused and process and pose_found:
-        #     if use_rs_depth:
-        #         hand_center_3d = rs_pixel_to_3d(depth_frame, cam_intrinsics,*hand_center, True)
-        #         shoulder_3d = rs_pixel_to_3d(depth_frame, cam_intrinsics,*shoulder, True)
+            # --------------------------------------------------
+            # 3D room points for hand center and shoulder
+            # --------------------------------------------------
+            # if not paused and process and pose_found:
+            #     if use_rs_depth:
+            #         hand_center_3d = rs_pixel_to_3d(depth_frame, cam_intrinsics,*hand_center, True)
+            #         shoulder_3d = rs_pixel_to_3d(depth_frame, cam_intrinsics,*shoulder, True)
 
-        # --------------------------------------------------
-        # hand is moving
-        # --------------------------------------------------
-        if not paused and process and pose_found:
-                hand_stands_still = hand_move.stands_still(hand_center)
-        
-        # --------------------------------------------------
-        # Analyze arm angle / pointing direction
-        # --------------------------------------------------
-        if not paused and process and pose_found:
-            draw_angles = True
+            # --------------------------------------------------
+            # hand is moving
+            # --------------------------------------------------
+            if not paused and process and pose_found:
+                    hand_stands_still = hand_move.stands_still(hand_center)
+            
+            # --------------------------------------------------
+            # Analyze arm angle / pointing direction
+            # --------------------------------------------------
+            if not paused and process and pose_found:
+                draw_angles = True
 
-            draw = draw_angles and show_processing
-            if use_rs_depth:
-                angle_detector.find_room_angle_with_depth_frame(depth_frame,hand_center, shoulder, frame_overlay, draw)
-            else:
-                hand_world_lm = pose_world_landmarks[i_hand][1:4]
-                shoulder_world_lm = pose_world_landmarks[i_shoulder][1:4]
-                if cam_intrinsics:
-                    hand_world_depth = hand_world_lm[2] + S.dist_cam_to_room_center
-                    shoulder_world_depth = shoulder_world_lm[2] + S.dist_cam_to_room_center
-                    angle_detector.find_room_angle_with_intrinsics(cam_intrinsics, hand_center , shoulder, hand_world_depth, shoulder_world_depth, frame_overlay, draw)
+                draw = draw_angles and show_processing
+                if use_rs_depth:
+                    angle_detector.find_room_angle_with_depth_frame(depth_frame,hand_center, shoulder, frame_overlay, draw)
                 else:
-                    angle_detector.find_room_angles_45_deg_aprox(hand_side, hand_world_lm, shoulder_world_lm, hand_center, shoulder, frame_overlay,draw)
-
-            pointing_azimuth = angle_detector.azimuth
-            pointing_elevation = angle_detector.elevation
-
-
-        # --------------------------------------------------
-        # evaluate/change Hand status only if it is not moving
-        # --------------------------------------------------
-        if not paused and process and pose_found:
-            if roi_hand or not _roi_size:
-                if hand_stands_still or skip_hand_move_detection:
-                    if hand_found:
-                        # hand detected in frame
-                        frame_counter_hand += 1
-
-                        # ---------------------------------------
-                        # choose a hand opening detection methode
-                        # hand_methode = 'aperture_len_width__1.2' #  aperture_len_width__1.2   len_width_thr__1.2   distance_dif__0.5
-            
-                        if capture_status:
-                            hand_status = hand_detector.open_or_close_aperture_thr(thr_open=70, thr_closed = 50, frame=frame_overlay, draw_aperture=show_processing and draw_aperture, buffer_size=S.hand_status_buffer_size)
-                            hand_status_dict['aperture_7050'] = hand_status
-                            hand_status = hand_detector.open_or_close_aperture_thr(thr_open=70, thr_closed = 65, frame=frame_overlay, draw_aperture=show_processing and draw_aperture, buffer_size=S.hand_status_buffer_size)
-                            hand_status_dict['aperture_7065'] = hand_status
-                            hand_status = hand_detector.open_or_close_aperture_thr(thr_open=70, thr_closed = 60, frame=frame_overlay, draw_aperture=show_processing and draw_aperture, buffer_size=S.hand_status_buffer_size)
-                            hand_status_dict['aperture_7060'] = hand_status
-                            hand_status = hand_detector.open_or_close_distance_dif(frame_overlay, show_processing and draw_aperture, min_distance_difference=0.8)
-                            hand_status_dict['dif_0.6'] = hand_status
-                            hand_status = hand_detector.open_or_close_distance_dif(frame_overlay, show_processing and draw_aperture, min_distance_difference=1)
-                            hand_status_dict['dif_1.0'] = hand_status
-                            hand_status = hand_detector.open_or_close_distance_dif(frame_overlay, show_processing and draw_aperture, min_distance_difference=1.2)
-                            hand_status_dict['dif_1.4'] = hand_status
-
-                        else:
-                            try:
-                                factor = float(grab_detection_methode[grab_detection_methode.find('__')+2:])
-                            except:
-                                factor = None
-                                
-                            if 'aperture' in grab_detection_methode:
-                                hand_status = hand_detector.open_or_close_aperture_thr(
-                                        frame=frame_overlay,
-                                        draw_aperture=show_processing and draw_aperture,
-                                        buffer_size=S.hand_status_buffer_size,
-                                    )
-                            elif 'dif' in grab_detection_methode:
-                                if not factor: factor = 1
-                                hand_status = hand_detector.open_or_close_distance_dif(frame_overlay, show_processing and draw_aperture)
-
-                    else:   
-                        # if hand probably there but not found. closed hand are more likly to be not found
-                        if hand_detector.no_hand_count(S.no_hand_frame_count):
-                            hand_status = hand_not_found_means
-            
-                else:
-                    # if hand is moving curently, do not change the hand status
-                    hand_status = hand_status
-                    # hand_detector.buffer_clear() # fore distance difference methode #test ?
-
-            else:
-                hand_status = None # no hand in frame (checked hand marke from pose)
-   
-
-        if not paused and process and capture_status:
-                for methode in hand_status_list_dict.keys():
-                    if hand_status == None:
-                        add_status = None
+                    hand_world_lm = pose_world_landmarks[i_hand][1:4]
+                    shoulder_world_lm = pose_world_landmarks[i_shoulder][1:4]
+                    if cam_intrinsics:
+                        hand_world_depth = hand_world_lm[2] + S.dist_cam_to_room_center
+                        shoulder_world_depth = shoulder_world_lm[2] + S.dist_cam_to_room_center
+                        angle_detector.find_room_angle_with_intrinsics(cam_intrinsics, hand_center , shoulder, hand_world_depth, shoulder_world_depth, frame_overlay, draw)
                     else:
-                        add_status = hand_status_dict[methode]
-                    hand_status_list_dict[methode].append(add_status)
+                        angle_detector.find_room_angles_45_deg_aprox(hand_side, hand_world_lm, shoulder_world_lm, hand_center, shoulder, frame_overlay,draw)
 
-        # --------------------------------------------------
-        # hand status grapping
-        if not paused and process and pose_found:   
-            gesture_detector.hand_status = hand_status
-            gesture_detector.hand_status_before = hand_status_before
-            gesture_detector.find_grap()
+                pointing_azimuth = angle_detector.azimuth
+                pointing_elevation = angle_detector.elevation
 
-        # --------------------------------------------------
-        # save grap and release angle
-        # if not paused and process and pose_found:   
-        #     if gesture_detector.grab:
-        #         grasped_angle = pointing_angle
-        #         released_angle = None
-        #     elif gesture_detector.releas:
-        #         released_angle = pointing_angle
-        #         if released_angle is not None and grasped_angle is not None:
-        #             moved_angle = released_angle-grasped_angle
-        #         else:
-        #             moved_angle = None
 
-        
+            # --------------------------------------------------
+            # evaluate/change Hand status only if it is not moving
+            # --------------------------------------------------
+            if not paused and process and pose_found:
+                if roi_hand or not _roi_size:
+                    if hand_stands_still or skip_hand_move_detection:
+                        if hand_found:
+                            # hand detected in frame
+                            frame_counter_hand += 1
+
+                            # ---------------------------------------
+                            # choose a hand opening detection methode
+                            # hand_methode = 'aperture_len_width__1.2' #  aperture_len_width__1.2   len_width_thr__1.2   distance_dif__0.5
+                
+                            if capture_status:
+                                hand_status = hand_detector.open_or_close_aperture_thr(thr_open=70, thr_closed = 50, frame=frame_overlay, draw_aperture=show_processing and draw_aperture, buffer_size=S.hand_status_buffer_size)
+                                hand_status_dict['aperture_7050'] = hand_status
+                                hand_status = hand_detector.open_or_close_aperture_thr(thr_open=70, thr_closed = 65, frame=frame_overlay, draw_aperture=show_processing and draw_aperture, buffer_size=S.hand_status_buffer_size)
+                                hand_status_dict['aperture_7065'] = hand_status
+                                hand_status = hand_detector.open_or_close_aperture_thr(thr_open=70, thr_closed = 60, frame=frame_overlay, draw_aperture=show_processing and draw_aperture, buffer_size=S.hand_status_buffer_size)
+                                hand_status_dict['aperture_7060'] = hand_status
+                                hand_status = hand_detector.open_or_close_distance_dif(frame_overlay, show_processing and draw_aperture, min_distance_difference=0.8)
+                                hand_status_dict['dif_0.6'] = hand_status
+                                hand_status = hand_detector.open_or_close_distance_dif(frame_overlay, show_processing and draw_aperture, min_distance_difference=1)
+                                hand_status_dict['dif_1.0'] = hand_status
+                                hand_status = hand_detector.open_or_close_distance_dif(frame_overlay, show_processing and draw_aperture, min_distance_difference=1.2)
+                                hand_status_dict['dif_1.4'] = hand_status
+
+                            else:
+                                try:
+                                    factor = float(grab_detection_methode[grab_detection_methode.find('__')+2:])
+                                except:
+                                    factor = None
+                                    
+                                if 'aperture' in grab_detection_methode:
+                                    hand_status = hand_detector.open_or_close_aperture_thr(
+                                            frame=frame_overlay,
+                                            draw_aperture=show_processing and draw_aperture,
+                                            buffer_size=S.hand_status_buffer_size,
+                                        )
+                                elif 'dif' in grab_detection_methode:
+                                    if not factor: factor = 1
+                                    hand_status = hand_detector.open_or_close_distance_dif(frame_overlay, show_processing and draw_aperture)
+
+                        else:   
+                            # if hand probably there but not found. closed hand are more likly to be not found
+                            if hand_detector.no_hand_count(S.no_hand_frame_count):
+                                hand_status = hand_not_found_means
+                
+                    else:
+                        # if hand is moving curently, do not change the hand status
+                        hand_status = hand_status
+                        # hand_detector.buffer_clear() # fore distance difference methode #test ?
+
+                else:
+                    hand_status = None # no hand in frame (checked hand marke from pose)
+    
+
+            if not paused and process and capture_status:
+                    for methode in hand_status_list_dict.keys():
+                        if hand_status == None:
+                            add_status = None
+                        else:
+                            add_status = hand_status_dict[methode]
+                        hand_status_list_dict[methode].append(add_status)
+
+            # --------------------------------------------------
+            # hand status grapping
+            if not paused and process and pose_found:   
+                gesture_detector.hand_status = hand_status
+                gesture_detector.hand_status_before = hand_status_before
+                gesture_detector.find_grap()
+
+            # --------------------------------------------------
+            # save grap and release angle
+            # if not paused and process and pose_found:   
+            #     if gesture_detector.grab:
+            #         grasped_angle = pointing_angle
+            #         released_angle = None
+            #     elif gesture_detector.releas:
+            #         released_angle = pointing_angle
+            #         if released_angle is not None and grasped_angle is not None:
+            #             moved_angle = released_angle-grasped_angle
+            #         else:
+            #             moved_angle = None
+
+            
+
+
+            # --------------------------------------------------
+            # control gestures - Info
+            # -------------------------------------------------- 
+            if not paused and process and pose_found and hand_found:
+                gesture_detector.set_pixel_landmarks(hand_landmarks, pose_landmarks)
+                gesture_detector.pose_visibilety = list(pose_detector.lm_visibility)
+                gesture_detector.pose_movement = list(pose_detector.lm_movment_list)
+                gesture_detector.active_hand_id = i_hand
+                gesture_detector.upper_body_len = upper_body_len_buffer.get()
+            
+                if gesture_detector.find_termination_gesture():
+                    should_run = False
+                    break
+                if gesture_detector.find_info_trigger():
+                    trigger_info_menu = True
+                if gesture_detector.find_clear_trigger():
+                    clear_gui = True
+                if gesture_detector.find_visibilety_mode_trigger():
+                    change_display_mode = True
+
+
         # --------------------------------------------------
         # capture status manually
         # --------------------------------------------------
@@ -734,26 +769,6 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
                             cv2.CAP_PROP_POS_FRAMES,
                             wrong_frame-1 
                         )
-
-        # --------------------------------------------------
-        # control gestures - Info
-        # -------------------------------------------------- 
-        if not paused and process and pose_found and hand_found:
-            gesture_detector.set_pixel_landmarks(hand_landmarks, pose_landmarks)
-            gesture_detector.pose_visibilety = list(pose_detector.lm_visibility)
-            gesture_detector.pose_movement = list(pose_detector.lm_movment_list)
-            gesture_detector.active_hand_id = i_hand
-            gesture_detector.upper_body_len = upper_body_size.get()
-           
-            if gesture_detector.find_termination_gesture():
-                should_run = False
-                break
-            if gesture_detector.find_info_trigger():
-                trigger_info_menu = True
-            if gesture_detector.find_clear_trigger():
-                clear_gui = True
-            if gesture_detector.find_visibilety_mode_trigger():
-                change_display_mode = True
 
         # --------------------------------------------------
         # frame is fully processed 
@@ -1053,7 +1068,7 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
         if should_run == False:
             cv2_center_text(frame_overlay,'end',red)
         elif clear_gui or change_display_mode or trigger_info_menu:
-            cv2_center_text(frame_overlay,'command')
+            cv2_center_text(frame_overlay,'command',red)
         
 
         if not is_playback and S.window_size != S.live_stream_resulutuin:

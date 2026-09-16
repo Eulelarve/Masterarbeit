@@ -304,7 +304,9 @@ class RoomAngleDetector:
                 new_angle = angle - correction
             elif self.hand_side == 'right':
                 new_angle = angle + correction
-
+            else:
+                print(f"no 'left' or 'right' in {self.hand_side}")
+                raise
             self.room_angles[0] = new_angle
 
     def map_room_angles_to_45_deg_steps(self):

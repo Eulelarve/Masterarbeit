@@ -143,15 +143,15 @@ class GestureDetector():
         # if middle_dy > 3 * middle_dx: 
         if middle_dy > 0: 
             # middle finger pointing more upwards
-            closer_to_wrist = True
+            closer_to_palm = True
             for tip in [index_tip, ring_tip, pinky_tip]:
-                wrist_dist = math.dist(middle_mcp, tip)
-                middle_dist = math.dist(middle_tip, tip)
-                if middle_dist < 1.0 * wrist_dist: 
-                    closer_to_wrist = False
+                mcp_dist = math.dist(middle_mcp, tip)
+                tip_dist = math.dist(middle_tip, tip)
+                if tip_dist < mcp_dist * 1.0: 
+                    closer_to_palm = False
                     break
 
-            if closer_to_wrist:
+            if closer_to_palm:
                 # wrist colser to the rest of the fingers the middle finger 
                 if not self.give_the_finger_start_time:
                     self.give_the_finger_start_time = time.time()

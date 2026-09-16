@@ -180,15 +180,15 @@ class HandDetector():
 
                 for i, (hand_landmarks, handedness) in enumerate(zip(
                     self.results.multi_hand_landmarks,
-                    self.results.multi_handedness
-                )):
+                    self.results.multi_handedness)):
 
-                    label = (
-                        handedness.classification[0].label
-                    )
+                    label = handedness.classification[0].label
 
                     if label == desired_label:
                         index = i
+
+            elif left_right_top == 'both':
+                pass
             else:
             # --------------------------------------------------
             # Invalid mode

@@ -71,7 +71,7 @@ class poseDetector():
         self.detCon = detCon  # detection confidence threshold
         self.trackCon = trackCon  # tracking confidence threshold
         self.hand_moving_buffer = ValueBuffer(5)
-        self.hand_side:str = 'right'
+        self.hand_side:str = ['right']
 
         self.mpPose = mp.solutions.pose
         self.pose = self.mpPose.Pose(static_image_mode=self.mode,
@@ -189,20 +189,23 @@ class poseDetector():
             hand_points = [self.left_hand_points, self.right_hand_points]
             self.shoulder = [landmarks[11], [landmarks[12]]] 
             self.hip = [landmarks[23], landmarks[24]]
-            self.hand_side = 'left right'
+            self.hand_side = ['left', 'right']
         else:
             if not just_update_pos:
                 self.hand_side = self.get_hand_side(mode, mirrowed)
             
-            if self.hand_side == 'left': # left hand
+            if 'left' in self.hand_side: # left hand
                 self.shoulder = [landmarks[11]] # left shoulder
                 self.hip = [landmarks[23]]
                 hand_points = [self.left_hand_points]
-            elif self.hand_side == 'right': # right hand
+            elif 'right' in self.hand_side: # right hand
                 self.shoulder = [landmarks[12]] # right shoulder
                 self.hip = [landmarks[24]]
                 hand_points = [self.right_hand_points]
-
+            else:
+                print(f"no 'left' or 'right' in {self.hand_side}")
+                raise
+            
         self.hand_center = []
         for hand in hand_points:
             center = get_center_of_landmarks(landmarks,hand[1:3]) # just take 17, 19 (left) or 18, 20 (right) to get the hand center
@@ -381,8 +384,8 @@ class poseDetector():
             hand_center: index of the chosen wrist landmark (15 for left, 16 for right)
         
         """
-        left = 'left'
-        right = 'right'
+        left = ['left']
+        right = ['right']
         lm_left = self.left_hand_points
         lm_right = self.right_hand_points
         v15 = self.lm_visibility[15][1] # left hand wrist in screen
@@ -417,9 +420,9 @@ class poseDetector():
                 speed = self.lm_movment_list[fhp][1]
                 if speed >= S.hand_change_min_speed:
                     if fhp in self.left_hand_points:
-                        return 'left'
+                        return left
                     elif fhp in self.right_hand_points:
-                        return 'right'
+                        return right
         else:
             print(f"Invalid hand selection mode: {choose}. Please choose 'top', 'left', 'right' or 'moving'.")
 
