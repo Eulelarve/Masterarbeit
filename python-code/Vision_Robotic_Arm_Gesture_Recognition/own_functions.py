@@ -868,3 +868,29 @@ def pos_in_frame(pos:tuple[int, int], frame:np.ndarray)->bool:
     h,w = frame.shape[:2]
     rect = (0,0,w,h)
     return point_rect_collision(pos, rect)
+
+def cv2_center_text(frame:np.ndarray, text:str, color=(255,255,255)):
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    font_size = 2.0
+    thickness = 3
+
+    # Textgröße bestimmen
+    (text_width, text_height), baseline = cv2.getTextSize(
+        text, font, font_size, thickness
+    )
+
+    # Position berechnen
+    x = (frame.shape[1] - text_width) // 2
+    y = (frame.shape[0] + text_height) // 2
+
+    # Text zeichnen
+    cv2.putText(
+        frame,
+        text,
+        (x, y),
+        font,
+        font_size,
+        color,
+        thickness,
+        cv2.LINE_AA
+    )

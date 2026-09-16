@@ -11,7 +11,7 @@ from collections import defaultdict
 
 from comunication import SendOnChange
 from GUI import GuiOverlay
-from own_functions import ValueBuffer,ListBuffer, CSVWriter, tolist, screenshot, close_to, MoveDetector, get_globe_timeline_curvs , cv2_mouse_callback, MOUSE, map_threshold
+from own_functions import ValueBuffer,ListBuffer, CSVWriter, tolist, screenshot, close_to, MoveDetector, get_globe_timeline_curvs , cv2_mouse_callback, MOUSE, map_threshold, cv2_center_text
 from angle_handler import RoomAngleDetector
 
 from HandDetectorModule_changed import HandDetector 
@@ -25,7 +25,6 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
          pause_frames:list=None, 
          capture_status_manually:bool=False, 
          capture_status:bool=False,
-         roi_size:int=None,
          start_frame:int = None,
          end_frame:int=None,
          foto_frames:list=None,
@@ -66,7 +65,7 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
     blue = S.blue
     green = S.green
     white = S.white
-    return_value = True
+    should_run = True
 
     window_name = "Hand and Pose Detection"
     overlay = GuiOverlay()
@@ -90,6 +89,7 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
     pointing_elevation = None
     video_name = ''
     visibilety_mode_loop_list = list(S.overlay_visibilety_modes.values())
+    show_processing = 'process' in S.overlay_visibilety_modes[0]
     # pointing_elevation = None
     # pointing_azimuth = None
 
@@ -104,8 +104,6 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
 
     paused = False
     process = True
-    change_visibilety_per_key = False
-    reset_instruments_per_key = False
     frame = None
     process_ones = False
     upper_body_size = ValueBuffer(40)
@@ -272,7 +270,7 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
     # -------------------------------------------------------
     # Main processing loop
     # -------------------------------------------------------
-    while True:
+    while should_run:
         # --------------------------------------------------
         # set and reset 
         # --------------------------------------------------
@@ -281,13 +279,13 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
         hand_found = False
         hand_stands_still = False
         arm_in_angle_area = False
-        change_visibilety_per_key = False
-        change_visibilety_per_gesture = False
-        reset_instruments_per_gesture = False
-        did_a_shot = False
+        change_display_mode = False
+        clear_gui = False
+        roi_hand = None
+        trigger_info_menu = False
+        display_flash = None
 
         
-        show_processing = 'process' in visibilety_mode_loop_list[0]
         # released_angle = None
         time_stemp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
@@ -325,7 +323,10 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
         #     pass
 
         if key == 27: # esc
-            return_value = False
+            should_run = False
+
+        if key == ord('q'):
+            print('terminate application with Q-key, it will may start again')
             break            
 
         elif key == ord(' '): # space -> Pause
@@ -335,17 +336,17 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
             process = not process
 
         elif key == ord('p'): # p -> screen shot
-            did_a_shot = screenshot(frame=frame_overlay, name='shreenshot', ask_name=False)
-            frame_overlay[:] = 255
+            if screenshot(frame=frame_overlay, name='shreenshot', ask_name=False):
+                display_flash = white
 
         elif key == ord('v'): # v -> change displayed informationes
-            change_visibilety_per_key = True
+            change_display_mode = True
 
         elif key == ord('c'): # c -> reset all instruments 
-            reset_instruments_per_key = True
+            clear_gui = True
 
         elif key == ord('i'): # i -> show info window with gesture controles
-            overlay.show_info_menu = not overlay.show_info_menu
+            trigger_info_menu = True
 
         # --------------------------------------------------
         # Video frame navigation
@@ -519,13 +520,7 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
         # chose ROI for hand detection
         # --------------------------------------------------
         if not paused and process:
-            roi_hand = None
-            
             if pose_found:
-                # --------------------------------------------------
-                # just take inmutparameter ROI size 
-                _roi_size = roi_size
-
                 # --------------------------------------------------
                 # hand ROI size from body length
                 pixel = int(pose_detector.get_upper_body_length())
@@ -533,11 +528,6 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
                 _roi_size = int(upper_budy_pixel_len * 1)
                 size_sum += _roi_size
                 
-                # --------------------------------------------------
-                # hand ROI size from frame size
-                if roi_size:
-                    _roi_size =  frame_raw.shape[0] // roi_size
-
                 # --------------------------------------------------
                 # difine hand ROI area in frame
                 if _roi_size:
@@ -756,14 +746,14 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
             gesture_detector.upper_body_len = upper_body_size.get()
            
             if gesture_detector.find_termination_gesture():
-                return_value = False
+                should_run = False
                 break
-
             if gesture_detector.find_info_trigger():
-                overlay.show_info_menu = not overlay.show_info_menu
-
-            change_visibilety_per_gesture = gesture_detector.find_visibilety_mode_trigger()
-            reset_instruments_per_gesture = gesture_detector.find_clear_gesture()
+                trigger_info_menu = True
+            if gesture_detector.find_clear_trigger():
+                clear_gui = True
+            if gesture_detector.find_visibilety_mode_trigger():
+                change_display_mode = True
 
         # --------------------------------------------------
         # frame is fully processed 
@@ -775,12 +765,21 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
         # alppy controles 
         # --------------------------------------------------
 
-        if change_visibilety_per_gesture or change_visibilety_per_key:
+        if change_display_mode:
             first_mode = visibilety_mode_loop_list.pop(0)
             visibilety_mode_loop_list.append(first_mode) 
             overlay.set_gui_visibility(visibilety_mode_loop_list[0])
-        if reset_instruments_per_gesture or reset_instruments_per_key:
+            show_processing = 'process' in visibilety_mode_loop_list[0]
+        if trigger_info_menu:
+            overlay.show_info_menu = not overlay.show_info_menu
+        if clear_gui:
             overlay.reset_instruments()
+            overlay.show_info_menu = False
+            while visibilety_mode_loop_list[0] != S.overlay_visibilety_modes[0]:
+                first_mode = visibilety_mode_loop_list.pop(0)
+                visibilety_mode_loop_list.append(first_mode) 
+            overlay.set_gui_visibility(visibilety_mode_loop_list[0])
+            show_processing = 'process' in visibilety_mode_loop_list[0]
     
         # ##################################################
         # Status overlay - end of video processing
@@ -1025,8 +1024,7 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
         if not paused:
             if gui_info and gui_info['function'] == 'close application':
                 print('stop loop by GUI CloseButon X')
-                return_value = False
-                break
+                should_run = False
         # --------------------------------------------------
         # stop if end frame is reached
         # --------------------------------------------------
@@ -1043,18 +1041,25 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
         if frame_now > start_frame + 1: # wate for forst frame, to open up the window
             if open_windows < 1: # if no wiendow is open
                 print('window closed by user')
-                break # end programm
+                should_run = False
+
 
         # --------------------------------------------------
         # Display the processed frame - opens a window 
         # --------------------------------------------------
+        if display_flash is not None:
+            frame_overlay[:] = display_flash
+
+        if should_run == False:
+            cv2_center_text(frame_overlay,'end',red)
+        elif clear_gui or change_display_mode or trigger_info_menu:
+            cv2_center_text(frame_overlay,'command')
+        
+
         if not is_playback and S.window_size != S.live_stream_resulutuin:
             frame_out = cv2.resize(frame_overlay, S.window_size)
         else:
             frame_out = frame_overlay.copy()
-
-        if did_a_shot:
-            frame_out[:] = S.white
 
         cv2.imshow(window_name, frame_out)
 
@@ -1063,7 +1068,6 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
                 "Depth",
                 depth_colormap
             )
-
         
     # ==================================================
     # finaly and closing - loop ended
@@ -1094,14 +1098,10 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
     pose_rate = round(frame_counter_pose / frame_counter_processed *100, 1)
     fps_mean = round(fps_sum / frame_counter_processed, 1)
 
-    if roi_size is None:
-        _roi_size = size_sum//frame_counter_processed
-
     # --------------------------------------------------
     # print analyse stats
     print(f"pose detektet in {frame_counter_pose} of {frame_counter_processed} frames ({pose_rate} %)")
     print(f"hand detektet in {frame_counter_hand} of {frame_counter_processed} frames ({hand_rate} %)")
-    print(f"used ROI size {_roi_size} in frame with {frame_x} x {frame_y} pixel")
     print(f'performance {fps_mean} fps mean')
 
     # --------------------------------------------------
@@ -1140,7 +1140,7 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
     # end mesage
     print(f"Video Detection with source: {source}")
     print(f"Video Detection End")
-    return return_value
+    return should_run
 
 
 if __name__ == "__main__":
@@ -1181,7 +1181,6 @@ if __name__ == "__main__":
             pause_frames=None,
             capture_status_manually=False,
             capture_status = False,
-            roi_size = None,
             start_frame=1,
             end_frame = None,
             foto_frames=None,

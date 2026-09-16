@@ -20,6 +20,7 @@ class GestureDetector():
 
         ## control gestures
         self.pointing_up_start_time:int|None = None
+        self.thumb_down_start_time:int|None = None
         self.give_the_finger_start_time:int|None = None
         self.arms_crossed_start_time:int|None = None
         self.covered_eyes_start_time:int|None = None
@@ -29,6 +30,7 @@ class GestureDetector():
         self.visibilety_mode_gesture = False
         self.visibilety_mode_trigger = False
         self.clear_gesture = False
+        self.clear_trigger = False
         self.swipe_course:list[dict] = []
         self.hand_to_hand_dist_course = ValueBufferTime(None)
         self.hand_shoulder_x_diff_max:int|None = None
@@ -64,7 +66,7 @@ class GestureDetector():
         index_mcp = self.hand_lm[5][1:3]
         index_dx = abs(index_mcp[0] - index_tip[0])
         index_dy = index_mcp[1] - index_tip[1]
-        if index_dy > 3 * index_dx: 
+        if index_dy > 2 * index_dx: 
             # index pointing upwards
             closer_to_thumb = True
             for tip in [middle_tip, ring_tip, pinky_tip]:
@@ -86,6 +88,49 @@ class GestureDetector():
         # hand not in the correct position
         self.pointing_up_start_time = None
         return False
+
+    def thumb_down(self)->bool:
+            wrist  = self.hand_lm[0][1:3]
+            thumb_tip = self.hand_lm[4][1:3]
+            index_tip = self.hand_lm[8][1:3]
+            middle_tip = self.hand_lm[12][1:3]
+            ring_tip = self.hand_lm[16][1:3]
+            pinky_tip = self.hand_lm[20][1:3]
+            index_mcp = self.hand_lm[5][1:3]
+            middle_mcp = self.hand_lm[9][1:3]
+            ring_mcp = self.hand_lm[13][1:3]
+            pinky_mcp = self.hand_lm[17][1:3]
+            thumb_dx = abs(pinky_mcp[0] - thumb_tip[0])
+            thumb_dy = thumb_tip[1] - pinky_mcp[1]
+            shoulder_lift = self.pose_lm[11][1:3]
+            shoulder_right = self.pose_lm[12][1:3]
+            # decisions
+            thumb_between_shoulders = False
+            if shoulder_lift[0] < thumb_tip[0] < shoulder_right[0]:
+                thumb_between_shoulders = True
+            if shoulder_lift[0] > thumb_tip[0] > shoulder_right[0]:
+                thumb_between_shoulders = True
+            if thumb_between_shoulders:
+                if thumb_dy > 2 * thumb_dx: 
+                    # thumb pointing down
+                    mcps_dist = 0
+                    tips_dist = 0
+                    for tip, mcp in [(index_tip, index_mcp),(middle_tip, middle_mcp),(ring_tip, ring_mcp),(pinky_tip, pinky_mcp)]:
+                        tips_dist += math.dist(wrist, tip)
+                        mcps_dist += math.dist(wrist, mcp)
+                    finger_fist = tips_dist < mcps_dist
+                    if finger_fist:
+                        # finger tips colser to the wrist of the finger mcps
+                        if not self.thumb_down_start_time:
+                            self.thumb_down_start_time = time.time()
+                            return False
+                        if time.time() - self.thumb_down_start_time > 1.5: 
+                            # hold this gesture 1.5 sec
+                            return True
+                        return False
+            # hand not in the correct position
+            self.thumb_down_start_time = None
+            return False
     
     def give_the_finger(self)->bool:
         index_tip = self.hand_lm[8][1:3]
@@ -282,11 +327,20 @@ class GestureDetector():
         return False
 
     def find_clear_gesture(self)->bool:
-        self.clear_gesture = self.double_arm_swipe()
+        self.clear_gesture = self.thumb_down()
         if self.clear_gesture:
             print('gesture detected: clear')
         return self.clear_gesture
 
+    def find_clear_trigger(self)->bool:
+        self.clear_trigger = False # reset trigger
+        last_check = self.clear_gesture # save results of the last find gesture check
+        if self.find_clear_gesture():
+            if last_check == False:
+                # gusture triggered just now  
+                self.clear_trigger = True
+                print('gesture detected: clear_gesture')
+        return self.clear_trigger 
 
 
 
