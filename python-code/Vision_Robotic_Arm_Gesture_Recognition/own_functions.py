@@ -793,7 +793,7 @@ def keep_rect_inside(inner_rect, outer_rect):
     x = clamp(x, ox, ox + ow - w)
     y = clamp(y, oy, oy + oh - h)
 
-    return (x, y, w, h)
+    return [x, y, w, h]
 
 
 def cv2_draw_dict(frame:np.ndarray, data:dict, pos:tuple[int, int], font_size=0.5, color=(255,255,255,255),line_size = 2, outlined=2):
@@ -863,3 +863,8 @@ def point_rect_collision(point:tuple[float,float], rect:tuple[float,float,float,
     if x <= px <= x + w and y <= py <= y + h:
         return True
     return False
+
+def pos_in_frame(pos:tuple[int, int], frame:np.ndarray)->bool:
+    h,w = frame.shape[:2]
+    rect = (0,0,w,h)
+    return point_rect_collision(pos, rect)

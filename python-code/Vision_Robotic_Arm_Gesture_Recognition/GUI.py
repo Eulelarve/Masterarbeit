@@ -1,5 +1,5 @@
 import cv2
-from own_functions import insert, keep_rect_inside, fit_in_frame, make_image_fit_in_rect, cv2_draw_dict, cv2_putText_outlined, point_rect_collision
+from own_functions import insert, keep_rect_inside, fit_in_frame, make_image_fit_in_rect, cv2_draw_dict, cv2_putText_outlined, point_rect_collision, pos_in_frame
 from analyse import find_files
 import settings as S
 import numpy as np
@@ -47,11 +47,14 @@ class GUITile:
     def function(self):
         self.activated = True
 
-    def set_center(self, pos:tuple[int,int]):
+    def set_center(self, pos:tuple[int,int], keep_in_frame=False):
         x,y = pos
         _, _, w, h = self.rect
         self.rect[0] = x - w//2
         self.rect[1] = y - h//2
+        if keep_in_frame:
+            fh,fw = self.gui.frame.shape[:2]
+            self.rect = keep_rect_inside(self.rect,(fw,fh))
 
     def collide(self, pos:tuple[int,int]):
         if self.show:
@@ -79,13 +82,8 @@ class GUITile:
                 return False
         
             edge = self.icon_farme_edge
-            fh = frame.shape[0]
-            fw = frame.shape[1]
-
-            x, y, w, h = keep_rect_inside(self.rect,(fw,fh))
-            
+            x, y, w, h = self.rect    
             self._adjust_icon()
-
             if edge:
                 self.draw_icon_frame(frame, 2)
 
@@ -99,9 +97,7 @@ class GUITile:
         raise "not implemented"
     
     def draw_icon_frame(self, frame, width):
-        fh = frame.shape[0]
-        fw = frame.shape[1]
-        x, y, w, h = keep_rect_inside(self.rect,(fw,fh))
+        x, y, w, h = self.rect
         color1 = S.white
         color2 = S.black
 
@@ -261,10 +257,10 @@ class InstrumentSelection(GUITile):
         y = int(self.pos[1] * fh -h/2)
         self.rect = [x,y,h,w]
 
-    def set_center(self, pos):
-        super().set_center(pos)
+    def set_center(self, pos, keep_in_frame=True):
+        super().set_center(pos, keep_in_frame)
         self.gui.define_selecton_bar()
-        self.gui.volume_bar.set_center(pos)
+        self.gui.volume_bar.set_center(pos, keep_in_frame)
 
 class VolumeBar(GUITile):
     def __init__(self ,gui_object:object, ):
@@ -594,18 +590,20 @@ class GuiOverlay:
     def pointer_in_reset_zoon(self):
         if self.pos_in_bar_zoon(self.pointer_pos):
             return True
-        if self.volume_bar.collide(self.pointer_pos):
+        # if self.volume_bar.collide(self.pointer_pos):
+        #     return True
+        if self.selection_btn.collide(self.pointer_pos):
             return True
-        if self. selection_btn.collide(self.pointer_pos):
-            return True
+        if self.frame is not None: 
+            if not pos_in_frame(self.pointer_pos, self.frame):
+                # instrument out of screen
+                return True
         return False
         
     def select(self, pointer_pos:tuple[int,int]):
         self.pointer_pos = pointer_pos[:] # copy th pointer/hand pos
         if self.pointer_in_reset_zoon() == False:
             self.show_selection(False)
-            if self.grabbing:
-                self.show_volume_bar(True)
         if self.grabbing:
             if type(self.selected) is Instrument:
                 self.volume_bar.interaced_with_instrument(self.selected, pointer_pos) 
@@ -636,6 +634,8 @@ class GuiOverlay:
     def show_volume_bar(self, show:bool):
         self.volume_bar.show = show
         self.selection_btn.show = not show
+        if show:
+            self.show_selection(False)
 
     def set_gui_visibility(self, mode:str):
         print('set GUI visibility mode to ',mode)
@@ -655,12 +655,11 @@ class GuiOverlay:
                 self._set_grap_mode(True)
                 self.selected.turn_on()
                 self.selected.resize(self.sel_tile_size)
-
+                self.show_volume_bar(True)
             elif self.selected in self.menu:
                 self.selected.function()
                 if type(self.selected) is InstrumentSelection:
                     self._set_grap_mode(True)
-                
         return True
 
     def reset_instruments(self):
@@ -708,11 +707,13 @@ class GuiOverlay:
     def move(self, pos:tuple[int,int], azimuth:float=None, elevation:float=None,)-> bool:
         if not self.grabbing:
             return False
+
         self.selected.set_center(pos)
         if type(self.selected) is Instrument:
+            if not pos_in_frame(pos, self.frame):
+                self.release()
             self.selected.set_angle(azimuth=azimuth, elevation=elevation)
             self.add_info(self.selected.get_info())
-
 
         return True
 
@@ -818,3 +819,12 @@ def overlay_image(frame: np.ndarray, overlay: np.ndarray, pos: tuple[int, int]):
         alpha * overlay_crop[:, :, :3] +
         (1.0 - alpha) * roi
     ).astype(np.uint8)
+
+def pos_is_frame_boarder(pos:tuple[int, int], frame)->bool:
+    h,w = frame.shape[:2]
+    x,y = pos
+    if 0 in pos:
+        return True
+    if x == w or y == h:
+        return True
+    return False
