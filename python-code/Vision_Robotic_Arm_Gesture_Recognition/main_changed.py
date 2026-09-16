@@ -82,15 +82,12 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
     frame_counter_pose = 0
     frame_counter_hand = 0
     frame_now = start_frame - 1
-    hand_status:int = None 
+    hand_status:list[int|None,int|None] = [None, None]
     hand_status_before:int = None
-    pointing_azimuth = None
-    pointing_elevation = None
     video_name = ''
     visibilety_mode_loop_list = list(S.overlay_visibilety_modes.values())
     show_processing = 'process' in S.overlay_visibilety_modes[0]
-    # pointing_elevation = None
-    # pointing_azimuth = None
+
 
     # hand_status_dict = {'aperture':None, 'aperture_width':None,  'len_width_thr_1.2':None, 'len_width_thr_1.4':None, 'distance_dif_0.3':None,'distance_dif_0.4':None}
     hand_status_list_dict = {'aperture_7050':[], 'aperture_7065':[],  'aperture_7060':[], 'dif_0.6':[], 'dif_1.0':[],'dif_1.4':[]}
@@ -117,7 +114,7 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
     align_depth = S.align_depth
     cam_intrinsics = None
 
-    hand_detector = HandDetector()
+    hand_detectors = [HandDetector(), HandDetector()]
     pose_detector = poseDetector()
     angle_detector = RoomAngleDetector()
     communicator = SendOnChange((S.IPv4_audiosystem,S.port))
@@ -284,7 +281,9 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
         trigger_info_menu = False
         display_flash = None
         hands = []
-
+        pointing_azimuth = [None,None]
+        pointing_elevation = [None,None]
+        hand_landmarks = [[],[]]
         
         # released_angle = None
         time_stemp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -505,11 +504,14 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
             # pose_detector.calibrate_arm_length(time_to_calibrate=2)
             # rel_arm_len = math.dist(hand_center, shoulder)
        
+       # ==================================================
+       # start of for-handside loop
         for _i in range(len(hands)):
             i_hand , *hand_center = hands[_i]
             i_shoulder, *shoulder = shoulders[_i]
             hand_side = pose_detector.hand_side[_i]
-            
+            hand_detector = hand_detectors[_i]
+
 
             draw_hand_center = True
             if show_processing and draw_hand_center:
@@ -574,7 +576,6 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
             # --------------------------------------------------
             if not paused and process and pose_found:
 
-                hand_status_before = hand_status
                 # if no roi_hand is there, no hand schoult be in the frame
                 if roi_hand or not _roi_size: 
                     draw = True
@@ -596,8 +597,8 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
                                                             max_distance=upper_body_pixel_len/4,
                                                             frame=frame_overlay, draw=show_processing and draw_max_distance, hand_side_index=hand_side_index)
                     if valide_hand:
-                        hand_landmarks = hand_detector.create_pixel_landmark_list()
-                        hand_found = len(hand_landmarks) > 0
+                        hand_landmarks[_i] = hand_detector.create_pixel_landmark_list()
+                        hand_found = len(hand_landmarks[_i]) > 0
                     if hand_found and show_processing and draw_skeleton:
                         hand_detector.draw_skeleton(frame=frame_overlay)
             # --------------------------------------------------
@@ -605,6 +606,7 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
             # --------------------------------------------------
             if not paused and process and pose_found and hand_found:
                 hand_center = np.int16(hand_detector.get_hand_centers(frame_overlay)[0])
+                hands[_i][1:3] = hand_center
                 
                 
             # --------------------------------------------------
@@ -640,8 +642,8 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
                     else:
                         angle_detector.find_room_angles_45_deg_aprox(hand_side, hand_world_lm, shoulder_world_lm, hand_center, shoulder, frame_overlay,draw)
 
-                pointing_azimuth = angle_detector.azimuth
-                pointing_elevation = angle_detector.elevation
+                pointing_azimuth[_i] = angle_detector.azimuth
+                pointing_elevation[_i] = angle_detector.elevation
 
 
             # --------------------------------------------------
@@ -659,18 +661,18 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
                             # hand_methode = 'aperture_len_width__1.2' #  aperture_len_width__1.2   len_width_thr__1.2   distance_dif__0.5
                 
                             if capture_status:
-                                hand_status = hand_detector.open_or_close_aperture_thr(thr_open=70, thr_closed = 50, frame=frame_overlay, draw_aperture=show_processing and draw_aperture, buffer_size=S.hand_status_buffer_size)
-                                hand_status_dict['aperture_7050'] = hand_status
-                                hand_status = hand_detector.open_or_close_aperture_thr(thr_open=70, thr_closed = 65, frame=frame_overlay, draw_aperture=show_processing and draw_aperture, buffer_size=S.hand_status_buffer_size)
-                                hand_status_dict['aperture_7065'] = hand_status
-                                hand_status = hand_detector.open_or_close_aperture_thr(thr_open=70, thr_closed = 60, frame=frame_overlay, draw_aperture=show_processing and draw_aperture, buffer_size=S.hand_status_buffer_size)
-                                hand_status_dict['aperture_7060'] = hand_status
-                                hand_status = hand_detector.open_or_close_distance_dif(frame_overlay, show_processing and draw_aperture, min_distance_difference=0.8)
-                                hand_status_dict['dif_0.6'] = hand_status
-                                hand_status = hand_detector.open_or_close_distance_dif(frame_overlay, show_processing and draw_aperture, min_distance_difference=1)
-                                hand_status_dict['dif_1.0'] = hand_status
-                                hand_status = hand_detector.open_or_close_distance_dif(frame_overlay, show_processing and draw_aperture, min_distance_difference=1.2)
-                                hand_status_dict['dif_1.4'] = hand_status
+                                hand_status[_i] = hand_detector.open_or_close_aperture_thr(thr_open=70, thr_closed = 50, frame=frame_overlay, draw_aperture=show_processing and draw_aperture, buffer_size=S.hand_status_buffer_size)
+                                hand_status_dict['aperture_7050'] = hand_status[_i]
+                                hand_status[_i] = hand_detector.open_or_close_aperture_thr(thr_open=70, thr_closed = 65, frame=frame_overlay, draw_aperture=show_processing and draw_aperture, buffer_size=S.hand_status_buffer_size)
+                                hand_status_dict['aperture_7065'] = hand_status[_i]
+                                hand_status[_i] = hand_detector.open_or_close_aperture_thr(thr_open=70, thr_closed = 60, frame=frame_overlay, draw_aperture=show_processing and draw_aperture, buffer_size=S.hand_status_buffer_size)
+                                hand_status_dict['aperture_7060'] = hand_status[_i]
+                                hand_status[_i] = hand_detector.open_or_close_distance_dif(frame_overlay, show_processing and draw_aperture, min_distance_difference=0.8)
+                                hand_status_dict['dif_0.6'] = hand_status[_i]
+                                hand_status[_i] = hand_detector.open_or_close_distance_dif(frame_overlay, show_processing and draw_aperture, min_distance_difference=1)
+                                hand_status_dict['dif_1.0'] = hand_status[_i]
+                                hand_status[_i] = hand_detector.open_or_close_distance_dif(frame_overlay, show_processing and draw_aperture, min_distance_difference=1.2)
+                                hand_status_dict['dif_1.4'] = hand_status[_i]
 
                             else:
                                 try:
@@ -679,79 +681,82 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
                                     factor = None
                                     
                                 if 'aperture' in grab_detection_methode:
-                                    hand_status = hand_detector.open_or_close_aperture_thr(
+                                    hand_status[_i] = hand_detector.open_or_close_aperture_thr(
                                             frame=frame_overlay,
                                             draw_aperture=show_processing and draw_aperture,
                                             buffer_size=S.hand_status_buffer_size,
                                         )
                                 elif 'dif' in grab_detection_methode:
                                     if not factor: factor = 1
-                                    hand_status = hand_detector.open_or_close_distance_dif(frame_overlay, show_processing and draw_aperture)
+                                    hand_status[_i] = hand_detector.open_or_close_distance_dif(frame_overlay, show_processing and draw_aperture)
 
                         else:   
                             # if hand probably there but not found. closed hand are more likly to be not found
                             if hand_detector.no_hand_count(S.no_hand_frame_count):
-                                hand_status = hand_not_found_means
+                                hand_status[_i] = hand_not_found_means
                 
                     else:
                         # if hand is moving curently, do not change the hand status
-                        hand_status = hand_status
+                        hand_status[_i] = hand_status[_i]
                         # hand_detector.buffer_clear() # fore distance difference methode #test ?
 
                 else:
-                    hand_status = None # no hand in frame (checked hand marke from pose)
+                    hand_status[_i] = None # no hand in frame (checked hand marke from pose)
     
 
-            if not paused and process and capture_status:
-                    for methode in hand_status_list_dict.keys():
-                        if hand_status == None:
-                            add_status = None
-                        else:
-                            add_status = hand_status_dict[methode]
-                        hand_status_list_dict[methode].append(add_status)
+            # if not paused and process and capture_status:
+            #         for methode in hand_status_list_dict.keys():
+            #             if hand_status == None:
+            #                 add_status = None
+            #             else:
+            #                 add_status = hand_status_dict[methode]
+            #             hand_status_list_dict[methode].append(add_status)
 
-            # --------------------------------------------------
-            # hand status grapping
-            if not paused and process and pose_found:   
-                gesture_detector.hand_status = hand_status
-                gesture_detector.hand_status_before = hand_status_before
-                gesture_detector.find_grap()
+        # end of for-handside loop
+        # ==================================================
 
-            # --------------------------------------------------
-            # save grap and release angle
-            # if not paused and process and pose_found:   
-            #     if gesture_detector.grab:
-            #         grasped_angle = pointing_angle
-            #         released_angle = None
-            #     elif gesture_detector.releas:
-            #         released_angle = pointing_angle
-            #         if released_angle is not None and grasped_angle is not None:
-            #             moved_angle = released_angle-grasped_angle
-            #         else:
-            #             moved_angle = None
+        # --------------------------------------------------
+        # gesture detection
+        if not paused and process and pose_found:   
+            gesture_detector.hand_status = hand_status
+            gesture_detector.find_grab()
 
-            
+        # --------------------------------------------------
+        # save grap and release angle
+        # if not paused and process and pose_found:   
+        #     if gesture_detector.grab:
+        #         grasped_angle = pointing_angle
+        #         released_angle = None
+        #     elif gesture_detector.releas:
+        #         released_angle = pointing_angle
+        #         if released_angle is not None and grasped_angle is not None:
+        #             moved_angle = released_angle-grasped_angle
+        #         else:
+        #             moved_angle = None
+
+        
 
 
-            # --------------------------------------------------
-            # control gestures - Info
-            # -------------------------------------------------- 
-            if not paused and process and pose_found and hand_found:
-                gesture_detector.set_pixel_landmarks(hand_landmarks, pose_landmarks)
-                gesture_detector.pose_visibilety = list(pose_detector.lm_visibility)
-                gesture_detector.pose_movement = list(pose_detector.lm_movment_list)
-                gesture_detector.active_hand_id = i_hand
-                gesture_detector.upper_body_len = upper_body_len_buffer.get()
-            
-                if gesture_detector.find_termination_gesture():
-                    should_run = False
-                    break
-                if gesture_detector.find_info_trigger():
-                    trigger_info_menu = True
-                if gesture_detector.find_clear_trigger():
-                    clear_gui = True
-                if gesture_detector.find_visibilety_mode_trigger():
-                    change_display_mode = True
+        # --------------------------------------------------
+        # control gestures - Info
+        # -------------------------------------------------- 
+        if not paused and process and pose_found and hand_found:
+            gesture_detector.set_pixel_landmarks(*hand_landmarks, pose_landmarks)
+            gesture_detector.pose_visibilety = list(pose_detector.lm_visibility)
+            gesture_detector.pose_movement = list(pose_detector.lm_movment_list)
+            gesture_detector.active_hand_id = i_hand
+            gesture_detector.upper_body_len = upper_body_len_buffer.get()
+        
+            if gesture_detector.find_termination_gesture():
+                should_run = False
+                break
+            if gesture_detector.find_info_trigger():
+                trigger_info_menu = True
+            if gesture_detector.find_clear_trigger():
+                clear_gui = True
+            if gesture_detector.find_visibilety_mode_trigger():
+                change_display_mode = True
+
 
 
         # --------------------------------------------------
@@ -902,21 +907,23 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
         # --------------------------------------------------
         # draw arm angle
         x = 10
-        y +=  margin
         if not paused and process and show_processing:
-            if pointing_azimuth is None:
-                text = 'a/e: out of area'
-            else:
-                text = f'a/e: {pointing_azimuth}/{pointing_elevation}'
-            cv2.putText(
-                frame_overlay,
-                text,
-                (x,y),
-                cv2.FONT_HERSHEY_PLAIN,
-                2,
-                S.green,
-                2
-            )
+            for hs,a,e in zip(pose_detector.hand_side,pointing_azimuth, pointing_elevation):
+                if hs == 'right':
+                    text = 'L'
+                if hs == 'left':
+                    text ='R'
+                text += f'[a/e]: {a}/{e}'
+                y +=  margin
+                cv2.putText(
+                    frame_overlay,
+                    text,
+                    (x,y),
+                    cv2.FONT_HERSHEY_PLAIN,
+                    2,
+                    S.green,
+                    2
+                )
 
         # --------------------------------------------------
         # controls overlay
@@ -981,7 +988,7 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
                 overlay.select(hand_center)
                 if gesture_detector.grab:
                     overlay.grap()
-                overlay.move(hand_center,azimuth=pointing_azimuth,elevation=pointing_elevation)
+                overlay.move(hand_center,azimuth=pointing_azimuth[0],elevation=pointing_elevation[0])
                 if gesture_detector.releas:
                     overlay.release()
             overlay.draw(frame_overlay, show_processing)

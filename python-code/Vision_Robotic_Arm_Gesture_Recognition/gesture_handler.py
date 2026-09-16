@@ -5,18 +5,18 @@ from own_functions import ValueBufferTime
 class GestureDetector():
     
     def __init__(self):
-        self.hand_lm = []
+        self.hands_lm = []
         self.pose_lm = []
         self.pose_visibilety = []
         self.pose_movement = []
         self.active_hand_id:int|None = None
         self.upper_body_len:int|None = None
-        # grap gesture
-        self.hand_status:bool|None = None           # 0 is closed, 1 is open, None is no hand
-        self.hand_status_before:bool|None = None
-        self.grab = False
-        self.releas = False
-        self.is_grabbing = False
+        # grab gesture
+        self.hand_status:list[int|None] = [None, None]           # 0 is closed, 1 is open, None is no hand
+        self.hand_status_before:list[int|None] = [None, None]
+        self.grab = [False, False]
+        self.releas = [False, False]
+        self.is_grabbing = [False, False]
 
         ## control gestures
         self.pointing_up_start_time:int|None = None
@@ -37,11 +37,11 @@ class GestureDetector():
         self.hand_shoulder_x_diff_max_time:int|None = None
         self.swiping_hand_id:int|None = None
 
-    def set_pixel_landmarks(self, hand:list[list[int,int,int]], pose:list[list[int,int,int]]):
+    def set_pixel_landmarks(self, hand_left:list[list[int,int,int]],hand_right:list[list[int,int,int]], pose:list[list[int,int,int]]):
         """ take two lists of landmark pixel coordinates, lile[[index, screen_x, screen_y], [...], ...]
         """
-        self.hand_lm = list(hand)
-        self.pose_lm = list(pose)
+        self.hands_lm = hand_left.copy(), hand_right.copy()
+        self.pose_lm = pose.copy()
 
     def find_info_trigger(self):
             self.info_trigger = False # reset trigger
@@ -58,52 +58,66 @@ class GestureDetector():
         return self.info_gesture
     
     def index_pointing_up(self)->bool:
-        thumb_tip = self.hand_lm[4][1:3]
-        index_tip = self.hand_lm[8][1:3]
-        middle_tip = self.hand_lm[12][1:3]
-        ring_tip = self.hand_lm[16][1:3]
-        pinky_tip = self.hand_lm[20][1:3]
-        index_mcp = self.hand_lm[5][1:3]
-        index_dx = abs(index_mcp[0] - index_tip[0])
-        index_dy = index_mcp[1] - index_tip[1]
-        if index_dy > 2 * index_dx: 
-            # index pointing upwards
-            closer_to_thumb = True
-            for tip in [middle_tip, ring_tip, pinky_tip]:
-                thump_dist = math.dist(thumb_tip, tip)
-                index_dist = math.dist(index_tip, tip)
-                if index_dist < 1.6 * thump_dist: 
-                    closer_to_thumb = False
-                    break
-
-            if closer_to_thumb:
-                # thump colser to the rest of the fingers the index 
-                if not self.pointing_up_start_time:
-                    self.pointing_up_start_time = time.time()
-                    return False
-                if time.time() - self.pointing_up_start_time > 0.7: 
-                    # hold this gesture 0.7 sec
-                    return True
+        for hand_lm in self.hands_lm:
+            if len(hand_lm) == 0:
+                # hand not found
                 return False
-        # hand not in the correct position
+            thumb_tip = hand_lm[4][1:3]
+            index_tip = hand_lm[8][1:3]
+            middle_tip = hand_lm[12][1:3]
+            ring_tip = hand_lm[16][1:3]
+            pinky_tip = hand_lm[20][1:3]
+            index_mcp = hand_lm[5][1:3]
+            # calculate
+            index_dx = abs(index_mcp[0] - index_tip[0])
+            index_dy = index_mcp[1] - index_tip[1]
+            # decisions
+            if index_dy > 2 * index_dx: 
+                # index pointing upwards
+                closer_to_thumb = True
+                for tip in [middle_tip, ring_tip, pinky_tip]:
+                    thump_dist = math.dist(thumb_tip, tip)
+                    index_dist = math.dist(index_tip, tip)
+                    if index_dist < 1.6 * thump_dist: 
+                        closer_to_thumb = False
+                        break
+
+                if closer_to_thumb:
+                    # thump colser to the rest of the fingers the index 
+                    if not self.pointing_up_start_time:
+                        self.pointing_up_start_time = time.time()
+                        return False
+                    if time.time() - self.pointing_up_start_time > 0.7: 
+                        # hold this gesture 0.7 sec
+                        return True
+                    return False
+        # all hand not in the correct position
         self.pointing_up_start_time = None
         return False
 
     def thumb_down(self)->bool:
-            wrist  = self.hand_lm[0][1:3]
-            thumb_tip = self.hand_lm[4][1:3]
-            index_tip = self.hand_lm[8][1:3]
-            middle_tip = self.hand_lm[12][1:3]
-            ring_tip = self.hand_lm[16][1:3]
-            pinky_tip = self.hand_lm[20][1:3]
-            index_mcp = self.hand_lm[5][1:3]
-            middle_mcp = self.hand_lm[9][1:3]
-            ring_mcp = self.hand_lm[13][1:3]
-            pinky_mcp = self.hand_lm[17][1:3]
-            thumb_dx = abs(pinky_mcp[0] - thumb_tip[0])
-            thumb_dy = thumb_tip[1] - pinky_mcp[1]
+        for hand_lm in self.hands_lm:
+            if len(hand_lm) == 0:
+                # hand not found
+                return False
+            wrist  = hand_lm[0][1:3]
+            thumb_tip = hand_lm[4][1:3]
+            index_tip = hand_lm[8][1:3]
+            middle_tip = hand_lm[12][1:3]
+            ring_tip = hand_lm[16][1:3]
+            pinky_tip = hand_lm[20][1:3]
+            thumb_mcp = hand_lm[2][1:3]
+            index_mcp = hand_lm[5][1:3]
+            middle_mcp = hand_lm[9][1:3]
+            ring_mcp = hand_lm[13][1:3]
+            pinky_mcp = hand_lm[17][1:3]
             shoulder_lift = self.pose_lm[11][1:3]
             shoulder_right = self.pose_lm[12][1:3]
+            # claculate
+            thumb_dx = abs(thumb_mcp[0] - thumb_tip[0])
+            thumb_dy = thumb_tip[1] - thumb_mcp[1]
+            palm_dx = abs(index_mcp[0] - pinky_mcp[0])
+            palm_dy = abs(index_mcp[1] - pinky_mcp[1])
             # decisions
             thumb_between_shoulders = False
             if shoulder_lift[0] < thumb_tip[0] < shoulder_right[0]:
@@ -111,56 +125,63 @@ class GestureDetector():
             if shoulder_lift[0] > thumb_tip[0] > shoulder_right[0]:
                 thumb_between_shoulders = True
             if thumb_between_shoulders:
-                if thumb_dy > 2 * thumb_dx: 
-                    # thumb pointing down
-                    mcps_dist = 0
-                    tips_dist = 0
-                    for tip, mcp in [(index_tip, index_mcp),(middle_tip, middle_mcp),(ring_tip, ring_mcp),(pinky_tip, pinky_mcp)]:
-                        tips_dist += math.dist(wrist, tip)
-                        mcps_dist += math.dist(wrist, mcp)
-                    finger_fist = tips_dist < mcps_dist
-                    if finger_fist:
-                        # finger tips colser to the wrist of the finger mcps
-                        if not self.thumb_down_start_time:
-                            self.thumb_down_start_time = time.time()
+                # x position of thumb is between the shoulders
+                if palm_dy > palm_dx * 2:
+                    # hand is thumb-side down
+                    if thumb_dy > thumb_dx: 
+                        # thumb pointing down (between 45° and 90°)
+                        mcps_dist = 0
+                        tips_dist = 0
+                        for tip, mcp in [(index_tip, index_mcp),(middle_tip, middle_mcp),(ring_tip, ring_mcp),(pinky_tip, pinky_mcp)]:
+                            tips_dist += math.dist(wrist, tip)
+                            mcps_dist += math.dist(wrist, mcp)
+                        finger_fist = tips_dist < mcps_dist
+                        if finger_fist:
+                            # finger tips colser to the wrist of the finger mcps
+                            if not self.thumb_down_start_time:
+                                self.thumb_down_start_time = time.time()
+                                return False
+                            if time.time() - self.thumb_down_start_time > 1.5: 
+                                # hold this gesture 1.5 sec
+                                return True
                             return False
-                        if time.time() - self.thumb_down_start_time > 1.5: 
-                            # hold this gesture 1.5 sec
-                            return True
-                        return False
-            # hand not in the correct position
-            self.thumb_down_start_time = None
-            return False
+        # all hands are not in the correct position
+        self.thumb_down_start_time = None
+        return False
     
     def give_the_finger(self)->bool:
-        index_tip = self.hand_lm[8][1:3]
-        middle_tip = self.hand_lm[12][1:3]
-        ring_tip = self.hand_lm[16][1:3]
-        pinky_tip = self.hand_lm[20][1:3]
-        middle_mcp = self.hand_lm[9][1:3]
-        middle_dy = middle_mcp[1] - middle_tip[1]
-        # middle_dx = abs(middle_mcp[0] - middle_tip[0])
-        # if middle_dy > 3 * middle_dx: 
-        if middle_dy > 0: 
-            # middle finger pointing more upwards
-            closer_to_palm = True
-            for tip in [index_tip, ring_tip, pinky_tip]:
-                mcp_dist = math.dist(middle_mcp, tip)
-                tip_dist = math.dist(middle_tip, tip)
-                if tip_dist < mcp_dist * 1.0: 
-                    closer_to_palm = False
-                    break
-
-            if closer_to_palm:
-                # wrist colser to the rest of the fingers the middle finger 
-                if not self.give_the_finger_start_time:
-                    self.give_the_finger_start_time = time.time()
-                    return False
-                if time.time() - self.give_the_finger_start_time > 2: 
-                    # hold this gesture 2 sec
-                    return True
+        for hand_lm in self.hands_lm:
+            if len(hand_lm) == 0:
+                # hand not found
                 return False
-        # hand not in the correct position
+            index_tip = hand_lm[8][1:3]
+            middle_tip = hand_lm[12][1:3]
+            ring_tip = hand_lm[16][1:3]
+            pinky_tip = hand_lm[20][1:3]
+            middle_mcp = hand_lm[9][1:3]
+            middle_dy = middle_mcp[1] - middle_tip[1]
+            # middle_dx = abs(middle_mcp[0] - middle_tip[0])
+            # if middle_dy > 3 * middle_dx: 
+            if middle_dy > 0: 
+                # middle finger pointing more upwards
+                closer_to_palm = True
+                for tip in [index_tip, ring_tip, pinky_tip]:
+                    mcp_dist = math.dist(middle_mcp, tip)
+                    tip_dist = math.dist(middle_tip, tip)
+                    if tip_dist < mcp_dist * 1.0: 
+                        closer_to_palm = False
+                        break
+
+                if closer_to_palm:
+                    # wrist colser to the rest of the fingers the middle finger 
+                    if not self.give_the_finger_start_time:
+                        self.give_the_finger_start_time = time.time()
+                        return False
+                    if time.time() - self.give_the_finger_start_time > 2: 
+                        # hold this gesture 2 sec
+                        return True
+                    return False
+        # all hands are not in the correct position
         self.give_the_finger_start_time = None
         return False
 
@@ -183,25 +204,29 @@ class GestureDetector():
         print("       ╥     ╥")
         print("      ╥       ╥")
                 
-    def find_grap(self)-> bool|None:
+    def find_grab(self)-> bool|None:
         """ set and returns if the hand is grabbing or releasing now
             returns:
                 True -> grab
                 False -> releas
                 None -> no action
         """
-        self.grab = False
-        self.releas = False
-
-        if self.hand_status_before == 1 and self.hand_status == 0:
-            self.grab = True
-            self.is_grabbing = True
-            return True
-        elif self.is_grabbing and self.hand_status == 1:
-            self.releas = True
-            self.is_grabbing = False
-            return False
-        return None
+        grab = []
+        for i in range(len(self.hand_status)):
+            self.grab[i] = False
+            self.releas[i] = False
+            if self.hand_status_before[i] == 1 and self.hand_status[i] == 0:
+                self.grab[i] = True
+                self.is_grabbing[i] = True
+                grab.append(True)
+            elif self.is_grabbing[i] and self.hand_status[i] == 1:
+                self.releas[i] = True
+                self.is_grabbing[i] = False
+                grab.append(True)
+            else:
+                grab.append(None)
+            self.hand_status_before[i] = self.hand_status[i]
+        return grab
 
     def find_termination_gesture(self)->bool:
         self.termination_gesture = self.arms_crossed() 

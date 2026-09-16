@@ -171,9 +171,8 @@ class poseDetector():
                         vis = self.visibility_anti_outliner[id].add_and_get(lm.visibility)
                     else:
                         vis = lm.visibility
-                    vis = vis > S.visibility_threshold
                 else:
-                    vis = False
+                    vis = 0
                 self.lm_visibility.append([id, vis])
         return self.lm_visibility
 
@@ -392,9 +391,11 @@ class poseDetector():
         v16 = self.lm_visibility[16][1] # right hand wrist in screen
 
         # if only one hand is in screen return this one
-        if not (v15 and v16):
-            if v15: return left
-            if v16: return right
+        if v15 < S.visibility_threshold or v16 < S.visibility_threshold:
+            if  v15 > v16:
+                return left
+            else:
+                return right
             
         # only the first leter is capital letter, so it is uniform for all spelling options
         choose = choose.lower() 
