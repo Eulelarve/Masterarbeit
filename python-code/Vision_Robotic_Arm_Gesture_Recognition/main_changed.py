@@ -493,7 +493,7 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
         # --------------------------------------------------
         if not paused and process and pose_found:
             # hand and shoulder
-            pose_detector.find_specific_points(S.active_hand, overlay.grabbing, True)
+            pose_detector.find_specific_points(S.active_hand, overlay.grabbing[0], True)
             hands = pose_detector.hand_center[:]
             shoulders = pose_detector.shoulder[:] 
 
@@ -608,7 +608,7 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
                 hand_center = np.int16(hand_detector.get_hand_centers(frame_overlay)[0])
                 hands[_i][1:3] = hand_center
                 
-                
+            
             # --------------------------------------------------
             # 3D room points for hand center and shoulder
             # --------------------------------------------------
@@ -702,6 +702,8 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
 
                 else:
                     hand_status[_i] = None # no hand in frame (checked hand marke from pose)
+
+            
     
 
             # if not paused and process and capture_status:
@@ -969,29 +971,14 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
         # --------------------------------------------------
         # draw GUI overlas
         # --------------------------------------------------
-        # Mausposition anzeigen
-        
-        if is_playback:
-            # per mouse 
-            mouse_pos = np.int16(np.array(MOUSE.pos))
-            overlay.select(mouse_pos)
-            if MOUSE.is_pressed():
-                overlay.grap()  
-
-            overlay.move(mouse_pos,azimuth=None,elevation=None)
-            if MOUSE.is_release():
-                overlay.release()
-            overlay.draw(frame_overlay, show_processing)
-        else:
-            # per arm and hand 
-            if not paused and process and pose_found:
-                overlay.select(hand_center)
-                if gesture_detector.grab:
-                    overlay.grap()
-                overlay.move(hand_center,azimuth=pointing_azimuth[0],elevation=pointing_elevation[0])
-                if gesture_detector.releas:
-                    overlay.release()
-            overlay.draw(frame_overlay, show_processing)
+        # show and evaluate hands and Mauseposition 
+        if not paused and process and pose_found:
+            mouse_pos = np.int16(np.array(MOUSE.pos) * [frame_x, frame_y] / S.window_size)
+            overlay.select(*[h[1:3] for h in hands], mouse_pos=mouse_pos)
+            overlay.grap(*gesture_detector.grab, mouse_down=MOUSE.is_pressed())
+            overlay.move(azimuth=pointing_azimuth,elevation=pointing_elevation)
+            overlay.release(*gesture_detector.releas, mouse_up=MOUSE.is_release())
+        overlay.draw(frame_overlay, show_processing)
         gui_info = overlay.get_info()
         # --------------------------------------------------
         # comunikation Audiosystem

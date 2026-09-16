@@ -434,12 +434,12 @@ class GuiOverlay:
         self.bar:list[Instrument] =[]
         self.room:list[Instrument] = []
         self.menu:list[GUITile] = []
-        self.selected:GUITile|Instrument = None
-        self.grabbing = False
+        self.selected:list[GUITile|Instrument|None] = [None, None, None]
+        self.grabbing:list[bool] = [False, False, False]
         self.sel_tile_size = []
         self.room_tile_size = []
         self.bar_tile_size = []
-        self.pointer_pos = None
+        self.pointer_pos:tuple[list, list, list] = [None, None, None]
         self.info_dict_list:list[dict] = []
         self.overlay_top_zone = None
         self.overlay_bot_zone = None
@@ -578,56 +578,57 @@ class GuiOverlay:
                 show_infos = show_processing and tile in self.room
                 tile.draw(self.frame, show_infos)
 
-        if self.pointer_pos is not None:
-            cv2.circle(self.frame, self.pointer_pos, 5, S.red, -1)
-            self.pointer_pos = None
+        for pos in self.pointer_pos: 
+            if pos is not None:
+                cv2.circle(self.frame, pos, 5, S.red, -1)
 
     def pos_in_bar_zoon(self, pos):
         if not self.bar_rect:
             return None
         return point_rect_collision(pos, self.bar_rect)
 
-    def pointer_in_reset_zoon(self):
-        if self.pos_in_bar_zoon(self.pointer_pos):
+    def pointer_in_reset_zoon(self,i:int):
+        pos = self.pointer_pos[i]
+        if self.pos_in_bar_zoon(pos):
             return True
-        # if self.volume_bar.collide(self.pointer_pos):
+        # if self.volume_bar.collide(pos):
         #     return True
-        if self.selection_btn.collide(self.pointer_pos):
+        if self.selection_btn.collide(pos):
             return True
         if self.frame is not None: 
-            if not pos_in_frame(self.pointer_pos, self.frame):
+            if not pos_in_frame(pos, self.frame):
                 # instrument out of screen
                 return True
         return False
         
-    def select(self, pointer_pos:tuple[int,int]):
-        self.pointer_pos = pointer_pos[:] # copy th pointer/hand pos
-        if self.pointer_in_reset_zoon() == False:
-            self.show_selection(False)
-        if self.grabbing:
-            if type(self.selected) is Instrument:
-                self.volume_bar.interaced_with_instrument(self.selected, pointer_pos) 
-            # self.in_room_zone = valide_angle_zone(pointer_pos, self.frame.shape)
-            # if self.in_room_zone:
-                # self.show_valume_bar(True)
-            return self.selected
-        else: 
-            self.selected = None
-            for tile in  [*self.bar, *self.room, *self.menu]:
-                if tile.pointer_selection(pointer_pos):
-                    self.selected = tile
-                    return tile
-        return None
+    def select(self, hand_pos1:tuple[int,int]=None,hand_pos2:tuple[int,int]=None,mouse_pos:tuple[int,int]=None):
+        self.pointer_pos = (hand_pos1, hand_pos2, mouse_pos)
+        for i in range(3):
+            if self.pointer_pos[i] is None:
+                continue
+            if self.pointer_in_reset_zoon(i) == False:
+                self.show_selection(False)
+            if self.grabbing[i]:
+                if type(self.selected[i]) is Instrument:
+                    self.volume_bar.interaced_with_instrument(self.selected[i], self.pointer_pos[i]) 
+                # self.in_room_zone = valide_angle_zone(pointer_pos, self.frame.shape)
+                # if self.in_room_zone:
+                    # self.show_valume_bar(True)
+            else: 
+                self.selected[i] = None
+                for tile in  [*self.bar, *self.room, *self.menu]:
+                    if tile.pointer_selection(self.pointer_pos[i]):
+                        self.selected[i] = tile
 
     def show_bar_instrument(self, show:bool):
         for inst in self.bar:
-            if inst is self.selected:
+            if inst in self.selected:
                 continue
             inst.show = show
 
     def show_room_instrument(self, show:bool):
         for inst in self.room:
-            if inst is self.selected:
+            if inst in self.selected:
                 continue
             inst.show = show
 
@@ -646,24 +647,25 @@ class GuiOverlay:
             self.info_btn.show = True 
         self.volume_bar.show = False
 
-    def grap(self):
-        if self.selected is None:
-            return False
-        if self.grabbing == False:
-            if type(self.selected) is Instrument:
-                # self.reset_btn.show = False
-                self._set_grap_mode(True)
-                self.selected.turn_on()
-                self.selected.resize(self.sel_tile_size)
-                self.show_volume_bar(True)
-            elif self.selected in self.menu:
-                self.selected.function()
-                if type(self.selected) is InstrumentSelection:
-                    self._set_grap_mode(True)
-        return True
+    def grap(self,grap_hand1:bool, grap_hand2:bool, mouse_down:bool):
+        for i, grap in enumerate([grap_hand1, grap_hand2, mouse_down]):
+            selected = self.selected[i]
+            if not grap or selected is None:
+                continue
+            if self.grabbing[i] == False:
+                if type(selected) is Instrument:
+                    # self.reset_btn.show = False
+                    self._set_grap_mode(True,i)
+                    selected.turn_on()
+                    selected.resize(self.sel_tile_size)
+                    self.show_volume_bar(True)
+                elif selected in self.menu:
+                    selected.function()
+                    if type(selected) is InstrumentSelection:
+                        self._set_grap_mode(True,i)
 
     def reset_instruments(self):
-        if not self.grabbing:
+        if not True in self.grabbing:
             print('reset all instruments')
             for inst in self.bar:
                 inst.volume = S.instrument_start_volume
@@ -675,47 +677,51 @@ class GuiOverlay:
             self._add_to_bar(inst)
             self.add_info(inst.get_info())
 
-    def _set_grap_mode(self, on:bool):
-        if self.grabbing != on:
-            self.grabbing = on
+    def _set_grap_mode(self, on:bool, i:int):
+        if self.grabbing[i] != on:
+            self.grabbing[i] = on
             # self.x.show = not on
             self.info_btn.show = not on
-            self.selected.activated = on
+            self.selected[i].activated = on
 
-    def release(self, )->bool:
-        if self.selected is None:
-            return False
+    def release(self,rel_hand1:bool, rel_hand2:bool, mouse_up:bool):
+        for i, rel in enumerate([rel_hand1, rel_hand2, mouse_up]):
+            selected = self.selected[i]
+            if rel or selected is None:
+                continue
         
-        if self.grabbing:
-            if type(self.selected) is Instrument:
-                if self.pointer_in_reset_zoon():
-                    self.selected.show = False
-                    self._add_to_bar(self.selected, True)
-                    self.selected.turn_off()
-                    self.selected.set_angle(None, None)
-                    self.add_info(self.selected.get_info())
-                else:
-                    self._add_to_room(self.selected)
-            self.show_volume_bar(False)
-            # if self.room or [inst for inst in self.bar if inst.volume != S.instrument_start_volume]:
-            #     self.reset_btn.show = True
-            # else:
-            #     self.reset_btn.show = False
-            self._set_grap_mode(False)
-        return True
+            if self.grabbing[i]:
+                if type(selected) is Instrument:
+                    if self.pointer_in_reset_zoon(i):
+                        selected.show = False
+                        self._add_to_bar(selected, True)
+                        selected.turn_off()
+                        selected.set_angle(None, None)
+                        self.add_info(selected.get_info())
+                    else:
+                        self._add_to_room(selected)
+                self.show_volume_bar(False)
+                # if self.room or [inst for inst in self.bar if inst.volume != S.instrument_start_volume]:
+                #     self.reset_btn.show = True
+                # else:
+                #     self.reset_btn.show = False
+                self._set_grap_mode(False,i)
 
-    def move(self, pos:tuple[int,int], azimuth:float=None, elevation:float=None,)-> bool:
-        if not self.grabbing:
-            return False
+    def move(self, azimuth:tuple[float] = [None,None], elevation:tuple[float]=[None, None]):
+        for i in range(3):
+            if not self.grabbing[i]:
+                continue
+            pos = self.pointer_pos[i]
+            selected = self.selected[i]
+            selected.set_center(pos)
+            if type(selected) is Instrument:
+                if not pos_in_frame(pos, self.frame):
+                    self.release()
+                if i in [0,1]:
+                    # angle is not for mouse interaction
+                    selected.set_angle(azimuth=azimuth[i], elevation=elevation[i])
+                self.add_info(selected.get_info())
 
-        self.selected.set_center(pos)
-        if type(self.selected) is Instrument:
-            if not pos_in_frame(pos, self.frame):
-                self.release()
-            self.selected.set_angle(azimuth=azimuth, elevation=elevation)
-            self.add_info(self.selected.get_info())
-
-        return True
 
     def create_border_zone_indicator(self):
         color = (*S.red, 30)
