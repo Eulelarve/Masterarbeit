@@ -271,7 +271,7 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
         # --------------------------------------------------
         valide_hand = False
         pose_found = False
-        hand_found = False
+        hand_found = [False, False]
         hand_stands_still = [False, False]
         arm_in_angle_area = False
         change_display_mode = False
@@ -283,6 +283,7 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
         pointing_azimuth = [None,None]
         pointing_elevation = [None,None]
         hand_landmarks = [[],[]]
+        hand_centers:list[list|None] = [None, None]
         
         # released_angle = None
         time_stemp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -493,20 +494,20 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
         if not paused and process and pose_found:
             # hand and shoulder
             pose_detector.find_specific_points(S.active_hand, overlay.grabbing[0], True)
-            hands = pose_detector.hand_center.copy()
+            pose_hands = pose_detector.hand_center.copy()
             shoulders = pose_detector.shoulder.copy()
-
             length = pose_detector.get_upper_body_length()
             upper_body_pixel_len = int(upper_body_len_buffer.add_and_get_average(length))
-           
+            for i, [id, x, y] in enumerate(pose_hands):
+                hand_centers[i] = [x,y]
             # arm
             # pose_detector.calibrate_arm_length(time_to_calibrate=2)
             # rel_arm_len = math.dist(hand_center, shoulder)
        
        # ==================================================
        # start of for-handside loop
-        for _i in range(len(hands)):
-            i_hand , *hand_center = hands[_i]
+        for _i in range(len(pose_hands)):
+            i_hand , *hand_center = pose_hands[_i]
             i_shoulder, *shoulder = shoulders[_i]
             hand_side = pose_detector.hand_side[_i]
             hand_detector = hand_detectors[_i]
@@ -596,15 +597,15 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
                                                             frame=frame_overlay, draw=show_processing and draw_max_distance, hand_side_index=hand_side_index)
                     if valide_hand:
                         hand_landmarks[_i] = hand_detector.create_pixel_landmark_list()
-                        hand_found = len(hand_landmarks[_i]) > 0
-                    if hand_found and show_processing and draw_skeleton:
+                        hand_found[_i] = len(hand_landmarks[_i]) > 0
+                    if hand_found[_i] and show_processing and draw_skeleton:
                         hand_detector.draw_skeleton(frame=frame_overlay)
             # --------------------------------------------------
             # overwrite the Hand center of pose by hand detection
             # --------------------------------------------------
-            if not paused and process and pose_found and hand_found:
+            if not paused and process and pose_found and hand_found[_i]:
                 hand_center = np.int16(hand_detector.get_hand_centers(frame_overlay)[0])
-                hands[_i][1:3] = hand_center
+                hand_centers[_i] = hand_center
                 
             
             # --------------------------------------------------
@@ -650,7 +651,7 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
             if not paused and process and pose_found:
                 if roi_hand or not _roi_size:
                     if hand_stands_still[_i]:
-                        if hand_found:
+                        if hand_found[_i]:
                             # hand detected in frame
                             frame_counter_hand += 1
 
@@ -738,9 +739,9 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
 
 
         # --------------------------------------------------
-        # control gestures - Info
+        # control gestures - Info, terminate app, clear gui, change display mode
         # -------------------------------------------------- 
-        if not paused and process and pose_found and hand_found:
+        if not paused and process and pose_found:
             gesture_detector.set_pixel_landmarks(*hand_landmarks, pose_landmarks)
             gesture_detector.pose_visibilety = list(pose_detector.lm_visibility)
             gesture_detector.pose_movement = list(pose_detector.lm_movment_list)
@@ -749,7 +750,6 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
         
             if gesture_detector.find_termination_gesture():
                 should_run = False
-                break
             if gesture_detector.find_info_trigger():
                 trigger_info_menu = True
             if gesture_detector.find_clear_trigger():
@@ -971,10 +971,13 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
         # show and evaluate hands and Mauseposition 
         if not paused and process and pose_found:
             mouse_pos = np.int16(np.array(MOUSE.pos) * [frame_x, frame_y] / S.window_size)
-            overlay.select(*[h[1:3] for h in hands], mouse_pos=mouse_pos)
-            overlay.grab(*gesture_detector.grab, mouse_down=MOUSE.is_pressed())
+            selector1 = {'pos':hand_centers[0], 'grab':gesture_detector.grab[0], 'release':gesture_detector.releas[0]}
+            selector2 = {'pos':hand_centers[1], 'grab':gesture_detector.grab[1], 'release':gesture_detector.releas[1]}
+            selector3 = {'pos':mouse_pos,       'grab':MOUSE.is_pressed(),       'release':MOUSE.is_release()}
+            overlay.select(selector1['pos'], selector2['pos'], selector3['pos'])
+            overlay.grab(selector1['grab'], selector2['grab'], selector3['grab'])
             overlay.move(azimuth=pointing_azimuth,elevation=pointing_elevation)
-            overlay.release(*gesture_detector.releas, mouse_up=MOUSE.is_release())
+            overlay.release(selector1['release'], selector2['release'], selector3['release'])
         overlay.draw(frame_overlay, show_processing)
         gui_info = overlay.get_info()
         # --------------------------------------------------

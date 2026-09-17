@@ -60,8 +60,8 @@ class GestureDetector():
     def index_pointing_up(self)->bool:
         for hand_lm in self.hands_lm:
             if len(hand_lm) == 0:
-                # hand not found
-                return False
+                # this hand not found
+                continue
             thumb_tip = hand_lm[4][1:3]
             index_tip = hand_lm[8][1:3]
             middle_tip = hand_lm[12][1:3]
@@ -99,7 +99,7 @@ class GestureDetector():
         for hand_lm in self.hands_lm:
             if len(hand_lm) == 0:
                 # hand not found
-                return False
+                continue
             wrist  = hand_lm[0][1:3]
             thumb_tip = hand_lm[4][1:3]
             index_tip = hand_lm[8][1:3]
@@ -141,8 +141,8 @@ class GestureDetector():
                             if not self.thumb_down_start_time:
                                 self.thumb_down_start_time = time.time()
                                 return False
-                            if time.time() - self.thumb_down_start_time > 1.5: 
-                                # hold this gesture 1.5 sec
+                            if time.time() - self.thumb_down_start_time > 1: 
+                                # hold this gesture 1 sec
                                 return True
                             return False
         # all hands are not in the correct position
@@ -153,7 +153,7 @@ class GestureDetector():
         for hand_lm in self.hands_lm:
             if len(hand_lm) == 0:
                 # hand not found
-                return False
+                continue
             index_tip = hand_lm[8][1:3]
             middle_tip = hand_lm[12][1:3]
             ring_tip = hand_lm[16][1:3]

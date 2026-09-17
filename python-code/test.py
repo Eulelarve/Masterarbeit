@@ -4,5 +4,11 @@ from collections import deque, defaultdict
 
 import math
 i = [[1,2],[2,3]]
-print('r' in ['r'])
+i = [1]
+e = [1]
+class r:
+    r=4
+
+e = r()
+print(type(e) is r)
 
