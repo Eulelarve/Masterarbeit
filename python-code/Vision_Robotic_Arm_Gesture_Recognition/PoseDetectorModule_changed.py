@@ -186,7 +186,7 @@ class poseDetector():
         landmarks = self.lm_list
         if mode.lower() == 'both':
             hand_points = [self.left_hand_points, self.right_hand_points]
-            self.shoulder = [landmarks[11], [landmarks[12]]] 
+            self.shoulder = [landmarks[11], landmarks[12]] 
             self.hip = [landmarks[23], landmarks[24]]
             self.hand_side = ['left', 'right']
         else:

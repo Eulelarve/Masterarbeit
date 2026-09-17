@@ -493,8 +493,8 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
         if not paused and process and pose_found:
             # hand and shoulder
             pose_detector.find_specific_points(S.active_hand, overlay.grabbing[0], True)
-            hands = pose_detector.hand_center[:]
-            shoulders = pose_detector.shoulder[:] 
+            hands = pose_detector.hand_center.copy()
+            shoulders = pose_detector.shoulder.copy()
 
             length = pose_detector.get_upper_body_length()
             upper_body_pixel_len = int(upper_body_len_buffer.add_and_get_average(length))
@@ -510,7 +510,6 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
             i_shoulder, *shoulder = shoulders[_i]
             hand_side = pose_detector.hand_side[_i]
             hand_detector = hand_detectors[_i]
-
 
             draw_hand_center = True
             if show_processing and draw_hand_center:
