@@ -587,27 +587,34 @@ class GuiOverlay:
             return None
         return point_rect_collision(pos, self.bar_rect)
 
-    def pointer_in_reset_zoon(self,i:int):
-        pos = self.pointer_pos[i]
-        if self.pos_in_bar_zoon(pos):
-            return True
-        # if self.volume_bar.collide(pos):
-        #     return True
-        if self.selection_btn.collide(pos):
-            return True
-        if self.frame is not None: 
-            if not pos_in_frame(pos, self.frame):
-                # instrument out of screen
+    def any_pointer_in_reset_zoon(self)->bool:
+        for i in range(3):
+            if self.pointer_in_reset_zoon(i):
                 return True
+        return False
+
+    def pointer_in_reset_zoon(self,i:int)->bool:
+        pos = self.pointer_pos[i]
+        if pos is not None:
+            if self.pos_in_bar_zoon(pos):
+                return True
+            # if self.volume_bar.collide(pos):
+            #     return True
+            if self.selection_btn.collide(pos):
+                return True
+            if self.frame is not None: 
+                if not pos_in_frame(pos, self.frame):
+                    # instrument out of screen
+                    return True
         return False
         
     def select(self, hand_pos1:tuple[int,int]=None,hand_pos2:tuple[int,int]=None,mouse_pos:tuple[int,int]=None):
         self.pointer_pos = (hand_pos1, hand_pos2, mouse_pos)
+        if self.any_pointer_in_reset_zoon() == False:
+            self.show_selection(False)
         for i in range(3):
             if self.pointer_pos[i] is None:
                 continue
-            if self.pointer_in_reset_zoon(i) == False:
-                self.show_selection(False)
             if self.grabbing[i]:
                 if type(self.selected[i]) is Instrument:
                     self.volume_bar.interaced_with_instrument(self.selected[i], self.pointer_pos[i]) 
@@ -617,8 +624,9 @@ class GuiOverlay:
             else: 
                 self.selected[i] = None
                 for tile in  [*self.bar, *self.room, *self.menu]:
-                    if tile.pointer_selection(self.pointer_pos[i]):
-                        self.selected[i] = tile
+                    if not tile in self.selected:
+                        if tile.pointer_selection(self.pointer_pos[i]):
+                            self.selected[i] = tile
 
     def show_bar_instrument(self, show:bool):
         for inst in self.bar:
@@ -647,22 +655,22 @@ class GuiOverlay:
             self.info_btn.show = True 
         self.volume_bar.show = False
 
-    def grap(self,grap_hand1:bool, grap_hand2:bool, mouse_down:bool):
-        for i, grap in enumerate([grap_hand1, grap_hand2, mouse_down]):
+    def grab(self,grab_hand1:bool, grab_hand2:bool, mouse_down:bool):
+        for i, grab in enumerate([grab_hand1, grab_hand2, mouse_down]):
             selected = self.selected[i]
-            if not grap or selected is None:
+            if not grab or selected is None:
                 continue
             if self.grabbing[i] == False:
                 if type(selected) is Instrument:
                     # self.reset_btn.show = False
-                    self._set_grap_mode(True,i)
+                    self._set_grab_mode(True,i)
                     selected.turn_on()
                     selected.resize(self.sel_tile_size)
                     self.show_volume_bar(True)
                 elif selected in self.menu:
                     selected.function()
                     if type(selected) is InstrumentSelection:
-                        self._set_grap_mode(True,i)
+                        self._set_grab_mode(True,i)
 
     def reset_instruments(self):
         if not True in self.grabbing:
@@ -677,7 +685,7 @@ class GuiOverlay:
             self._add_to_bar(inst)
             self.add_info(inst.get_info())
 
-    def _set_grap_mode(self, on:bool, i:int):
+    def _set_grab_mode(self, on:bool, i:int):
         if self.grabbing[i] != on:
             self.grabbing[i] = on
             # self.x.show = not on
@@ -686,26 +694,30 @@ class GuiOverlay:
 
     def release(self,rel_hand1:bool, rel_hand2:bool, mouse_up:bool):
         for i, rel in enumerate([rel_hand1, rel_hand2, mouse_up]):
-            selected = self.selected[i]
-            if rel or selected is None:
+            if not rel:
                 continue
-        
-            if self.grabbing[i]:
-                if type(selected) is Instrument:
-                    if self.pointer_in_reset_zoon(i):
-                        selected.show = False
-                        self._add_to_bar(selected, True)
-                        selected.turn_off()
-                        selected.set_angle(None, None)
-                        self.add_info(selected.get_info())
-                    else:
-                        self._add_to_room(selected)
-                self.show_volume_bar(False)
-                # if self.room or [inst for inst in self.bar if inst.volume != S.instrument_start_volume]:
-                #     self.reset_btn.show = True
-                # else:
-                #     self.reset_btn.show = False
-                self._set_grap_mode(False,i)
+            self.release_one(i)
+
+    def release_one(self, i:int):
+        selected = self.selected[i]
+        if selected is None:
+            return
+        if self.grabbing[i]:
+            if type(selected) is Instrument:
+                if self.pointer_in_reset_zoon(i):
+                    selected.show = False
+                    self._add_to_bar(selected, True)
+                    selected.turn_off()
+                    selected.set_angle(None, None)
+                    self.add_info(selected.get_info())
+                else:
+                    self._add_to_room(selected)
+            self.show_volume_bar(False)
+            # if self.room or [inst for inst in self.bar if inst.volume != S.instrument_start_volume]:
+            #     self.reset_btn.show = True
+            # else:
+            #     self.reset_btn.show = False
+            self._set_grab_mode(False,i)
 
     def move(self, azimuth:tuple[float] = [None,None], elevation:tuple[float]=[None, None]):
         for i in range(3):
@@ -716,7 +728,7 @@ class GuiOverlay:
             selected.set_center(pos)
             if type(selected) is Instrument:
                 if not pos_in_frame(pos, self.frame):
-                    self.release()
+                    self.release_one(i)
                 if i in [0,1]:
                     # angle is not for mouse interaction
                     selected.set_angle(azimuth=azimuth[i], elevation=elevation[i])

@@ -29,7 +29,6 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
          end_frame:int=None,
          foto_frames:list=None,
          hand_not_found_means=None,
-         skip_hand_move_detection=False,
          show_globe = False,
          grab_detection_methode = S.grab_detection_methode,
          show_depth_frame = False,
@@ -103,7 +102,7 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
     frame = None
     process_ones = False
     upper_body_len_buffer = ValueBuffer(40)
-    hand_move = MoveDetector()
+    hand_moves = (MoveDetector(),MoveDetector())
     open_close_status_capturer = SaveFrameStatus(keys=(ord('1'), ord('2'), ord('3')), status=('hand open', 'hand closed', None))
 
     last_frame_time = time.perf_counter()
@@ -114,7 +113,7 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
     align_depth = S.align_depth
     cam_intrinsics = None
 
-    hand_detectors = [HandDetector(), HandDetector()]
+    hand_detectors = (HandDetector(), HandDetector())
     pose_detector = poseDetector()
     angle_detector = RoomAngleDetector()
     communicator = SendOnChange((S.IPv4_audiosystem,S.port))
@@ -273,7 +272,7 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
         valide_hand = False
         pose_found = False
         hand_found = False
-        hand_stands_still = False
+        hand_stands_still = [False, False]
         arm_in_angle_area = False
         change_display_mode = False
         clear_gui = False
@@ -621,7 +620,7 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
             # hand is moving
             # --------------------------------------------------
             if not paused and process and pose_found:
-                    hand_stands_still = hand_move.stands_still(hand_center)
+                    hand_stands_still[_i] = hand_moves[_i].stands_still(hand_center)
             
             # --------------------------------------------------
             # Analyze arm angle / pointing direction
@@ -651,7 +650,7 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
             # --------------------------------------------------
             if not paused and process and pose_found:
                 if roi_hand or not _roi_size:
-                    if hand_stands_still or skip_hand_move_detection:
+                    if hand_stands_still[_i]:
                         if hand_found:
                             # hand detected in frame
                             frame_counter_hand += 1
@@ -879,33 +878,32 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
         # --------------------------------------------------
         # draw hand status
         x = 10
-        y +=  margin
         if not paused and process and show_processing:
                 
             no_hand_status = {'text':"no hand ", 'color':white}
             open_status = {'text':"open ", 'color':blue}
             close_status = {'text':"closed ", 'color':red}
-            text, color = '', white # default
-
-            if hand_status == None and hand_stands_still: # no hand in screen
-                text, color = no_hand_status['text'], no_hand_status['color']
-            elif hand_status == 1: # open
-                text, color = open_status['text'], open_status['color']
-            elif hand_status == 0: # closed 
-                text, color = close_status['text'], close_status['color']
-            if not hand_stands_still: # hand is moving
-                text += 'moving '
-
-            # show hand status
-            cv2.putText(
-                frame_overlay,
-                text,
-                (x,y),
-                cv2.FONT_HERSHEY_PLAIN,
-                2,
-                color,
-                2
-            )
+            for i, hs in enumerate(hand_status):
+                y +=  margin
+                text, color = '', white # default
+                if hs == None and hand_stands_still[i]: # no hand in screen
+                    text, color = no_hand_status['text'], no_hand_status['color']
+                elif hs == 1: # open
+                    text, color = open_status['text'], open_status['color']
+                elif hs == 0: # closed 
+                    text, color = close_status['text'], close_status['color']
+                if not hand_stands_still[i]: # hand is moving
+                    text += 'moving '
+                # show hand status
+                cv2.putText(
+                    frame_overlay,
+                    text,
+                    (x,y),
+                    cv2.FONT_HERSHEY_PLAIN,
+                    2,
+                    color,
+                    2
+                )
         # --------------------------------------------------
         # draw arm angle
         x = 10
@@ -975,7 +973,7 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
         if not paused and process and pose_found:
             mouse_pos = np.int16(np.array(MOUSE.pos) * [frame_x, frame_y] / S.window_size)
             overlay.select(*[h[1:3] for h in hands], mouse_pos=mouse_pos)
-            overlay.grap(*gesture_detector.grab, mouse_down=MOUSE.is_pressed())
+            overlay.grab(*gesture_detector.grab, mouse_down=MOUSE.is_pressed())
             overlay.move(azimuth=pointing_azimuth,elevation=pointing_elevation)
             overlay.release(*gesture_detector.releas, mouse_up=MOUSE.is_release())
         overlay.draw(frame_overlay, show_processing)
@@ -1132,7 +1130,6 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
         frame_counter_pose=frame_counter_pose, pose_rate=pose_rate,
         frame_counter_hand=frame_counter_hand, hand_rate=hand_rate,
         hand_not_found_means=hand_not_found_means,
-        skip_hand_move_detection=skip_hand_move_detection,
         fps_mean=fps_mean,
         time = time_stemp
     )
@@ -1194,7 +1191,6 @@ if __name__ == "__main__":
             end_frame = None,
             foto_frames=None,
             hand_not_found_means=None,
-            skip_hand_move_detection=False,
             show_globe=False,
             # grab_detection_methode=grab_detection_methode,
             show_depth_frame = False,

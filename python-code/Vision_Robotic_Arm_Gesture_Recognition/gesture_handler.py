@@ -353,8 +353,6 @@ class GestureDetector():
 
     def find_clear_gesture(self)->bool:
         self.clear_gesture = self.thumb_down()
-        if self.clear_gesture:
-            print('gesture detected: clear')
         return self.clear_gesture
 
     def find_clear_trigger(self)->bool:
@@ -364,7 +362,7 @@ class GestureDetector():
             if last_check == False:
                 # gusture triggered just now  
                 self.clear_trigger = True
-                print('gesture detected: clear_gesture')
+                print('gesture detected: clear_trigger')
         return self.clear_trigger 
 
 
