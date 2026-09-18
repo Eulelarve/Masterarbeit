@@ -284,6 +284,7 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
         pointing_elevation = [None,None]
         hand_landmarks = [[],[]]
         hand_centers:list[list|None] = [None, None]
+        pose_hands = []
         
         # released_angle = None
         time_stemp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -1185,7 +1186,7 @@ if __name__ == "__main__":
         r = main(
             fps_cap=S.fps,
             show_fps=True,
-            source=1,
+            source='depth', # kan be 0, 1, 2 ... or 'depth' or 'filename.mp4'
             pause_frames=None,
             capture_status_manually=False,
             capture_status = False,

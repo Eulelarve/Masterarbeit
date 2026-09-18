@@ -279,8 +279,8 @@ class InstrumentSelection(GUITile):
 
 class VolumeBar(GUITile):
     def __init__(self ,gui_object:object, ):
-        self.width_factor = 0.35  # halbe Bildbreite
-        self.height_factor = 0.12
+        self.width_factor = 0.25  # part of the screen
+        self.height_factor = 0.09
         name = "volume"
         self.volume = 0.0
         super().__init__(gui_object, name, None, 'VolumeBar')
@@ -333,7 +333,7 @@ class VolumeBar(GUITile):
             self._create_icon()
 
     def _create_image(self):
-        text = f"- : : : : : volume {self.volume:.2f} : : : : : +"
+        text = f"- : : : : volume {self.volume:.2f} : : : : +"
         super()._create_image(text,S.green, line_size=2)
 
 class CloseButton(GUITile):

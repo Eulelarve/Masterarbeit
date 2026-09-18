@@ -46,14 +46,14 @@ left_hand_landmark_ids = [ 15,17,19, 21 ] # left hand landmarks from mediapipe p
 right_hand_landmark_ids = [ 16,18,20, 22 ] # right hand landmarks from mediapipe pose
 gui_info_image_path = r"..\icons\info_image.png"
 gui_tile_max_size = 100
-overlay_visibilety_modes = {0:'show gui and processing', 1:'show gui',}# 2:'show buttons',3:'show buttons and processing' }
-grab_detection_methode = 'aperture' # can be 'aperture' or 'difference'
+overlay_visibilety_modes = {0:'show gui', 1:'show gui and processing'}# 2:'show buttons',3:'show buttons and processing' }
+grab_detection_methode = 'dif' # can be 'aperture' or 'difference'
 # dynamic grab mode
 dynamic_grab_distance_difference = 1
 dynamic_grab_time_difference = 1
 # static grab mode
-hand_status_buffer_size = 6
-hand_status_buffer_atleast = 5
+hand_status_buffer_size = 3
+hand_status_buffer_atleast = 2
 screenshots_folder = '../screenshots'
 
 # d455 intrinsiks color frame:              [ 1280x720  p[638.568 367.388]  f[640.329 638.932]  Inverse Brown Conrady [-0.055931 0.0683116 -0.000836038 0.000658576 -0.0223113] ]
