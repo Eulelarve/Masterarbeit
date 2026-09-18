@@ -1,0 +1,8 @@
+1) führe das matlab receiv udp.m script aus
+2) öffne das windows terminal /powershell wechsle zum verzeichnes des python venvs: "D:\StudentProjects\2026 SoSe\Wegener - Gestensteuerung\Masterarbeit\python-code\venv\Scripts\"
+3) gebe dazu das ein: 
+	cd "D:\StudentProjects\2026 SoSe\Wegener - Gestensteuerung\Masterarbeit\python-code\venv\Scripts\"
+4) starte dann das python sende scrigt mit: 
+	.\python.exe "D:\StudentProjects\2026 SoSe\Wegener - Gestensteuerung\Masterarbeit\matlab-code\comunication.py"
+5) jetzt werden 20 sekundel lang von python aus dem terminal aus udps gesentet
+6) im empfangsbereiten matlab terminal sollten jetzt infos ankommen
