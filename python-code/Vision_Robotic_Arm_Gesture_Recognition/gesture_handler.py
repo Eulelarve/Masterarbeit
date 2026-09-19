@@ -9,7 +9,6 @@ class GestureDetector():
         self.pose_lm = []
         self.pose_visibilety = []
         self.pose_movement = []
-        self.active_hand_id:int|None = None
         self.upper_body_len:int|None = None
         # grab gesture
         self.hand_status:list[int|None] = [None, None]           # 0 is closed, 1 is open, None is no hand
@@ -301,35 +300,35 @@ class GestureDetector():
                 print('gesture detected: visibilety_mode_trigger')
         return self.visibilety_mode_trigger          
 
-    def arm_swipe(self)->bool:
-        if self.active_hand_id != self.swiping_hand_id:
-            # active hand changed
-            self.swipe_course.clear()
-            self.swiping_hand_id = self.active_hand_id
+    # def arm_swipe(self)->bool:
+    #     if self.active_hand_id != self.swiping_hand_id:
+    #         # active hand changed
+    #         self.swipe_course.clear()
+    #         self.swiping_hand_id = self.active_hand_id
 
-        hand = self.pose_lm[self.swiping_hand_id][1:3]
-        time_now = time.time()
-        self.swipe_course.append({
-                                    'time':time_now, 
-                                    'x': hand[0], 
-                                    'y':hand[1]
-                                })
-        while time_now - self.swipe_course[0]['time'] > 0.7:
-            # while the first element is older then 0.7 sec
-            self.swipe_course.pop(0)
+    #     hand = self.pose_lm[self.swiping_hand_id][1:3]
+    #     time_now = time.time()
+    #     self.swipe_course.append({
+    #                                 'time':time_now, 
+    #                                 'x': hand[0], 
+    #                                 'y':hand[1]
+    #                             })
+    #     while time_now - self.swipe_course[0]['time'] > 0.7:
+    #         # while the first element is older then 0.7 sec
+    #         self.swipe_course.pop(0)
 
-        x_max = max(e['x'] for e in self.swipe_course)
-        x_min = min(e['x'] for e in self.swipe_course)
-        if x_max - x_min > self.upper_body_len * 2:
-            # hand travels in x direction more than the upper body size times 2
-            y_max = max(e['y'] for e in self.swipe_course)
-            y_min = min(e['y'] for e in self.swipe_course)
-            if y_max - y_min < self.upper_body_len * 0.5:
-                # hand travels in x direction less than the upper body size times 0.5
-                self.swipe_course.clear()
-                return True
-        # hand moves not fare or fast enough
-        return False
+    #     x_max = max(e['x'] for e in self.swipe_course)
+    #     x_min = min(e['x'] for e in self.swipe_course)
+    #     if x_max - x_min > self.upper_body_len * 2:
+    #         # hand travels in x direction more than the upper body size times 2
+    #         y_max = max(e['y'] for e in self.swipe_course)
+    #         y_min = min(e['y'] for e in self.swipe_course)
+    #         if y_max - y_min < self.upper_body_len * 0.5:
+    #             # hand travels in x direction less than the upper body size times 0.5
+    #             self.swipe_course.clear()
+    #             return True
+    #     # hand moves not fare or fast enough
+    #     return False
     
     def double_arm_swipe(self)->bool:
         gesture_max_time = 0.7

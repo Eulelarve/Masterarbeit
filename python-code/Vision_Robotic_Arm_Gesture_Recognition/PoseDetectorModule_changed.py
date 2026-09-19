@@ -71,7 +71,7 @@ class poseDetector():
         self.detCon = detCon  # detection confidence threshold
         self.trackCon = trackCon  # tracking confidence threshold
         self.hand_moving_buffer = ValueBuffer(5)
-        self.hand_side:str = ['right']
+        self.hand_side:list[str|None] = [None,None]
 
         self.mpPose = mp.solutions.pose
         self.pose = self.mpPose.Pose(static_image_mode=self.mode,
@@ -187,31 +187,31 @@ class poseDetector():
     def find_specific_points(self,mode:str, keep_hand_side:bool=False, mirrowed:bool=False):
         landmarks = self.lm_list
         if keep_hand_side:
-            vh = self.get_visible_hand_side()
-            if len(vh) == 2 and mode.lower() == 'both':
-                # in both hand mode, it still cann add a hand if it get visible
-                self.hand_side = vh
+            if mode.lower() == 'both':
+                vh = self.get_visible_hand_side()
+                if None not in vh: 
+                    # in both hand mode, it still cann add a hand if it get visible
+                    self.hand_side = vh
         else:
             # choose the hand side 
             self.hand_side = self.get_hand_side(mode, mirrowed)
 
-        self.shoulder = []    
-        self.hip = [] 
-        hand_points = []
-        if self._left in self.hand_side: # left hand
-            self.shoulder.append(landmarks[11]) # left shoulder
-            self.hip.append(landmarks[23])
-            hand_points.append(self.left_hand_points)
-        if self._right in self.hand_side: # right hand
-            self.shoulder.append(landmarks[12]) # right shoulder
-            self.hip.append(landmarks[24])
-            hand_points.append(self.right_hand_points)
+        self.shoulder = [None, None]    
+        self.hip = [None, None]  
+        self.hand_center = [None, None] 
 
-        self.hand_center = []
-        for hand in hand_points:
-            center = get_center_of_landmarks(landmarks,hand[1:3]) # just take 17, 19 (left) or 18, 20 (right) to get the hand center
-            center.insert(0, hand[2]) # [hand_point_index , x, y]  while 15,17,19 or 21 for left, 16, 18, 20 or 22 for right hand
-            self.hand_center.append(center)
+        if self._left in self.hand_side: # left hand
+            center = get_center_of_landmarks(landmarks,self.left_hand_points[1:3]) # just take 17, 19 to get the left hand center
+            center.insert(0, self.left_hand_points[2]) # [hand_point_index , x, y]  while idex = 19
+            self.hand_center[0] = center
+            self.shoulder[0] = landmarks[11] # left shoulder
+            self.hip[0] = landmarks[23]
+        if self._right in self.hand_side: # right hand
+            center = get_center_of_landmarks(landmarks,self.right_hand_points[1:3]) # just take 18, 20 to get the right hand center
+            center.insert(0, self.right_hand_points[2]) # [hand_point_index , x, y]  while index = 20
+            self.hand_center[1] = center
+            self.shoulder[1] = landmarks[12] # right shoulder
+            self.hip[1] = landmarks[24]
 
     
     def calibrate_arm_length(self,time_to_calibrate=2.0, max_rel_hight_diff=1/4):
@@ -374,9 +374,10 @@ class poseDetector():
                 most_top_points = points
         return most_top_points
 
-    def get_visible_hand_side(self):
-        left = [self._left]
-        right = [self._right]
+    def get_visible_hand_side(self)->list:
+        left = [self._left, None]
+        right = [None, self._right]
+        both = [self._left, self._right]
         v15 = self.lm_visibility[15][1] # left hand wrist in screen
         v16 = self.lm_visibility[16][1] # right hand wrist in screen
 
@@ -386,9 +387,9 @@ class poseDetector():
                 return left
             else:
                 return right
-        return [*left, *right]
+        return both
 
-    def get_hand_side(self, choose:str='both', mirrored:bool=False)->str:
+    def get_hand_side(self, choose:str='both', mirrored:bool=False):
         """ choose between left, right or top hand based on the pose landmarks
         Args:
             choose: 'left', 'right', 'top', 'moving', 'both'
@@ -397,23 +398,23 @@ class poseDetector():
             hand_center: index of the chosen wrist landmark (15 for left, 16 for right)
         
         """
-        left = [self._left]
-        right = [self._right]
+        left = [self._left, None]
+        right = [None, self._right]
+        both = [self._left, self._right]
         lm_left = self.left_hand_points
         lm_right = self.right_hand_points
-
-        # if only one hand is in screen return this one
-        vh = self.get_visible_hand_side()
-        if len(vh) == 1:
-            return vh
-            
         # only the first leter is capital letter, so it is uniform for all spelling options
         choose = choose.lower() 
 
-        if choose == 'both':
-            return [*left, *right]
+        # if only one hand is in screen return this one
+        vh = self.get_visible_hand_side()
+        if None in vh:
+            return vh
+            
+        elif choose == 'both':
+            return both
 
-        if choose == "top":
+        elif choose == "top":
             top_hand = self.get_upper_points([lm_left, lm_right])
             if top_hand == lm_left:
                 return left
@@ -437,8 +438,6 @@ class poseDetector():
         else:
             print(f"Invalid hand selection mode: {choose}. Please choose 'top', 'left', 'right' or 'moving'.")
 
-        # return the last safed choosen hand side
-        return self.hand_side
 
     def get_fastest_point(self, point_ids:list=None):
         if point_ids is None:

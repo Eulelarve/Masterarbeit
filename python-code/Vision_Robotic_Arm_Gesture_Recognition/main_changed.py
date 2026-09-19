@@ -500,19 +500,23 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
             shoulders = pose_detector.shoulder.copy()
             length = pose_detector.get_upper_body_length()
             upper_body_pixel_len = int(upper_body_len_buffer.add_and_get_average(length))
-            for i, [id, x, y] in enumerate(pose_hands):
-                hand_centers[i] = [x,y]
+            # for i, [id, x, y] in enumerate(pose_hands):
+            #     hand_centers[i] = [x,y]
             # arm
             # pose_detector.calibrate_arm_length(time_to_calibrate=2)
             # rel_arm_len = math.dist(hand_center, shoulder)
        
        # ==================================================
        # start of for-handside loop
-        for _i in range(len(pose_hands)):
+        for _i in range(2):
+            if pose_hands[_i] is None:
+                continue
+
             i_hand , *hand_center = pose_hands[_i]
             i_shoulder, *shoulder = shoulders[_i]
             hand_side = pose_detector.hand_side[_i]
             hand_detector = hand_detectors[_i]
+            hand_centers[_i] = hand_center
 
             draw_hand_center = True
             if show_processing and draw_hand_center:
@@ -747,7 +751,6 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
             gesture_detector.set_pixel_landmarks(*hand_landmarks, pose_landmarks)
             gesture_detector.pose_visibilety = list(pose_detector.lm_visibility)
             gesture_detector.pose_movement = list(pose_detector.lm_movment_list)
-            gesture_detector.active_hand_id = i_hand
             gesture_detector.upper_body_len = upper_body_len_buffer.get()
         
             if gesture_detector.find_termination_gesture():
