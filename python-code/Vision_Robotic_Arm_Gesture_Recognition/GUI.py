@@ -457,7 +457,7 @@ class GuiOverlay:
         self.sel_tile_size = []
         self.room_tile_size = []
         self.bar_tile_size = []
-        self.pointer_pos:tuple[tuple, tuple, tuple] = [None, None, None]
+        self.pointer_pos:list[tuple, tuple, tuple] = [None, None, None]
         self.info_dict_list:list[dict] = []
         self.overlay_top_zone = None
         self.overlay_bot_zone = None
@@ -628,7 +628,7 @@ class GuiOverlay:
         return False
         
     def select(self, hand_pos1:tuple[int,int],hand_pos2:tuple[int,int],mouse_pos:tuple[int,int]):
-        self.pointer_pos = (tuple(hand_pos1), tuple(hand_pos2), tuple(mouse_pos))
+        self.pointer_pos = [() if pos is None else tuple(pos) for pos in (hand_pos1, hand_pos2, mouse_pos)]
         if self.any_pos_in_bar_zoon() == False:
             self.show_selection(False)
         if not self.instrument_is_selected():

@@ -66,7 +66,7 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
     white = S.white
     should_run = True
 
-    window_name = "Hand and Pose Detection"
+    window_name = S.name+' - '+S.version
     overlay = GuiOverlay()
     overlay.add_instrument("flute")
     overlay.add_instrument("trumpet")
@@ -494,7 +494,8 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
         # --------------------------------------------------
         if not paused and process and pose_found:
             # hand and shoulder
-            pose_detector.find_specific_points(S.active_hand, overlay.grabbing[0], True)
+            hand_bussy_in_gui = overlay.grabbing[0] or overlay.grabbing[1]
+            pose_detector.find_specific_points(S.active_hand, hand_bussy_in_gui, True)
             pose_hands = pose_detector.hand_center.copy()
             shoulders = pose_detector.shoulder.copy()
             length = pose_detector.get_upper_body_length()
@@ -975,6 +976,9 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
             selector1 = {'pos':hand_centers[0], 'grab':gesture_detector.grab[0], 'release':gesture_detector.releas[0]}
             selector2 = {'pos':hand_centers[1], 'grab':gesture_detector.grab[1], 'release':gesture_detector.releas[1]}
             selector3 = {'pos':mouse_pos,       'grab':MOUSE.is_pressed(),       'release':MOUSE.is_release()}
+            if S.no_mouse_control:
+                selector3 = {'pos':None, 'grab':None, 'release':None}
+
             overlay.select(selector1['pos'], selector2['pos'], selector3['pos'])
             overlay.grab(selector1['grab'], selector2['grab'], selector3['grab'])
             overlay.move(azimuth=pointing_azimuth,elevation=pointing_elevation)
@@ -1186,7 +1190,7 @@ if __name__ == "__main__":
         r = main(
             fps_cap=S.fps,
             show_fps=True,
-            source='depth', # kan be 0, 1, 2 ... or 'depth' or 'filename.mp4'
+            source=1, # kan be 0, 1, 2 ... or 'depth' or 'filename.mp4'
             pause_frames=None,
             capture_status_manually=False,
             capture_status = False,

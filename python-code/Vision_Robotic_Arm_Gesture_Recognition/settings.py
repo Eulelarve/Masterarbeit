@@ -1,3 +1,5 @@
+name = "Gesture control"
+version = "STITCHI 1.0"
 # colors
 red = (0, 0, 255)
 blue = (255, 0, 0)
@@ -15,6 +17,7 @@ hand_opening_factor = 1.3
 skip_frames = 100
 
 active_hand = 'both' # Available modules are: right, left, moving, top, both | 'moving' means take the fastest hand, 'top' means take the most top hand, 'right' means always right hand ...
+no_mouse_control = True
 default_buffer_mode = 'median'
 no_hand_frame_count = 30 # by 30 FPS are 30 frames = one secund not hand, to get the no_hand status
 video_folder = r'..\test_videos (gitignore)/'
@@ -46,7 +49,7 @@ left_hand_landmark_ids = [ 15,17,19, 21 ] # left hand landmarks from mediapipe p
 right_hand_landmark_ids = [ 16,18,20, 22 ] # right hand landmarks from mediapipe pose
 gui_info_image_path = r"..\icons\info_image.png"
 gui_tile_max_size = 100
-overlay_visibilety_modes = {0:'show gui', 1:'show gui and processing'}# 2:'show buttons',3:'show buttons and processing' }
+overlay_visibilety_modes = {1:'show gui', 0:'show gui and processing'}# 2:'show buttons',3:'show buttons and processing' }
 grab_detection_methode = 'dif' # can be 'aperture' or 'difference'
 # dynamic grab mode
 dynamic_grab_distance_difference = 1

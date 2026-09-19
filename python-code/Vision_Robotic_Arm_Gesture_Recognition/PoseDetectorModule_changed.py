@@ -91,6 +91,8 @@ class poseDetector():
 
         self.left_hand_points = S.left_hand_landmark_ids
         self.right_hand_points = S.right_hand_landmark_ids
+        self._left = 'left'
+        self._right = 'right'
 
 
     def create_moving_list(self):
@@ -182,29 +184,29 @@ class poseDetector():
             return True
         return False
 
-    def find_specific_points(self,mode:str, just_update_pos:bool=False, mirrowed:bool=False):
+    def find_specific_points(self,mode:str, keep_hand_side:bool=False, mirrowed:bool=False):
         landmarks = self.lm_list
-        if mode.lower() == 'both':
-            hand_points = [self.left_hand_points, self.right_hand_points]
-            self.shoulder = [landmarks[11], landmarks[12]] 
-            self.hip = [landmarks[23], landmarks[24]]
-            self.hand_side = ['left', 'right']
+        if keep_hand_side:
+            vh = self.get_visible_hand_side()
+            if len(vh) == 2 and mode.lower() == 'both':
+                # in both hand mode, it still cann add a hand if it get visible
+                self.hand_side = vh
         else:
-            if not just_update_pos:
-                self.hand_side = self.get_hand_side(mode, mirrowed)
-            
-            if 'left' in self.hand_side: # left hand
-                self.shoulder = [landmarks[11]] # left shoulder
-                self.hip = [landmarks[23]]
-                hand_points = [self.left_hand_points]
-            elif 'right' in self.hand_side: # right hand
-                self.shoulder = [landmarks[12]] # right shoulder
-                self.hip = [landmarks[24]]
-                hand_points = [self.right_hand_points]
-            else:
-                print(f"no 'left' or 'right' in {self.hand_side}")
-                raise
-            
+            # choose the hand side 
+            self.hand_side = self.get_hand_side(mode, mirrowed)
+
+        self.shoulder = []    
+        self.hip = [] 
+        hand_points = []
+        if self._left in self.hand_side: # left hand
+            self.shoulder.append(landmarks[11]) # left shoulder
+            self.hip.append(landmarks[23])
+            hand_points.append(self.left_hand_points)
+        if self._right in self.hand_side: # right hand
+            self.shoulder.append(landmarks[12]) # right shoulder
+            self.hip.append(landmarks[24])
+            hand_points.append(self.right_hand_points)
+
         self.hand_center = []
         for hand in hand_points:
             center = get_center_of_landmarks(landmarks,hand[1:3]) # just take 17, 19 (left) or 18, 20 (right) to get the hand center
@@ -363,7 +365,6 @@ class poseDetector():
                 )
 
     def get_upper_points(self,points_list:list[list]):
-
         pose_landmarks = self.lm_list
         y_min_pos = float('inf')
         for points in points_list:
@@ -373,20 +374,9 @@ class poseDetector():
                 most_top_points = points
         return most_top_points
 
-
-    def get_hand_side(self, choose:str='top', mirrored:bool=False)->str:
-        """ choose between left, right or top hand based on the pose landmarks
-        Args:
-            choose: 'left', 'right', 'top' or 'moving'
-            mirrored: if the image is mirrored, left and right are switched
-        Returns:
-            hand_center: index of the chosen wrist landmark (15 for left, 16 for right)
-        
-        """
-        left = ['left']
-        right = ['right']
-        lm_left = self.left_hand_points
-        lm_right = self.right_hand_points
+    def get_visible_hand_side(self):
+        left = [self._left]
+        right = [self._right]
         v15 = self.lm_visibility[15][1] # left hand wrist in screen
         v16 = self.lm_visibility[16][1] # right hand wrist in screen
 
@@ -396,12 +386,32 @@ class poseDetector():
                 return left
             else:
                 return right
+        return [*left, *right]
+
+    def get_hand_side(self, choose:str='both', mirrored:bool=False)->str:
+        """ choose between left, right or top hand based on the pose landmarks
+        Args:
+            choose: 'left', 'right', 'top', 'moving', 'both'
+            mirrored: if the image is mirrored, left and right are switched
+        Returns:
+            hand_center: index of the chosen wrist landmark (15 for left, 16 for right)
+        
+        """
+        left = [self._left]
+        right = [self._right]
+        lm_left = self.left_hand_points
+        lm_right = self.right_hand_points
+
+        # if only one hand is in screen return this one
+        vh = self.get_visible_hand_side()
+        if len(vh) == 1:
+            return vh
             
         # only the first leter is capital letter, so it is uniform for all spelling options
         choose = choose.lower() 
 
-        # if mirrored:
-        #     left_hand_points, right_hand_points = right_hand_points, left_hand_points
+        if choose == 'both':
+            return [*left, *right]
 
         if choose == "top":
             top_hand = self.get_upper_points([lm_left, lm_right])

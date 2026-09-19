@@ -9,6 +9,7 @@ e = [1]
 class r:
     r=4
 
-e = r()
-print(type(e) is r)
+e = [i if i else 100 for i in [1,0,2,3]]
+print(e)
+print(next(e))
 
