@@ -798,8 +798,7 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
         if trigger_info_menu:
             overlay.show_info_menu = not overlay.show_info_menu
         if clear_gui:
-            overlay.reset_instruments()
-            overlay.show_info_menu = False
+            overlay.reset_gui()
             while visibilety_mode_loop_list[0] != S.overlay_visibilety_modes[0]:
                 first_mode = visibilety_mode_loop_list.pop(0)
                 visibilety_mode_loop_list.append(first_mode) 

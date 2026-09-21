@@ -228,34 +228,35 @@ class GestureDetector():
         return grab
 
     def find_termination_gesture(self)->bool:
-        self.termination_gesture = self.arms_crossed() 
+        self.termination_gesture = self.arms_crossed_above_head() 
         self._()
         if self.termination_gesture:
             print('gesture detected: termination')
         return self.termination_gesture
 
-
-
-    def arms_crossed(self)->bool:
+    def arms_crossed_above_head(self)->bool:
+        eye = self.pose_lm[1][1:3]
         hand_left = self.pose_lm[19][1:3]
         hand_right = self.pose_lm[20][1:3]
         elbow_left = self.pose_lm[13][1:3]
         elbow_right = self.pose_lm[14][1:3]
         forearm_len = math.dist(hand_left, elbow_left)
-        if hand_left[1] + forearm_len/3 < elbow_right[1]:
-            if hand_right[1] + forearm_len/3 < elbow_left[1]:
-                # both hands above both elbows
-                x_direction_hands = hand_left[0] < hand_right[0]
-                x_direction_elbows = elbow_left[0] < elbow_right[0]
-                if x_direction_elbows != x_direction_hands:
-                    # arms crossed
-                    if not self.arms_crossed_start_time:
-                        self.arms_crossed_start_time = time.time()
+        if eye[1] > hand_left[1] and eye[1] > hand_right[1]:
+            # hands ar over the head
+            if hand_left[1] + forearm_len/3 < elbow_right[1]:
+                if hand_right[1] + forearm_len/3 < elbow_left[1]:
+                    # both hands above both elbows
+                    x_direction_hands = hand_left[0] < hand_right[0]
+                    x_direction_elbows = elbow_left[0] < elbow_right[0]
+                    if x_direction_elbows != x_direction_hands:
+                        # arms crossed
+                        if not self.arms_crossed_start_time:
+                            self.arms_crossed_start_time = time.time()
+                            return False
+                        if time.time() - self.arms_crossed_start_time > 2: 
+                            # hold this gesture 2 sec
+                            return True
                         return False
-                    if time.time() - self.arms_crossed_start_time > 2: 
-                        # hold this gesture 2 sec
-                        return True
-                    return False
         # arms not in the correct position
         self.arms_crossed_start_time = None
         return False

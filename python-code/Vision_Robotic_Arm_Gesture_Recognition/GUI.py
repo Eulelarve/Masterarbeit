@@ -607,8 +607,9 @@ class GuiOverlay:
 
     def any_pos_in_bar_zoon(self)->bool:
         for pos in self.pointer_pos:
-            if self.pos_in_bar_zoon(pos):
-                return True
+            if pos:
+                if self.pos_in_bar_zoon(pos):
+                    return True
         return False
 
     def pointer_in_reset_zoon(self,i:int)->bool:
@@ -708,6 +709,17 @@ class GuiOverlay:
             for inst in self.bar:
                 inst.volume = S.instrument_start_volume
             self.clear_room()
+
+    def reset_menu(self):
+        if not True in self.grabbing:
+            print('reset all menu elements')
+            self.show_info_menu = False
+            for tile in self.menu:
+                tile.update_rect(self.frame)
+
+    def reset_gui(self):
+        self.reset_menu()
+        self.reset_instruments()
 
     def clear_room(self,):
         for inst in self.room.copy():
