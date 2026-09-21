@@ -58,6 +58,7 @@ dynamic_grab_time_difference = 1
 hand_status_buffer_size = 3
 hand_status_buffer_atleast = 2
 screenshots_folder = '../screenshots'
+controll_trigger_text_time = 1.0 # in secunds, how long the text feedbeck will be showen in the screen after triggering an controll grsture or key, 0.0 means no text feedback
 
 # d455 intrinsiks color frame:              [ 1280x720  p[638.568 367.388]  f[640.329 638.932]  Inverse Brown Conrady [-0.055931 0.0683116 -0.000836038 0.000658576 -0.0223113] ]
 # d455 intrinsiks depth frame (unaligned):  [ 1280x720  p[643.714 366.77]  f[653.798 653.798]  Brown Conrady [0 0 0 0 0] ]

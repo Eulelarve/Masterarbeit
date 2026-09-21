@@ -11,7 +11,7 @@ from collections import defaultdict
 
 from comunication import SendOnChange
 from GUI import GuiOverlay
-from own_functions import ValueBuffer,ListBuffer, CSVWriter, tolist, screenshot, close_to, MoveDetector, get_globe_timeline_curvs , cv2_mouse_callback, MOUSE, map_threshold, cv2_center_text
+from own_functions import ValueBuffer,ListBuffer, CSVWriter, tolist, screenshot, close_to, MoveDetector, get_globe_timeline_curvs , cv2_mouse_callback, MOUSE, map_threshold, cv2_center_text, cv2_putText_outlined
 from angle_handler import RoomAngleDetector
 
 from HandDetectorModule_changed import HandDetector 
@@ -82,10 +82,10 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
     frame_counter_hand = 0
     frame_now = start_frame - 1
     hand_status:list[int|None,int|None] = [None, None]
-    hand_status_before:int = None
     video_name = ''
     visibilety_mode_loop_list = list(S.overlay_visibilety_modes.values())
     show_processing = 'process' in S.overlay_visibilety_modes[0]
+    trigger_text = {'text':'', 'color':green, 'time':0.0}
 
 
     # hand_status_dict = {'aperture':None, 'aperture_width':None,  'len_width_thr_1.2':None, 'len_width_thr_1.4':None, 'distance_dif_0.3':None,'distance_dif_0.4':None}
@@ -272,14 +272,12 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
         valide_hand = False
         pose_found = False
         hand_found = [False, False]
-        hand_stands_still = [False, False]
-        arm_in_angle_area = False
+        hand_stands_still = [None, None]
         change_display_mode = False
         clear_gui = False
         roi_hand = None
         trigger_info_menu = False
         display_flash = None
-        hands = []
         pointing_azimuth = [None,None]
         pointing_elevation = [None,None]
         hand_landmarks = [[],[]]
@@ -509,6 +507,10 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
        # ==================================================
        # start of for-handside loop
         for _i in range(2):
+            # for if hand not found or not in screen. if a hand is found this will be owerriwen later
+            if hand_detectors[_i].no_hand_count(S.no_hand_frame_count):
+                hand_status[_i] = hand_not_found_means
+
             if pose_hands[_i] is None:
                 continue
 
@@ -696,10 +698,7 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
                                     hand_status[_i] = hand_detector.open_or_close_distance_dif(frame_overlay, show_processing and draw_aperture)
 
                         else:   
-                            # if hand probably there but not found. closed hand are more likly to be not found
-                            if hand_detector.no_hand_count(S.no_hand_frame_count):
-                                hand_status[_i] = hand_not_found_means
-                
+                            pass
                     else:
                         # if hand is moving curently, do not change the hand status
                         hand_status[_i] = hand_status[_i]
@@ -787,7 +786,7 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
             frame_counter_processed += 1
 
         # --------------------------------------------------
-        # alppy controles 
+        # alppy controlles  
         # --------------------------------------------------
 
         if change_display_mode:
@@ -795,8 +794,14 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
             visibilety_mode_loop_list.append(first_mode) 
             overlay.set_gui_visibility(visibilety_mode_loop_list[0])
             show_processing = 'process' in visibilety_mode_loop_list[0]
+            trigger_text['text'] = 'change display mode'
+            trigger_text['time'] = time.time()
+
         if trigger_info_menu:
             overlay.show_info_menu = not overlay.show_info_menu
+            trigger_text['text'] = 'info on/off'
+            trigger_text['time'] = time.time()
+
         if clear_gui:
             overlay.reset_gui()
             while visibilety_mode_loop_list[0] != S.overlay_visibilety_modes[0]:
@@ -804,11 +809,33 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
                 visibilety_mode_loop_list.append(first_mode) 
             overlay.set_gui_visibility(visibilety_mode_loop_list[0])
             show_processing = 'process' in visibilety_mode_loop_list[0]
-    
+            trigger_text['text'] = 'reset gui'
+            trigger_text['time'] = time.time()
+
+
+
         # ##################################################
         # Status overlay - end of video processing
         # ##################################################
-      
+
+        # --------------------------------------------------
+        # controll commant triggered - text  fedbeck
+        # --------------------------------------------------
+
+        if trigger_text['text']:
+            if time.time() - trigger_text['time'] > S.controll_trigger_text_time:
+                trigger_text = {'text':'', 'color':green, 'time':0.0}
+            else:
+                text = trigger_text['text']
+                color = trigger_text['color']
+                cv2_center_text(frame_overlay,text,color)
+
+        # --------------------------------------------------
+        # live info text, on the left screen side
+        # --------------------------------------------------
+        font_scale = 1
+        color = white
+        line_size = 1
         # --------------------------------------------------
         # FPS overlay
         x = 10
@@ -816,15 +843,14 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
         margin = 40
         if not paused and show_processing:
             if show_fps:
-
-                cv2.putText(
+                text = f"FPS: {round(fps, 1)}"
+                cv2_putText_outlined(
                     frame_overlay,
                     f"FPS: {round(fps, 1)}",
                     (x, y),
-                    cv2.FONT_HERSHEY_PLAIN,
-                    2,
-                    (0, 255, 0),
-                    2
+                    font_scale,
+                    color,
+                    line_size,
                 )
         # --------------------------------------------------
         #  video / Live status overlay
@@ -832,27 +858,25 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
         if show_processing:
             status = "LIVE" if not is_playback else "VIDEO"
 
-            cv2.putText(
+            cv2_putText_outlined(
                 frame_overlay,
                 status,
                 (x, y),
-                cv2.FONT_HERSHEY_PLAIN,
-                2,
-                (0, 255, 0),
-                2
+                font_scale,
+                color,
+                line_size,
             )
         # --------------------------------------------------
         # pause status
         if paused:
             x = 120
-            cv2.putText(
+            cv2_putText_outlined(
                 frame_overlay,
                 "PAUSED",
                 (x, y),
-                cv2.FONT_HERSHEY_PLAIN,
-                2,
-                (0, 0, 255),
-                2
+                font_scale,
+                color,
+                line_size,
             )
         # --------------------------------------------------
         # frame counter overlay
@@ -869,14 +893,13 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
                 else:
                     text += str(int(video_capture.get(cv2.CAP_PROP_FRAME_COUNT)))
 
-            cv2.putText(
+            cv2_putText_outlined(
                 frame_overlay,
                 text,
                 (x, y),
-                cv2.FONT_HERSHEY_PLAIN,
-                2,
-                green,
-                2
+                font_scale,
+                color,
+                line_size,
             )
         # --------------------------------------------------
         # draw hand status
@@ -886,76 +909,83 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
             no_hand_status = {'text':"no hand ", 'color':white}
             open_status = {'text':"open ", 'color':blue}
             close_status = {'text':"closed ", 'color':red}
-            for i, hs in enumerate(hand_status):
+            i_hs = list(enumerate(hand_status))
+            for i, hs in i_hs[::-1]:
                 y +=  margin
-                text, color = '', white # default
-                if hs == None and hand_stands_still[i]: # no hand in screen
-                    text, color = no_hand_status['text'], no_hand_status['color']
+                text, _color ,outline= '', white , S.black # default
+                if hs == None: # no hand in screen
+                    text, _color = no_hand_status['text'], no_hand_status['color']
                 elif hs == 1: # open
-                    text, color = open_status['text'], open_status['color']
+                    text, _color ,outline = open_status['text'], open_status['color'], white
                 elif hs == 0: # closed 
-                    text, color = close_status['text'], close_status['color']
-                if not hand_stands_still[i]: # hand is moving
+                    text, _color = close_status['text'], close_status['color']
+                if hand_stands_still[i] == False: # hand is moving
                     text += 'moving '
                 # show hand status
-                cv2.putText(
+                cv2_putText_outlined(
                     frame_overlay,
                     text,
                     (x,y),
-                    cv2.FONT_HERSHEY_PLAIN,
+                    font_scale,
+                    _color,
+                    line_size,
                     2,
-                    color,
-                    2
+                    outline
                 )
+
         # --------------------------------------------------
         # draw arm angle
         x = 10
         if not paused and process and show_processing:
-            for hs,a,e in zip(pose_detector.hand_side,pointing_azimuth, pointing_elevation):
+            side_and_angle = list(zip(pose_detector.hand_side,pointing_azimuth, pointing_elevation))
+            for hs,a,e in side_and_angle[::-1]:
                 if hs == 'right':
                     text = 'L'
-                if hs == 'left':
+                elif hs == 'left':
                     text ='R'
+                else:
+                    continue
                 text += f'[a/e]: {a}/{e}'
-                y +=  margin
-                cv2.putText(
+                y += margin
+                cv2_putText_outlined(
                     frame_overlay,
                     text,
                     (x,y),
-                    cv2.FONT_HERSHEY_PLAIN,
-                    2,
-                    S.green,
-                    2
+                    font_scale,
+                    color,
+                    line_size,
                 )
 
         # --------------------------------------------------
         # controls overlay
         x = 10
         y =  frame_overlay.shape[0] - 10
+        font_scale = 0.5
         if show_processing:
             text = "SPACE: Pause | ENTER: processing on/off | P: screenshot | ESC: exit"
-            cv2.putText(
+            cv2_putText_outlined(
                 frame_overlay,
                 text,
                 (x, y),
-                cv2.FONT_HERSHEY_PLAIN,
+                font_scale,
+                color,
+                line_size,
                 1,
-                (0, 255, 0),
-                1
             )
 
         # video file controls
+        x = 10
+        y = frame_overlay.shape[0] - 25
         if is_playback:
             text = "W/S=+/-1 frame | A/D=+/-200 frames"
-
-            cv2.putText(
+            cv2_putText_outlined(
                 frame_overlay,
                 text,
-                (10, frame_overlay.shape[0] - 25),
-                cv2.FONT_HERSHEY_PLAIN,
+                (x, y),
+                font_scale,
+                color,
+                line_size,
                 1,
-                (0, 255, 0),
-                1
             )
           
         # --------------------------------------------------
@@ -1065,12 +1095,6 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
         # --------------------------------------------------
         if display_flash is not None:
             frame_overlay[:] = display_flash
-
-        if should_run == False:
-            cv2_center_text(frame_overlay,'end',red)
-        elif clear_gui or change_display_mode or trigger_info_menu:
-            cv2_center_text(frame_overlay,'command',red)
-        
 
         if not is_playback and S.window_size != S.live_stream_resulutuin:
             frame_out = cv2.resize(frame_overlay, S.window_size)

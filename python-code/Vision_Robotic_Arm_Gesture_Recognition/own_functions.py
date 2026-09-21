@@ -829,12 +829,10 @@ def cv2_draw_dict(frame:np.ndarray, data:dict, pos:tuple[int, int], font_size=0.
         y += line_spacing
     return frame
 
-def cv2_putText_outlined(img:np.ndarray, text:str, pos:tuple[int,int], font_scale, color=(255,255,255,255), line_size = 4, outlined=2):
+def cv2_putText_outlined(img:np.ndarray, text:str, pos:tuple[int,int], font_scale:float, color=(255,255,255,255), line_size = 4, outlined=2, outline_color=(0,0,0,255)):
     if len(color) == 3: 
             # add alpher chanle
             color = (*color,255)
-    color_outline = (0,0,0,255)
-    # Vertikal zentrieren (Baseline beachten!)
     if outlined:
         cv2.putText(
             img,
@@ -842,7 +840,7 @@ def cv2_putText_outlined(img:np.ndarray, text:str, pos:tuple[int,int], font_scal
             pos,
             cv2.FONT_HERSHEY_SIMPLEX,
             font_scale,
-            color_outline,
+            outline_color,
             line_size+outlined,
             cv2.LINE_AA,
             )
@@ -869,7 +867,7 @@ def pos_in_frame(pos:tuple[int, int], frame:np.ndarray)->bool:
     rect = (0,0,w,h)
     return point_rect_collision(pos, rect)
 
-def cv2_center_text(frame:np.ndarray, text:str, color=(255,255,255)):
+def cv2_center_text(frame:np.ndarray, text:str, color=(255,255,255), top_middle_pos=True):
     font = cv2.FONT_HERSHEY_SIMPLEX
     font_size = 2.0
     thickness = 3
@@ -882,6 +880,8 @@ def cv2_center_text(frame:np.ndarray, text:str, color=(255,255,255)):
     # Position berechnen
     x = (frame.shape[1] - text_width) // 2
     y = (frame.shape[0] + text_height) // 2
+    if top_middle_pos:
+        y = text_height +10
 
     # Text zeichnen
     cv2.putText(

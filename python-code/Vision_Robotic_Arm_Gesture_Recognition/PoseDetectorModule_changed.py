@@ -375,13 +375,17 @@ class poseDetector():
         return most_top_points
 
     def get_visible_hand_side(self)->list:
+        none = [None, None]
         left = [self._left, None]
         right = [None, self._right]
         both = [self._left, self._right]
         v15 = self.lm_visibility[15][1] # left hand wrist in screen
         v16 = self.lm_visibility[16][1] # right hand wrist in screen
 
-        # if only one hand is in screen return this one
+        # if both hands are out of the screen borders
+        if v15 == v16 == 0:
+            return none
+        # if only one hand is visivle in screen return this one
         if v15 < S.visibility_threshold or v16 < S.visibility_threshold:
             if  v15 > v16:
                 return left

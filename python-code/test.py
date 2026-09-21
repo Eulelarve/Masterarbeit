@@ -11,5 +11,6 @@ class r:
 
 e = [i if i else 100 for i in [1,0,2,3]]
 print(e)
-print(next(e))
+if '':
+    print('eee')
 
