@@ -1,6 +1,8 @@
 import json
 import socket
 import numpy as np
+import threading
+from own_functions import add_to_dict, add_dict_to_dict
 
 class SendOnChange:
     """
@@ -88,7 +90,47 @@ def send_info_to(device, printout=False, **infos):
     finally:
         sock.close()
 
-def receive_info(port, timeout=0, buffer_size=4096, printout=False, bind_ip="0.0.0.0"):
+
+class SaveUdpToDict:
+    def __init__(self):
+        self.rx_thread = threading.Thread(target=self.receive_loop, daemon=True)
+        self.on = False
+        self.printout = False
+        self.info_dict = {}
+        self.loop_time:float = 1
+        self.bind_ip = "127.0.0.1"
+
+    def receive_loop(self):
+        while self.on:
+            msg, addr = receive_info(5005, timeout=self.loop_time, printout=self.printout, bind_ip=self.bind_ip)
+            if msg:
+                self.add_dict_to_dict(msg)
+
+    def add_maessage_to_dict(self, msg:dict):
+        add_dict_to_dict(self.info_dict, msg)
+
+    def start_receiving(self):
+        self.on = True
+        self.rx_thread.start()
+
+    def stop_receiving(self):
+        self.on = False
+        self.rx_thread.join(timeout=2)
+
+    def set_dict_conection(self, dict:dict):
+        self.info_dict = dict
+
+    def get_dict_conection(self, dict:dict):
+        dict = self.info_dict
+
+    def get_dict(self):
+        return self.info_dict.copy()
+
+    def clear_dict(self):
+        self.info_dict.clear()
+
+
+def receive_info(port, timeout=0.0, buffer_size=4096, printout=False, bind_ip="0.0.0.0"):
     """
     Receive one UDP JSON packet.
 
@@ -124,7 +166,6 @@ def receive_info(port, timeout=0, buffer_size=4096, printout=False, bind_ip="0.0
 
 
 if __name__ == "__main__":
-    import threading
     import time
 
     def rx_worker():

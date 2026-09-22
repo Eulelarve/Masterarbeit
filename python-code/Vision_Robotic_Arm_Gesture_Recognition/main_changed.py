@@ -9,7 +9,7 @@ import numpy as np
 from datetime import datetime
 from collections import defaultdict
 
-from comunication import SendOnChange
+from comunication import SendOnChange, SaveUdpToDict
 from GUI import GuiOverlay
 from own_functions import ValueBuffer,ListBuffer, CSVWriter, tolist, screenshot, close_to, MoveDetector, get_globe_timeline_curvs , cv2_mouse_callback, MOUSE, map_threshold, cv2_center_text, cv2_putText_outlined
 from angle_handler import RoomAngleDetector
@@ -33,6 +33,7 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
          grab_detection_methode = S.grab_detection_methode,
          show_depth_frame = False,
          full_screen=False,
+         udp_reception_dict={}
          ):
     """
     Video processing entry point.
@@ -118,6 +119,8 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
     angle_detector = RoomAngleDetector()
     communicator = SendOnChange((S.IPv4_audiosystem,S.port))
     gesture_detector = GestureDetector()
+    info_receiver = SaveUdpToDict()
+    info_receiver.start_receiving()
 
     time.sleep(0.5)
 
@@ -1002,6 +1005,14 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
         # --------------------------------------------------
         # draw GUI overlas
         # --------------------------------------------------
+        # receiv infos
+        # --------------------------------------------------
+        infos = info_receiver.get_dict()
+        info_receiver.clear_dict()
+        if 'add_inst' in infos:
+            infos....
+        # --------------------------------------------------
+
         # show and evaluate hands and Mauseposition 
         if not paused and process and pose_found:
             mouse_pos = np.int16(np.array(MOUSE.pos) * [frame_x, frame_y] / S.window_size)

@@ -9,8 +9,8 @@ e = [1]
 class r:
     r=4
 
-e = [i if i else 100 for i in [1,0,2,3]]
+e = {}
+r= e
+r['f'] = 5
 print(e)
-if '':
-    print('eee')
 

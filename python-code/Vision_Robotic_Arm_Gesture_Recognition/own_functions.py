@@ -894,3 +894,29 @@ def cv2_center_text(frame:np.ndarray, text:str, color=(255,255,255), top_middle_
         thickness,
         cv2.LINE_AA
     )
+
+
+
+def add_dict_to_dict(add_on:dict, addeble:dict):
+    for key, value in addeble.items():
+        add_to_dict(add_on, key, value)
+
+def add_to_dict(add_on:dict,key,value):
+    if key not in add_on:
+        add_on[key] = value
+    elif type(add_on[key]) in [list, tuple]:
+        if type(add_on[key]) is tuple:
+             add_on[key] = list(add_on[key])
+        if type(value) in [list,tuple]:
+            for v in value:
+                add_on[key].append(v)
+        else:
+            add_on[key].append(value)
+
+    elif type(add_on[key]) is dict:
+        if type(value) is dict:
+            add_dict_to_dict(add_on[key], value)
+        else:
+            add_on[key] = value
+    else:
+        add_on[key] = value
