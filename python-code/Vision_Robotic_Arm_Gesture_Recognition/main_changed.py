@@ -68,15 +68,8 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
     should_run = True
 
     window_name = S.name+' - '+S.version
-    overlay = GuiOverlay()
-    overlay.add_instrument("flute")
-    overlay.add_instrument("trumpet")
-    overlay.add_instrument("piano")
-    overlay.add_instrument("violin")
-    overlay.add_instrument("trommel")
-    overlay.add_instrument("xylo")
-    overlay.add_instrument("r2d2")
-    overlay.add_instrument("no image")
+    gui = GuiOverlay()
+
 
     frame_counter_processed = 0
     frame_counter_pose = 0
@@ -84,8 +77,8 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
     frame_now = start_frame - 1
     hand_status:list[int|None,int|None] = [None, None]
     video_name = ''
-    visibilety_mode_loop_list = list(S.overlay_visibilety_modes.values())
-    show_processing = 'process' in S.overlay_visibilety_modes[0]
+    visibilety_mode_loop_list = list(S.display_feedback_mode.values())
+    show_processing = 'process' in S.display_feedback_mode[0]
     trigger_text = {'text':'', 'color':green, 'time':0.0}
 
 
@@ -495,7 +488,7 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
         # --------------------------------------------------
         if not paused and process and pose_found:
             # hand and shoulder
-            hand_bussy_in_gui = overlay.grabbing[0] or overlay.grabbing[1]
+            hand_bussy_in_gui = gui.grabbing[0] or gui.grabbing[1]
             pose_detector.find_specific_points(S.active_hand, hand_bussy_in_gui, True)
             pose_hands = pose_detector.hand_center.copy()
             shoulders = pose_detector.shoulder.copy()
@@ -795,22 +788,22 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
         if change_display_mode:
             first_mode = visibilety_mode_loop_list.pop(0)
             visibilety_mode_loop_list.append(first_mode) 
-            overlay.set_gui_visibility(visibilety_mode_loop_list[0])
+            gui.set_gui_visibility(visibilety_mode_loop_list[0])
             show_processing = 'process' in visibilety_mode_loop_list[0]
             trigger_text['text'] = 'change display mode'
             trigger_text['time'] = time.time()
 
         if trigger_info_menu:
-            overlay.show_info_menu = not overlay.show_info_menu
+            gui.show_info_menu = not gui.show_info_menu
             trigger_text['text'] = 'info on/off'
             trigger_text['time'] = time.time()
 
         if clear_gui:
-            overlay.reset_gui()
-            while visibilety_mode_loop_list[0] != S.overlay_visibilety_modes[0]:
+            gui.reset_gui()
+            while visibilety_mode_loop_list[0] != S.display_feedback_mode[0]:
                 first_mode = visibilety_mode_loop_list.pop(0)
                 visibilety_mode_loop_list.append(first_mode) 
-            overlay.set_gui_visibility(visibilety_mode_loop_list[0])
+            gui.set_gui_visibility(visibilety_mode_loop_list[0])
             show_processing = 'process' in visibilety_mode_loop_list[0]
             trigger_text['text'] = 'reset gui'
             trigger_text['time'] = time.time()
@@ -1005,12 +998,14 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
         # --------------------------------------------------
         # draw GUI overlas
         # --------------------------------------------------
-        # receiv infos
+        # add instruments received from udp communication or start input
         # --------------------------------------------------
-        infos = info_receiver.get_dict()
+        if S.add_inst_key in udp_reception_dict:
+            insts = tolist(udp_reception_dict[S.add_inst_key])
+            for inst in insts:
+                gui.add_instrument(inst)
+        udp_reception_dict = info_receiver.get_dict()
         info_receiver.clear_dict()
-        if 'add_inst' in infos:
-            infos....
         # --------------------------------------------------
 
         # show and evaluate hands and Mauseposition 
@@ -1022,12 +1017,12 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
             if S.no_mouse_control:
                 selector3 = {'pos':None, 'grab':None, 'release':None}
 
-            overlay.select(selector1['pos'], selector2['pos'], selector3['pos'])
-            overlay.grab(selector1['grab'], selector2['grab'], selector3['grab'])
-            overlay.move(azimuth=pointing_azimuth,elevation=pointing_elevation)
-            overlay.release(selector1['release'], selector2['release'], selector3['release'])
-        overlay.draw(frame_overlay, show_processing)
-        gui_info = overlay.get_info()
+            gui.select(selector1['pos'], selector2['pos'], selector3['pos'])
+            gui.grab(selector1['grab'], selector2['grab'], selector3['grab'])
+            gui.move(azimuth=pointing_azimuth,elevation=pointing_elevation)
+            gui.release(selector1['release'], selector2['release'], selector3['release'])
+        gui.draw(frame_overlay, show_processing)
+        gui_info = gui.get_info()
         # --------------------------------------------------
         # comunikation Audiosystem
         # --------------------------------------------------
@@ -1222,6 +1217,7 @@ if __name__ == "__main__":
     videos = [v6,v2,v3,v4,v5]
     # videos.reverse()
     r = True
+    start_instruments =  ["trumpet", "trumpet", "Tröte", "piano", "violin","trommel","xylo","r2d2"]  
     while r: #for v in videos:
         # s = S.video_folder+v
         r = main(
@@ -1238,6 +1234,7 @@ if __name__ == "__main__":
             show_globe=False,
             # grab_detection_methode=grab_detection_methode,
             show_depth_frame = False,
+            udp_reception_dict={S.add_inst_key:['dddd']}#start_instruments},
         )
         if r == False:break
     

@@ -17,7 +17,7 @@ hand_opening_factor = 1.3
 skip_frames = 100
 
 active_hand = 'both' # Available modules are: right, left, moving, top, both | 'moving' means take the fastest hand, 'top' means take the most top hand, 'right' means always right hand ...
-no_mouse_control = True
+no_mouse_control = False
 default_buffer_mode = 'median'
 no_hand_frame_count = 30 # by 30 FPS are 30 frames = one secund not hand, to get the no_hand status
 video_folder = r'..\test_videos (gitignore)/'
@@ -49,7 +49,7 @@ left_hand_landmark_ids = [ 15,17,19, 21 ] # left hand landmarks from mediapipe p
 right_hand_landmark_ids = [ 16,18,20, 22 ] # right hand landmarks from mediapipe pose
 gui_info_image_path = r"..\icons\info_image.png"
 gui_tile_max_size = 100
-overlay_visibilety_modes = {1:'show gui', 0:'show gui and processing'}# 2:'show buttons',3:'show buttons and processing' }
+display_feedback_mode = {1:'show gui', 0:'show gui and processing'}# 2:'show buttons',3:'show buttons and processing' }
 grab_detection_methode = 'dif' # can be 'aperture' or 'difference'
 # dynamic grab mode
 dynamic_grab_distance_difference = 1
@@ -59,7 +59,7 @@ hand_status_buffer_size = 3
 hand_status_buffer_atleast = 2
 screenshots_folder = '../screenshots'
 controll_trigger_text_time = 1.0 # in secunds, how long the text feedbeck will be showen in the screen after triggering an controll grsture or key, 0.0 means no text feedback
-
+add_inst_key = 'add_instruments'
 # d455 intrinsiks color frame:              [ 1280x720  p[638.568 367.388]  f[640.329 638.932]  Inverse Brown Conrady [-0.055931 0.0683116 -0.000836038 0.000658576 -0.0223113] ]
 # d455 intrinsiks depth frame (unaligned):  [ 1280x720  p[643.714 366.77]  f[653.798 653.798]  Brown Conrady [0 0 0 0 0] ]
 

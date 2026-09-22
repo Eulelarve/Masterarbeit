@@ -262,7 +262,7 @@ class InstrumentSelection(GUITile):
         type = 'button'
         super().__init__(gui_object, name, None, type)
 
-    def _creage_empty_menu_icon(self):
+    def _creage_empty_bar_icon(self):
         menu = self.image # save menu image
         self._create_image(self.empty_menu_icon_text) # write new image in self.image
         self._create_icon() # image to icon
@@ -273,26 +273,28 @@ class InstrumentSelection(GUITile):
         self._create_icon()
         self.menu_icon = self.icon
 
-    def change_empty_menu(self):
-        if self.rect is None:
-            return
+    def change_empty_bar(self):
         self.empty = len(self.gui.bar) == 0
-        if self.empty:
-            if self.empty_icon is None:
-                self._creage_empty_menu_icon()
-            self.icon = self.empty_icon
-        else:
-            if self.menu_icon is None:
-                self._creage_menu_icon()
-            self.icon = self.menu_icon
+        self.show_empty_icon(self.empty)
+
+    def show_empty_icon(self, show:bool):
+        if self.rect:
+            if show:
+                if self.empty_icon is None:
+                    self._creage_empty_bar_icon()
+                self.icon = self.empty_icon
+            else:
+                if self.menu_icon is None:
+                    self._creage_menu_icon()
+                self.icon = self.menu_icon
         
     
     def select(self, selector_index:int):
         super().select(selector_index)
         if not self.gui.bar_rect:
             # selgection menu/bar is closed... so open it now
-            self.change_empty_menu()
-            self.gui.show_selection_menu(True)
+            self.change_empty_bar()
+            self.gui.show_selection_bar(True)
 
     def update_rect(self, frame):
         fh, fw = frame.shape[:2]
@@ -526,10 +528,11 @@ class GuiOverlay:
             insert(self.bar, 
                    instrument.bar_pos if position is None else position, 
                    instrument)
-            self.selection_btn.change_empty_menu()
+            self.selection_btn.change_empty_bar()
             self.define_selecton_bar()
             if self.any_pos_in_bar_zoon():
                 instrument.show = True
+            print('Added')#test
 
     def _add_to_room(self, instrument:Instrument):
         instrument.resize(self.room_tile_size)
@@ -539,13 +542,14 @@ class GuiOverlay:
             self.bar.remove(instrument)
         if instrument not in self.room:
             self.room.append(instrument)
-            self.show_selection_menu(False)
+            self.show_selection_bar(False)
 
-    def show_selection_menu(self, show:bool):
+    def show_selection_bar(self, show:bool):
         if show:
             self.bar_rect = self.define_selecton_bar()
         else:
             self.bar_rect = None
+            self.selection_btn.show_empty_icon(False)
         self.show_bar_instrument(show)
         # self.show_room_instrument(not show)
 
@@ -653,8 +657,8 @@ class GuiOverlay:
             return False
         if self.pos_in_bar_zoon(pos):
             return True
-        # if self.volume_bar.collide(pos):
-        #     return True
+        if self.volume_bar.collide(pos):
+            return True
         if self.selection_btn.collide(pos):
             return True
         if self.frame is not None: 
@@ -666,7 +670,7 @@ class GuiOverlay:
     def select(self, hand_pos1:tuple[int,int],hand_pos2:tuple[int,int],mouse_pos:tuple[int,int]):
         self.pointer_pos = [() if pos is None else tuple(pos) for pos in (hand_pos1, hand_pos2, mouse_pos)]
         if not self.any_pos_in_bar_zoon():
-            self.show_selection_menu(False)
+            self.show_selection_bar(False)
             self.show_volume_bar(self.instrument_in_room_selected())
 
         for i in range(3):
@@ -680,7 +684,7 @@ class GuiOverlay:
                 self.selected[i] = None
                 for tile in [*self.menu ,*self.bar, *self.room]: #  list order is selection priorety
                     if not tile in self.selected:
-                        if self.selected[i] is None:
+                        if self.selected[i] in [None, self.volume_bar]:
                             if tile.pointer_selection(pos,i):
                                 self.selected[i] = tile
                         else:
@@ -716,7 +720,7 @@ class GuiOverlay:
             self.volume_bar.show = show
             self.selection_btn.show = not show
             if show:
-                self.show_selection_menu(False)
+                self.show_selection_bar(False)
                 if self.selection_btn in self.selected:
                     self.selection_btn.unselect()
 

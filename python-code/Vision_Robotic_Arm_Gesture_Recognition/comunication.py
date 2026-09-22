@@ -104,7 +104,7 @@ class SaveUdpToDict:
         while self.on:
             msg, addr = receive_info(5005, timeout=self.loop_time, printout=self.printout, bind_ip=self.bind_ip)
             if msg:
-                self.add_dict_to_dict(msg)
+                self.add_maessage_to_dict(msg)
 
     def add_maessage_to_dict(self, msg:dict):
         add_dict_to_dict(self.info_dict, msg)
