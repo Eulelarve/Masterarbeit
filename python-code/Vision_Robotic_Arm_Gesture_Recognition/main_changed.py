@@ -202,7 +202,7 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
         profile = pipeline.start(config)
         frames = pipeline.wait_for_frames()
         if use_rs_depth and align_depth:
-            frames = aligner.process(frames) # das alighnment geht noch nicht
+            frames = aligner.process(frames) # das alinment geht noch nicht
 
         color_frame = frames.get_color_frame()
         depth_frame = frames.get_depth_frame()
