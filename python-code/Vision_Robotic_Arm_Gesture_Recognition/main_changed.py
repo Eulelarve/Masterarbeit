@@ -330,7 +330,6 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
             process = not process
 
         elif key == ord('p'): # p -> screen shot
-            if screenshot(frame=frame_overlay, name='shreenshot', ask_name=False):
                 display_flash = white
 
         elif key == ord('v'): # v -> change displayed informationes
@@ -502,7 +501,7 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
        
        # ==================================================
        # start of for-handside loop
-        for _i in range(2):
+        for _i in range(len(pose_hands)):
             # for if hand not found or not in screen. if a hand is found this will be owerriwen later
             if hand_detectors[_i].no_hand_count(S.no_hand_frame_count):
                 hand_status[_i] = hand_not_found_means
@@ -1039,8 +1038,12 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
         #         moves_dict[grab_detection_methode].append([frame_now, moved_angle])
 
         # --------------------------------------------------
-        # foto at frame 
+        # foto at frame or bei pressing P
         # --------------------------------------------------
+        if display_flash:
+            if not screenshot(frame=frame_overlay, name='shreenshot', ask_name=False):
+                display_flash = None
+
         if foto_frames:
             foto_frame = min(foto_frames)
             if frame_now == foto_frame:
@@ -1051,7 +1054,7 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
                 pose_rate = round(frame_counter_pose / frame_counter_processed *100, 1)
                 fps_mean = round(fps_sum / frame_counter_processed, 1)
 
-                screenshot(frame=frame, name=source, ask_name=False,
+                if screenshot(frame=frame, name=source, ask_name=False,
                            info=[
                                     frame_x, frame_y,
                                     _roi_size, 
@@ -1060,7 +1063,11 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
                                     frame_counter_hand, hand_rate,
                                     fps_mean,
                                 ]
-                           )
+                           ):
+                    display_flash = white
+                else:
+                    display_flash = None
+                    
 
         # --------------------------------------------------
         # pause at frame or later if skiped
@@ -1099,14 +1106,16 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
         # --------------------------------------------------
         # Display the processed frame - opens a window 
         # --------------------------------------------------
-        if display_flash is not None:
-            frame_overlay[:] = display_flash
+
 
         if not is_playback and S.window_size != S.live_stream_resulutuin:
             frame_out = cv2.resize(frame_overlay, S.window_size)
         else:
             frame_out = frame_overlay.copy()
 
+        if display_flash is not None:
+            frame_out[:] = display_flash
+            
         cv2.imshow(window_name, frame_out)
 
         if use_rs_depth and show_depth_frame:
@@ -1164,7 +1173,6 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
     CSVWriter.write('HAND_detektionmethod_TEST.csv',
         name=source,
         frame_x=frame_x, frame_y=frame_y,
-        roi_size=_roi_size, 
         frame_counter_processed=frame_counter_processed,
         frame_counter_pose=frame_counter_pose, pose_rate=pose_rate,
         frame_counter_hand=frame_counter_hand, hand_rate=hand_rate,
