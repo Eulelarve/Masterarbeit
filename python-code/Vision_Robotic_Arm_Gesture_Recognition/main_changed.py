@@ -335,7 +335,7 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
         elif key == ord('v'): # v -> change displayed informationes
             change_display_mode = True
 
-        elif key == ord('c'): # c -> reset all instruments 
+        elif key == ord('r'): # r -> reset all instruments and trhe gui 
             clear_gui = True
 
         elif key == ord('i'): # i -> show info window with gesture controles
@@ -1242,7 +1242,7 @@ if __name__ == "__main__":
             show_globe=False,
             # grab_detection_methode=grab_detection_methode,
             show_depth_frame = False,
-            udp_reception_dict={S.add_inst_key:['dddd']}#start_instruments},
+            udp_reception_dict={S.add_inst_key:start_instruments},
         )
         if r == False:break
     
