@@ -96,18 +96,21 @@ class SaveUdpToDict:
         self.rx_thread = threading.Thread(target=self.receive_loop, daemon=True)
         self.on = False
         self.printout = False
-        self.info_dict = {}
+        self.msg_list:list[dict] = []
         self.loop_time:float = 1
         self.bind_ip = "127.0.0.1"
 
     def receive_loop(self):
         while self.on:
             msg, addr = receive_info(5005, timeout=self.loop_time, printout=self.printout, bind_ip=self.bind_ip)
-            if msg:
-                self.add_maessage_to_dict(msg)
+            self.add_meassage(msg)
 
-    def add_maessage_to_dict(self, msg:dict):
-        add_dict_to_dict(self.info_dict, msg)
+    # def add_meassage_to_dict(self, msg:dict):
+    #     add_dict_to_dict(self.info_dict, msg)
+
+    def add_meassage(self,msg:dict):
+        if msg:
+            self.msg_list.append(msg)
 
     def start_receiving(self):
         self.on = True
@@ -117,17 +120,23 @@ class SaveUdpToDict:
         self.on = False
         self.rx_thread.join(timeout=2)
 
-    def set_dict_conection(self, dict:dict):
-        self.info_dict = dict
+    # def set_dict_conection(self, dict:dict):
+    #     self.info_dict = dict
 
-    def get_dict_conection(self, dict:dict):
-        dict = self.info_dict
+    # def get_dict_conection(self, dict:dict):
+    #     dict = self.info_dict
 
-    def get_dict(self):
-        return self.info_dict.copy()
+    def get_msg(self, keep_in_list=False)->dict:
+        if self.msg_list:
+            if keep_in_list:
+                msg = self.msg_list[0].copy()
+            else:
+                msg = self.msg_list.pop(0)
+            return msg
+        return {}
 
-    def clear_dict(self):
-        self.info_dict.clear()
+    def clear_msg_list(self):
+        self.msg_list.clear()
 
 
 def receive_info(port, timeout=0.0, buffer_size=4096, printout=False, bind_ip="0.0.0.0"):

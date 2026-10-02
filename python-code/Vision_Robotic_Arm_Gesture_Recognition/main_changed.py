@@ -110,8 +110,8 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
     hand_detectors = (HandDetector(), HandDetector())
     pose_detector = poseDetector()
     angle_detector = RoomAngleDetector()
-    communicator = SendOnChange((S.IPv4_audiosystem,S.port))
     gesture_detector = GestureDetector()
+    communicator = SendOnChange((S.IPv4_audiosystem,S.port))
     info_receiver = SaveUdpToDict()
     info_receiver.start_receiving()
 
@@ -1003,8 +1003,7 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
             insts = tolist(udp_reception_dict[S.add_inst_key])
             for inst in insts:
                 gui.add_instrument(inst)
-        udp_reception_dict = info_receiver.get_dict()
-        info_receiver.clear_dict()
+        udp_reception_dict = info_receiver.get_msg()
         # --------------------------------------------------
 
         # show and evaluate hands and Mauseposition 

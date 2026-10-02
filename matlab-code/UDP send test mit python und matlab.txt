@@ -1,4 +1,4 @@
-1) führe das matlab receiv udp.m script aus
+1) führe das matlab "receiv_udp.m" script aus
 2) öffne das windows terminal /powershell wechsle zum verzeichnes des python venvs: "D:\StudentProjects\2026 SoSe\Wegener - Gestensteuerung\Masterarbeit\python-code\venv\Scripts\"
 3) gebe dazu das ein: 
 	cd "D:\StudentProjects\2026 SoSe\Wegener - Gestensteuerung\Masterarbeit\python-code\venv\Scripts\"

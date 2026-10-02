@@ -3,14 +3,5 @@ from Vision_Robotic_Arm_Gesture_Recognition.own_functions import ValueBuffer, cl
 from collections import deque, defaultdict
 
 import math
-i = [[1,2],[2,3]]
-i = [1]
-e = [1]
-class r:
-    r=4
-
-e = {}
-r= e
-r['f'] = 5
-print(e)
+print(1 in None)
 
