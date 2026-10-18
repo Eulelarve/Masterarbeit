@@ -1,5 +1,0 @@
-numpy
-matplotlib
-opencv-contrib-python
-protobuf==3.20.1 #this previous version fixes a problem with mediapipe and python 3.10 with newer versions of protobuf
-mediapipe

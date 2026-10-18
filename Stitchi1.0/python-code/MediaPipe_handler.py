@@ -1,3 +1,8 @@
+"""
+    this code bassed on code from another project.
+    Projectlink: https://github.com/e-candeloro/Vision-Robotic-Arm-Gesture-Recognition/tree/master 
+"""
+
 import mediapipe as mp
 import numpy as np
 import cv2
@@ -5,10 +10,13 @@ import cv2
 import time
 import math
 
-from own_functions import ValueBuffer, close_to, MoveDetector, ListBuffer
+import settings as S
+
+from own_functions import fit_roi_landmarks_to_frame, ValueBuffer, close_to, ListBuffer, ValueBufferTime, MoveDetector
 from coordinates_handler import get_center_of_landmarks
 from angle_handler import angle_between_points, draw_angle_between_points
-import settings as S
+from collections import defaultdict
+
 
 POSE_CONNECTIONS = [
     # Gesicht
@@ -40,7 +48,7 @@ POSE_CONNECTIONS = [
     (28, 32),
 ]
 
-class poseDetector():
+class PoseDetector():
     def __init__(self, mode=False, modCompl=1, upBody=False, smooth=True, segm=False, smooth_seg=True, detCon=0.5, trackCon=0.5):
         """Pose detector class that is used to detect the position of the body keypoints.
 
@@ -83,12 +91,6 @@ class poseDetector():
                                      min_tracking_confidence=self.trackCon)
         self.mpDraw = mp.solutions.drawing_utils
         self.move_detectors = [MoveDetector(S.moving_min_speed, S.moving_check_time) for _ in self.lm_range]
-        self.pixel_pos_smoother = [ListBuffer(S.position_average_buffer_size,'average') for _ in self.lm_range]
-        self.world_pos_smoother = [ListBuffer(S.position_average_buffer_size,'average') for _ in self.lm_range]
-        self.pixel_pos_anti_outliner = [ListBuffer(S.position_median_buffer_size,'median') for _ in self.lm_range]
-        self.world_pos_anti_outliner = [ListBuffer(S.position_median_buffer_size,'median') for _ in self.lm_range]
-        self.visibility_anti_outliner = [ValueBuffer(S.position_median_buffer_size,'median') for _ in self.lm_range]
-
         self.left_hand_points = S.left_hand_landmark_ids
         self.right_hand_points = S.right_hand_landmark_ids
         self._left = 'left'
@@ -138,17 +140,7 @@ class poseDetector():
                 x, y = (lm.x * self.frame_w), (lm.y * self.frame_h)
                 self.lm_list.append([id, int(x), int(y)])
 
-                self.disjiggle_pixel_landmark_list()
-
         return self.lm_list
-
-    def disjiggle_pixel_landmark_list(self):
-        for id, x,y in self.lm_list:
-            if S.position_median_buffer_size >= 3:
-                x, y = self.pixel_pos_anti_outliner[id].add_and_get((x, y))
-            if S.position_average_buffer_size >= 2:
-                x, y = self.pixel_pos_smoother[id].add_and_get((x, y))
-            self.lm_list[id][:] = id, int(x), int(y) # use the existing sub list
 
     def draw_skeleton(self, frame):
         connections = POSE_CONNECTIONS
@@ -169,10 +161,7 @@ class poseDetector():
             pose = self.results.pose_landmarks
             for id, lm in enumerate(pose.landmark):
                 if self.landmarke_in_frame(id):
-                    if S.position_median_buffer_size >= 3:
-                        vis = self.visibility_anti_outliner[id].add_and_get(lm.visibility)
-                    else:
-                        vis = lm.visibility
+                    vis = lm.visibility
                 else:
                     vis = 0
                 self.lm_visibility.append([id, vis])
@@ -256,22 +245,7 @@ class poseDetector():
             pose = self.results.pose_world_landmarks
             for id, lm in enumerate(pose.landmark):
                 self.lm_3dlist.append([id, lm.x, lm.y, lm.z])
-                
-            self.disjiggle_world_landmark_list()
-            # if draw:
-            #     self.mpDraw.plot_landmarks(
-            #         self.results.pose_world_landmarks, self.mpPose.POSE_CONNECTIONS)
-
         return self.lm_3dlist
-
-    def disjiggle_world_landmark_list(self):
-        for id, x,y,z in self.lm_3dlist:
-            if S.position_median_buffer_size >= 3:
-                x, y, z = self.world_pos_anti_outliner[id].add_and_get((x, y, z))
-            if S.position_average_buffer_size >= 2:
-                x, y, z = self.world_pos_smoother[id].add_and_get((x, y, z))
-            self.lm_3dlist[id][:] = id, x, y, z
-
 
     def findAngle(self, frame, i1: int, i2: int, i3: int, angle3d=False, draw=True,text_pos=(-50,+50)):
         '''Find the angle between 3 points i1, i2, i3 in succession, where i2 is the point where the angle is measured.
@@ -290,11 +264,6 @@ class poseDetector():
         Returns:
             -angle: angle in degrees between the segment s12 and the segment s23 having p2 as vertex, where the angle is located
         '''
-        # # checks if keypoints values are correct
-        # assert i1 >= 0 and i1 <= 32, f"p1 must be >=0 and <=32"
-        # assert i2 >= 0 and i2 <= 32, f"p2 must be >=0 and <=32"
-        # assert i3 >= 0 and i3 <= 32, f"p3 must be >=0 and <=32"
-        
 
         if angle3d:
             assert len(
@@ -474,68 +443,300 @@ class poseDetector():
         body_len = np.linalg.norm(x_y_shoulder - x_y_hip, ord=2)
         return body_len
 
-# ---------------------------------------------------------------
-# MAIN SCRIPT EXAMPLE FOR REAL-TIME POSE TRACKING USING A WEBCAM
-# ---------------------------------------------------------------
+
+# ===================================================
+# Hands
+# ===================================================
+
+HAND_CONNECTIONS = [
+    # Daumen
+    (0, 1),
+    (1, 2),
+    (2, 3),
+    (3, 4),
+
+    # Zeigefinger
+    (0, 5),
+    (5, 6),
+    (6, 7),
+    (7, 8),
+
+    # Mittelfinger
+    (0, 9),
+    (9, 10),
+    (10, 11),
+    (11, 12),
+
+    # Ringfinger
+    (0, 13),
+    (13, 14),
+    (14, 15),
+    (15, 16),
+
+    # Kleiner Finger
+    (0, 17),
+    (17, 18),
+    (18, 19),
+    (19, 20),
+]
+
+class HandDetector():
+    def __init__(self, mode=False, maxHands=1, modCompl=1, detCon=0.5, trackCon=0.5):
+        """Hand detector class that is used to detect the hand keypoints.
+
+        Args:
+            mode (bool, optional): If set to false, the solution treats the input images as a video stream. It will try to detect hands in the first input images, and upon a successful detection further localizes the hand landmarks. In subsequent images, once all max_num_hands hands are detected and the corresponding hand landmarks are localized, it simply tracks those landmarks without invoking another detection until it loses track of any of the hands. This reduces latency and is ideal for processing video frames. If set to true, hand detection runs on every input image, ideal for processing a batch of static, possibly unrelated, images. Default to false.
+            
+            maxHands (int, optional): Maximum number of hands to detect. Default to 1.
+            
+            modCompl (int, optional): Complexity of the hand landmark model: 0 or 1. Landmark accuracy as well as inference latency generally go up with the model complexity. Default to 1.
+            
+            detCon (float, optional): Minimum confidence value ([0.0, 1.0]) from the hand detection model for the detection to be considered successful. Default to 0.5.
+            
+            trackCon (float, optional): Minimum confidence value ([0.0, 1.0]) from the landmark-tracking model for the hand landmarks to be considered tracked successfully, or otherwise hand detection will be invoked automatically on the next input image. Setting it to a higher value can increase robustness of the solution, at the expense of a higher latency. Ignored if static_image_mode is true, where hand detection simply runs on every image. Default to 0.5.
+        """
+        self.lm_range = range(21)
+        self.mode = mode  # static image mode,
+        self.maxHands = maxHands  # max number of hands to track
+        self.modCompl = modCompl  # complexity of the model (can be 0 or 1)
+        self.detCon = detCon  # detection confidence threshold
+        self.trackCon = trackCon  # tracking confidence threshold
+        self.mpHands = mp.solutions.hands
+        self.hands = self.mpHands.Hands(static_image_mode=self.mode,
+                                        max_num_hands=self.maxHands,
+                                        model_complexity=self.modCompl,
+                                        min_detection_confidence=self.detCon,
+                                        min_tracking_confidence=self.trackCon)
+        self.mpDraw = mp.solutions.drawing_utils
+
+        self.is_hand_open:int = None
+        self.no_hand_counter = 0
+
+    ### added methods
+    def get_hand_centers(self, frame=None):
+        used_marks = [5,17]
+        if self.results.multi_hand_landmarks:
+            hands_center = []
+            for hand_landmarks in self.results.multi_hand_landmarks:
+                x_coords = [hand_landmarks.landmark[i].x for i in used_marks]
+                y_coords = [hand_landmarks.landmark[i].y for i in used_marks]
+                center_x = sum(x_coords) / len(x_coords)
+                center_y = sum(y_coords) / len(y_coords)
+                if frame is not None:
+                    center_x *= frame.shape[1]
+                    center_y *= frame.shape[0]
+                    
+                hands_center.append((center_x, center_y))
+
+            return hands_center
+        
+    def hand_close_to(self, should_pos:list, max_distance, frame, hand_side_index:int=0, draw=False):
+        hs_i = hand_side_index
+        # first chesk
+        hand_centers = self.get_hand_centers()
+        if not hand_centers:
+            return False
+        # check parameters
+        should_pos = list(should_pos) # make sure it is a list, not a tuple and make a copy of it, so the original list is not changed
+        if max_distance >= 1: # max distance is bigger than 1, so it is in pixel values, change to relative values
+            max_distance = max_distance / frame.shape[0] # use height of the frame for relative distance
+        if should_pos[0] >= 1: # x coordinate is bigger than 1, so it is in pixel values, change to relative values
+            should_pos[0] = should_pos[0] / frame.shape[1]
+        if should_pos[1] >= 1: # y coordinate is bigger than 1, so it is in pixel values, change to relative values
+            should_pos[1] = should_pos[1] / frame.shape[0]
+        # claculate distance x y
+        x_diff = abs(hand_centers[hs_i][0] - should_pos[0])
+        y_diff = abs(hand_centers[hs_i][1] - should_pos[1])
+        # elliptical rectification
+        x_diff = x_diff / frame.shape[1] * frame.shape[0] # x dist = x dist / x frame * y frame
+        # check distance
+        if x_diff**2 + y_diff**2 <= max_distance**2:
+            color = S.green
+            output = True
+        else:
+            color = S.red
+            output = False
+        # draw
+        if draw:
+            radius = int(max_distance * frame.shape[0]) # change to pixel values
+            cv2.circle(frame, (int(should_pos[0]*frame.shape[1]), int(should_pos[1]*frame.shape[0])), radius, color, 1) # circle
+            cv2.circle(frame, (int(hand_centers[hs_i][0]*frame.shape[1]), int(hand_centers[hs_i][1]*frame.shape[0])), 3, S.red, -1) # dot
+        return output
+      
+       
+
+    def choose_hand(self, left_right_top='top'):
+        """ Chooses the hand landmarks and index to return based on the specified mode.
+        Args:
+            left_right_top (str, optional): Mode for selecting hand landmarks. 
+                "top" - selects the hand whose center is highest in the image.
+                "left" - selects the homans left hand.
+                "right" - selects the homans right hand.
+                "first" - selects the first detected hand.
+                Default is "top".
+        Returns:
+            hand_landmarks: The selected hand landmarks or None if no hand is detected.
+            index: The index of the selected hand in the multi_hand_landmarks list, or None if no hand is detected.
+        """
+        self.hand_landmarks = None
+        index:int = None
+
+        if self.results.multi_hand_landmarks and self.results.multi_handedness:
+            
+            # only the first leter is capital letter, so if fits to the Mediapipe label format
+            left_right_top = left_right_top.capitalize() 
 
 
-def main(camera_source=0, show_fps=True, verbose=False):
+            #--------------------------------------------------
+            # Only one hand detected, return it regardless of the mode
+            #--------------------------------------------------
 
-    assert camera_source >= 0, f"source needs to be greater or equal than 0\n"
+            if len(self.results.multi_hand_landmarks) == 1 or left_right_top == "First":
+                index = 0
+            
+            # --------------------------------------------------
+            # Oberste Hand
+            # --------------------------------------------------
 
-    ctime = 0  # current time (used to compute FPS)
-    ptime = 0  # past time (used to compute FPS)
+            elif left_right_top == "Top":
 
-    cv2.setUseOptimized(True)
+                top_hand, index = self._get_topmost_hand(
+                    self.results.multi_hand_landmarks
+                )
 
-    # capture the input from the default system camera (camera number 0)
-    cap = cv2.VideoCapture(camera_source)
-    detector = poseDetector(detCon=0.7, trackCon=0.7, modCompl=1)
+            # --------------------------------------------------
+            # Linke oder rechte Hand
+            # --------------------------------------------------
 
-    if not cap.isOpened():  # if the camera can't be opened exit the program
-        print("Cannot open camera")
-        exit()
+            elif left_right_top in ("Left", "Right"):
 
-    while True:  # infinite loop for webcam video capture
+                desired_label = left_right_top.capitalize()
 
-        ret, frame = cap.read()  # read a frame from the webcam
+                for i, (hand_landmarks, handedness) in enumerate(zip(
+                    self.results.multi_hand_landmarks,
+                    self.results.multi_handedness)):
 
-        if not ret:  # if a frame can't be read, exit the program
-            print("Can't receive frame from camera/stream end")
-            break
+                    label = handedness.classification[0].label
 
-        frame = detector.findPose(frame=frame,draw=False)
-        lm_list = detector.findPosePosition(
-            frame, additional_info=True, draw=False)
-        lm_3dlist = detector.find3DPosePosition()
+                    if label == desired_label:
+                        index = i
 
-        if len(lm_list) > 0 and len(lm_3dlist) > 0:
-            elbow_angle_3d = detector.findAngle(
-                frame, 12, 14, 16, angle3d=True, draw=True)
+            elif left_right_top == 'both':
+                pass
+            else:
+            # --------------------------------------------------
+            # Invalid mode
+            # --------------------------------------------------
+
+                print(f"Invalid hand selection mode: {left_right_top}. Please choose 'top', 'left' or 'right'.")
+
+        if index is not None:
+            self.hand_landmarks = self.results.multi_hand_landmarks[index].landmark
+            self.hand_world_landmarks = self.results.multi_hand_world_landmarks[index].landmark
+
+        return index 
 
 
-        # compute the actual frame rate per second (FPS) of the webcam video capture stream, and show it
-        ctime = time.perf_counter()
-        fps = 1.0 / float(ctime - ptime)
-        ptime = ctime
+    def _get_topmost_hand(self, multi_hand_landmarks):
+        """
+        Gibt die Hand zurück, deren Mittelpunkt
+        am weitesten oben im Bild liegt.
+        """
 
-        if show_fps:
-            cv2.putText(frame, "FPS:" + str(round(fps, 0)), (10, 400), cv2.FONT_HERSHEY_PLAIN, 2,
-                        (255, 255, 255), 1)
+        top_hand_landmarks = None
+        best_y = float("inf")
+        index = None
 
-        # show the frame on screen
-        cv2.imshow("Frame (press 'q' to exit)", frame)
+        for i, hand_landmarks in enumerate(multi_hand_landmarks):
 
-        # if the key "q" is pressed on the keyboard, the program is terminated
-        if cv2.waitKey(20) & 0xFF == ord('q'):
-            break
+            mean_y = sum(
+                lm.y for lm in hand_landmarks.landmark
+            ) / len(hand_landmarks.landmark)
 
-    cap.release()
-    cv2.destroyAllWindows()
+            if mean_y < best_y:
+                best_y = mean_y
+                top_hand_landmarks = hand_landmarks
+                index = i
 
-    return
+        return top_hand_landmarks, index
 
+    def findHands(self,frame, roi=None, frame_to_draw=None, draw_roi=True):
+        """ Detects the hands in the input image.
+
+        Args:
+            frame (OpenCV BGR image): Input image.
+            roi (tuple, optional): Region of interest in the format (x, y, w, h). If specified, only this region will be processed for hand detection. Defaults to None.
+            draw (bool, optional): If set to true, draw the hand(s) keypoints and connections. Defaults to True.
+            return_handedness (bool, optional): Returns the list of score and label for right handedness.ATTENTION: if the input image is not flipped, returns the label Right for the left hand and vice-versa!!!. Defaults to False.
+
+        Returns:
+            frame:  opencv image in BGR with keypoints drawn if draw is set to true
+            right_handedness (optional): list of scores and labels for hand handedness.
+        """
+        '''
+        Detects the hands and draws keypoints of the hands given and input image.
+        :param: img (opencv image in BGR)
+        :param: draw (boolean, draw the keypoint if set to true, default is true)
+        :returns: img (opencv image in BGR with keypoints drawn if draw is set to true)
+        '''
+        green = (0, 255, 0)
+        white = (255,255,255)
+        self.frame_w = frame.shape[1]
+        self.frame_h = frame.shape[0]
+
+        # if ROI is specified, only process the region of interest, otherwise process the whole image
+        if roi:
+            x, y, w, h = roi
+            search_region = frame[y:y+h, x:x+w]
+            
+            # draw the region of interest (ROI) if specified
+            if draw_roi:
+                cv2.rectangle(frame_to_draw, (x, y), (x + w, y + h),green,  2)
+        else:
+            search_region = frame
+
+        imgRGB = cv2.cvtColor(search_region, cv2.COLOR_BGR2RGB)
+        self.results = self.hands.process(imgRGB)
+
+        # if hands are detected
+        if self.results.multi_hand_landmarks:
+
+            # for each hand
+            for handLMs in self.results.multi_hand_landmarks:
+                # applies the offset to fit roi landmarks in the original frame
+                if roi:
+                    width_hight = frame.shape[1], frame.shape[0]
+
+                    fit_roi_landmarks_to_frame(
+                        landmarks=handLMs.landmark, 
+                        pixel_frame_size=width_hight, 
+                        pixel_region_x_y_w_h=roi
+                        )
+
+            return self.results.multi_handedness
+
+    def create_pixel_landmark_list(self)->list:
+        self.lm_list = []
+
+        if self.hand_landmarks:
+            for id, lm in enumerate(self.hand_landmarks):
+                x, y = (lm.x * self.frame_w), (lm.y * self.frame_h)
+                self.lm_list.append([id, int(x), int(y)])
+        return self.lm_list
+
+    def draw_skeleton(self, frame):
+        connections = HAND_CONNECTIONS
+        for start, end in connections:
+            cv2.line(
+                frame,
+                self.lm_list[start][1:3],
+                self.lm_list[end][1:3],
+                S.white,
+                2
+            )
+        for id, *xy in self.lm_list:
+            cv2.circle(frame, xy, 4, S.white, -1)
 
 if __name__ == '__main__':
-    # change this to zero if you don't have a usb webcam but an in-built camera
-    main(camera_source=1)
+    pass
+    

@@ -1,11 +1,15 @@
 import time 
 import math
-from own_functions import ValueBufferTime
+import cv2
+import numpy as np
+from collections import defaultdict
+from own_functions import ValueBufferTime, ValueBuffer
+import settings as S
 
 class GestureDetector():
     
     def __init__(self):
-        self.hands_lm = []
+        self.hands_lm = [[],[]]
         self.pose_lm = []
         self.pose_visibilety = []
         self.pose_movement = []
@@ -16,6 +20,7 @@ class GestureDetector():
         self.grab = [False, False]
         self.releas = [False, False]
         self.is_grabbing = [False, False]
+        self.no_hand_counter = [0,0]
 
         ## control gestures
         self.pointing_up_start_time:int|None = None
@@ -36,11 +41,6 @@ class GestureDetector():
         self.hand_shoulder_x_diff_max_time:int|None = None
         self.swiping_hand_id:int|None = None
 
-    def set_pixel_landmarks(self, hand_left:list[list[int,int,int]],hand_right:list[list[int,int,int]], pose:list[list[int,int,int]]):
-        """ take two lists of landmark pixel coordinates, lile[[index, screen_x, screen_y], [...], ...]
-        """
-        self.hands_lm = hand_left.copy(), hand_right.copy()
-        self.pose_lm = pose.copy()
 
     def find_info_trigger(self):
             self.info_trigger = False # reset trigger
@@ -300,36 +300,6 @@ class GestureDetector():
                 self.visibilety_mode_trigger = True
                 print('gesture detected: visibilety_mode_trigger')
         return self.visibilety_mode_trigger          
-
-    # def arm_swipe(self)->bool:
-    #     if self.active_hand_id != self.swiping_hand_id:
-    #         # active hand changed
-    #         self.swipe_course.clear()
-    #         self.swiping_hand_id = self.active_hand_id
-
-    #     hand = self.pose_lm[self.swiping_hand_id][1:3]
-    #     time_now = time.time()
-    #     self.swipe_course.append({
-    #                                 'time':time_now, 
-    #                                 'x': hand[0], 
-    #                                 'y':hand[1]
-    #                             })
-    #     while time_now - self.swipe_course[0]['time'] > 0.7:
-    #         # while the first element is older then 0.7 sec
-    #         self.swipe_course.pop(0)
-
-    #     x_max = max(e['x'] for e in self.swipe_course)
-    #     x_min = min(e['x'] for e in self.swipe_course)
-    #     if x_max - x_min > self.upper_body_len * 2:
-    #         # hand travels in x direction more than the upper body size times 2
-    #         y_max = max(e['y'] for e in self.swipe_course)
-    #         y_min = min(e['y'] for e in self.swipe_course)
-    #         if y_max - y_min < self.upper_body_len * 0.5:
-    #             # hand travels in x direction less than the upper body size times 0.5
-    #             self.swipe_course.clear()
-    #             return True
-    #     # hand moves not fare or fast enough
-    #     return False
     
     def double_arm_swipe(self)->bool:
         gesture_max_time = 0.7
@@ -365,25 +335,136 @@ class GestureDetector():
                 print('gesture detected: clear_trigger')
         return self.clear_trigger 
 
+    # -----------------------------------------
+    # detect grabbing methodes area
+    # -----------------------------------------
+    
+    def hand_open_close_dynamic(self, hand_id, frame=None, draw=True, min_distance_difference=S.dynamic_grab_distance_difference, time_difference=S.dynamic_grab_time_difference):
+        hand_lm = self.hands_lm[hand_id]
+        wrist = hand_lm[0][1:3]
+        middle_finger_tip = hand_lm[12][1:3]
+        thumb_tip = hand_lm[4][1:3]
+        pinky_tip = hand_lm[20][1:3]
+        red = S.red
+        blue = S.blue
 
+        key = str(min_distance_difference)+str(time_difference)+str(hand_id)
+        self.no_hand_counter[hand_id] = 0
+        # get distance
+        distance = max(math.dist(wrist, middle_finger_tip), math.dist(thumb_tip, pinky_tip))
+        # buffering
+        if getattr(self, "dist_smoother", None) is None:
+            self.dist_smoother = defaultdict(lambda: ValueBuffer(3))
+            self.dist_and_time_buffer = defaultdict(lambda: ValueBufferTime(time_difference))
+            self.hand_status[hand_id] = 1 # initialisie with hand opening
+        distance = self.dist_smoother[key].add_and_get_median(distance)
+        self.dist_and_time_buffer[key].add(distance)
 
+        # calcumation
+        rel_dif = abs(self.dist_and_time_buffer[key].difference / self.dist_and_time_buffer[key].min)
+        # desision
+        if rel_dif >= min_distance_difference: # hand startus change
+            if self.dist_and_time_buffer[key].i_max > self.dist_and_time_buffer[key].i_min: 
+                # max follows min value
+                self.hand_status[hand_id] = 1 # hand opening
+            else:           
+                # min follows max value
+                self.hand_status[hand_id] = 0 # hand closing
 
+        # drawing
+        color = red
+        if self.hand_status[hand_id]:
+            color = blue
+        if draw and frame is not None:
+            cv2.line(frame, wrist, middle_finger_tip, color, 3)
+            cv2.line(frame, thumb_tip, pinky_tip, color, 3)
+        return self.hand_status[hand_id]
+    
+    def no_hand_count(self,hand_id, frames_for_no_hand:int ,add=1):
+        # set the hand status to None if a hand is not found during "frames_for_no_hand" Frames
+        # will be reseted if a hand is found
+        self.no_hand_counter[hand_id] += add
+        if self.no_hand_counter[hand_id] >= frames_for_no_hand:
+            self.hand_status[hand_id] = None
+            return True
+        return False 
 
+    def hand_open_close_static(self,hand_id, frame, thr_open=75, thr_closed = 65, buffer_size=S.hand_status_buffer_size, draw_aperture=False):
+        key = str(thr_open)+str(thr_closed)
+        self.no_hand_counter[hand_id] = 0
 
-        if self.hand_shoulder_x_diff_max is None:
-            # no refference jet, so set one
-            self.hand_shoulder_x_diff_max = hand_shoulder_x_diff_now
-            return False
+        # create buffer
+        if getattr(self, "status_smoother", None) is None:
+            self.status_smoother = defaultdict(lambda: ValueBuffer(buffer_size))
+
+        aperture, aperture_line = self.findHandAperture(hand_id)
         
-        direction_1 = self.hand_shoulder_x_diff_max > 0
-        direction_2 = hand_shoulder_x_diff_now > 0
-        if direction_1 == direction_2:
-            # hand is still on the same side from the shoulder
-            if abs(self.hand_shoulder_x_diff_max) < abs(hand_shoulder_x_diff_now):
-                # new max distance
-                self.hand_shoulder_x_diff_max = hand_shoulder_x_diff_now
-        else:
-            # hand is on the other side from the shoulder
-            swip_distance = self.hand_shoulder_x_diff_max - hand_shoulder_x_diff_now
-            if abs(swip_distance) > self.upper_body_len * 1.5:
-                return True
+        status = self.hand_status[hand_id] # stay like it is
+        if aperture is not None:
+            if aperture >= thr_open:
+                status = 1 # open hand
+            elif aperture <= thr_closed:
+                status = 0 # closed hand
+
+        if draw_aperture:
+            cv2.line(frame,*aperture_line, S.blue if status else S.red, 3)
+
+        self.status_smoother[key].add(status)
+        new_status = self.status_smoother[key].atleast(S.hand_status_buffer_atleast)
+        if new_status is not None:
+            self.hand_status[hand_id] = new_status
+
+        return self.hand_status[hand_id]
+        
+    def findHandAperture(self,hand_id, aperture_range_len = [0.7, 1.7], aperture_range_width = [1.0, 1.7])->tuple[float,tuple]:
+        '''
+        Finds the normalized hand aperture as distance between the mean point of the hand tips and the mean wrist and thumb base point divided by the palm lenght.
+
+        Parameters
+        ----------
+        frame: opencv image array
+            contains frame to be processed
+       
+        show_aperture: bool
+            If set to True, show the hand aperture with a line
+        aperture_range: list of 2 floats containing the min aperture and max aperture to remap from 0 to 1
+
+        default: [0.4, 1.7] gets remapped to [0, 1] 
+
+        Returns
+        --------
+        frame, hand aperture (aperture)
+        In case the aperture can't be computed, the value of aperture will be None
+        '''
+        aperture_len_norm = None
+        aperture_wid_norm = None
+        hand_lm = self.hands_lm[hand_id]
+        # hand length
+        wrist = hand_lm[0][1:3]
+        middle_mcp = hand_lm[9][1:3]
+        middle_tip = hand_lm[12][1:3]
+
+        palm_len = math.dist(wrist, middle_mcp)
+        hand_len = math.dist(wrist, middle_tip)
+
+        if palm_len > 0:
+            aperture_len = hand_len / palm_len
+            aperture_len_norm = np.round(np.interp(aperture_len, aperture_range_len, [0, 100]), 1)
+
+        # hand width
+        pinky_mcp = hand_lm[17][1:3]
+        index_mcp = hand_lm[5][1:3]
+        thump_tip = np.array(hand_lm[4][1:3])
+        pinky_tip = np.array(hand_lm[20][1:3])
+
+        palm_width = math.dist(index_mcp, pinky_mcp)
+        hand_width = math.dist(thump_tip, pinky_tip)
+        
+        if palm_width > 0:
+            aperture_wid = hand_width / palm_width
+            aperture_wid_norm = np.round(np.interp(aperture_wid, aperture_range_width, [0, 100]), 1)
+
+        use_len = hand_len > hand_width * 1.2
+        if use_len:
+            return aperture_len_norm ,(wrist, middle_tip)
+        return aperture_wid_norm ,(thump_tip, pinky_tip)

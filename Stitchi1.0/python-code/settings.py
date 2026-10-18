@@ -1,5 +1,5 @@
 name = "Gesture control"
-version = "STITCHI 1.0"
+version = "Stitchi 1.0"
 # colors
 red = (0, 0, 255)
 blue = (255, 0, 0)
@@ -16,16 +16,21 @@ hand_width_factor = 1.2
 hand_opening_factor = 1.3
 skip_frames = 100
 
+# pathes
+icon_folder = '../Stitchi1.0/icons'
+screenshots_folder = '../Stitchi1.0/screenshots'
+gui_info_window_image_path = "../Stitchi1.0/info_window.png"
+video_folder = r'..\test_videos (gitignore)/' # for testing and analysis
+
+video_source = 1 # can be 0, 1, 2 ... or 'depth' or 'filename.mp4', defould is 'depth' to use the real sense depthcam, 0 means une the forst found videostream
+
 active_hand = 'both' # Available modules are: right, left, moving, top, both | 'moving' means take the fastest hand, 'top' means take the most top hand, 'right' means always right hand ...
 no_mouse_control = False
 default_buffer_mode = 'median'
 no_hand_frame_count = 30 # by 30 FPS are 30 frames = one secund not hand, to get the no_hand status
-video_folder = r'..\test_videos (gitignore)/'
 moving_min_speed = 150 # in pixel per sec. min speed needed to be detected as moving 
 moving_check_time = 0.3 # in secunds. the pixel moves are checked over x secunds
 hand_change_min_speed = 200 # in pixel per sec. min speed needed to detected a hand in choose 'moving' hand mode 
-position_average_buffer_size = 0 # min 2 frames to be used, all positions are averaged over
-position_median_buffer_size = 0 # min 3 frames to be used, all positions are averaged over
 angle_buffer_size = 5 # frames, pointing angle averaged over
 gui_hight = 1/4 # of the frame hight
 cam_angle_hight = {0:1.70, 32.5:2.60} # if the cam has the angle x° it is mounted in the hight y m
@@ -47,19 +52,19 @@ visibility_threshold = 0.92
 cam_intrinsics = 'xxx'
 left_hand_landmark_ids = [ 15,17,19, 21 ] # left hand landmarks from mediapipe pose
 right_hand_landmark_ids = [ 16,18,20, 22 ] # right hand landmarks from mediapipe pose
-gui_info_image_path = r"..\icons\info_image.png"
 gui_tile_max_size = 100
 display_feedback_mode = {1:'show gui', 0:'show gui and processing'}# 2:'show buttons',3:'show buttons and processing' }
-grab_detection_methode = 'dif' # can be 'aperture' or 'difference'
+grab_detection_methode = 'dynamic' # can be 'static' or 'dynamic'
 # dynamic grab mode
 dynamic_grab_distance_difference = 1
 dynamic_grab_time_difference = 1
 # static grab mode
 hand_status_buffer_size = 3
 hand_status_buffer_atleast = 2
-screenshots_folder = '../screenshots'
 controll_trigger_text_time = 1.0 # in secunds, how long the text feedbeck will be showen in the screen after triggering an controll grsture or key, 0.0 means no text feedback
 add_inst_key = 'add_instruments'
+start_instruments =  ["trumpet", "trumpet", "Tröte", "piano", "violin","trommel","xylo","r2d2"]  # optional, later the audiosystem should give this infos per UDP
+
 # d455 intrinsiks color frame:              [ 1280x720  p[638.568 367.388]  f[640.329 638.932]  Inverse Brown Conrady [-0.055931 0.0683116 -0.000836038 0.000658576 -0.0223113] ]
 # d455 intrinsiks depth frame (unaligned):  [ 1280x720  p[643.714 366.77]  f[653.798 653.798]  Brown Conrady [0 0 0 0 0] ]
 

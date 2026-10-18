@@ -14,8 +14,7 @@ from GUI import GuiOverlay
 from own_functions import ValueBuffer,ListBuffer, CSVWriter, tolist, screenshot, close_to, MoveDetector, get_globe_timeline_curvs , cv2_mouse_callback, MOUSE, map_threshold, cv2_center_text, cv2_putText_outlined
 from angle_handler import RoomAngleDetector
 
-from HandDetectorModule_changed import HandDetector 
-from PoseDetectorModule_changed import poseDetector
+from MediaPipe_handler import PoseDetector, HandDetector 
 from analyse import SaveFrameStatus, save_list_to_file, find_files
 from gesture_handler import GestureDetector
 
@@ -28,7 +27,6 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
          start_frame:int = None,
          end_frame:int=None,
          foto_frames:list=None,
-         hand_not_found_means=None,
          show_globe = False,
          grab_detection_methode = S.grab_detection_methode,
          show_depth_frame = False,
@@ -82,14 +80,10 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
     trigger_text = {'text':'', 'color':green, 'time':0.0}
 
 
-    # hand_status_dict = {'aperture':None, 'aperture_width':None,  'len_width_thr_1.2':None, 'len_width_thr_1.4':None, 'distance_dif_0.3':None,'distance_dif_0.4':None}
-    hand_status_list_dict = {'aperture_7050':[], 'aperture_7065':[],  'aperture_7060':[], 'dif_0.6':[], 'dif_1.0':[],'dif_1.4':[]}
-    hand_status_dict = {'aperture_7050':None, 'aperture_7065':None,  'aperture_7060':None, 'dif_0.6':None, 'dif_1.0':None,'dif_1.4':None}
-    # hand_status_buffer_dict = {'aperture':HandOpenClosedBuffer(buffer_size=S.hand_status_buffer_size), 'aperture_width':HandOpenClosedBuffer(buffer_size=S.hand_status_buffer_size), 
-    #                             'len_width_thr_1.2':HandOpenClosedBuffer(buffer_size=S.hand_status_buffer_size), 'len_width_thr_1.4':HandOpenClosedBuffer(buffer_size=S.hand_status_buffer_size), 
-    #                             'distance_dif_0.3':HandOpenClosedBuffer(buffer_size=1), 'distance_dif_0.4':HandOpenClosedBuffer(buffer_size=1)}
+    hand_status_list_dict = {'static_7050':[], 'static_7065':[],  'static_7060':[], 'dynamic_0.6':[], 'dynamic_1.0':[],'dynamic_1.4':[]}
+    hand_status_dict = {'static_7050':None, 'static_7065':None,  'static_7060':None, 'dynamic_0.6':None, 'dynamic_1.0':None,'dynamic_1.4':None}
+ 
     moves_dict = defaultdict(list)
-    order_list = []
 
     paused = False
     process = True
@@ -108,7 +102,7 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
     cam_intrinsics = None
 
     hand_detectors = (HandDetector(), HandDetector())
-    pose_detector = poseDetector()
+    pose_detector = PoseDetector()
     angle_detector = RoomAngleDetector()
     gesture_detector = GestureDetector()
     communicator = SendOnChange((S.IPv4_audiosystem,S.port))
@@ -144,24 +138,6 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
             print('playback realsens file:', source)
         else:
             print('playback:', source)
-
-
-    # get d455 intrinsics
-    # try:
-    #     pipeline = rs.pipeline()
-    #     config = rs.config()
-    #     if is_playback:
-    #         config.enable_device_from_file(source, repeat_playback=False)
-    #     else:
-    #         config.enable_stream(rs.stream.color, *S.live_stream_resulutuin, rs.format.bgr8, S.fps)
-    #     profile = pipeline.start(config)
-    #     frames = pipeline.wait_for_frames()
-    #     cam_intrinsics = frames.get_color_frame().profile.as_video_stream_profile().intrinsics
-    #     pipeline.stop()
-    # except:
-    #     cam_intrinsics = S.cam_intrinsics
-    # print(cam_intrinsics)#test
-    
 
     if use_realsense:
 
@@ -247,18 +223,6 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
     frame_y=frame_test.shape[0]
 
     # -------------------------------------------------------
-    # ROI - Define region of interest for video files
-    # -------------------------------------------------------
-    # if is_playback:
-    #     print(f"Processing video file: {source}")
-    #     y_start_pixel, y_end_pixel = int(0.1 * frame.shape[0]), int(0.75 * frame.shape[0])
-    #     x_start_pixel, x_end_pixel = int(0.3 * frame.shape[1]), int(0.7 * frame.shape[1])
-    # else:
-    #     print(f"Processing webcam source: {source}")
-    #     video_capture.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
-    #     video_capture.set(cv2.CAP_PROP_FRAME_HEIGHT, 360)
-
-    # -------------------------------------------------------
     # Main processing loop
     # -------------------------------------------------------
     while should_run:
@@ -276,7 +240,6 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
         display_flash = None
         pointing_azimuth = [None,None]
         pointing_elevation = [None,None]
-        hand_landmarks = [[],[]]
         hand_centers:list[list|None] = [None, None]
         pose_hands = []
         
@@ -462,6 +425,7 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
             pose_detector.findPose(frame=frame_raw)
    
             pose_landmarks = pose_detector.create_pixel_landmark_list()
+            gesture_detector.pose_lm = pose_landmarks
             
 
             pose_found = True if len(pose_landmarks) > 0 else False
@@ -475,12 +439,6 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
                 
                 if show_processing and draw_skeleton:
                     pose_detector.draw_skeleton(frame=frame_overlay)
-                    
-                    # hands = [15, 21,19,17, 16, 22, 20, 18, ]
-                    # pose_detector.draw_landmarks(
-                    #     frame=frame_overlay, 
-                    #     landmark_ids=hands,
-                    # )
 
         # --------------------------------------------------
         # get hand center and coresponding shoulder and max arm length, relative arm length
@@ -493,18 +451,12 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
             shoulders = pose_detector.shoulder.copy()
             length = pose_detector.get_upper_body_length()
             upper_body_pixel_len = int(upper_body_len_buffer.add_and_get_average(length))
-            # for i, [id, x, y] in enumerate(pose_hands):
-            #     hand_centers[i] = [x,y]
-            # arm
-            # pose_detector.calibrate_arm_length(time_to_calibrate=2)
-            # rel_arm_len = math.dist(hand_center, shoulder)
        
        # ==================================================
        # start of for-handside loop
         for _i in range(len(pose_hands)):
             # for if hand not found or not in screen. if a hand is found this will be owerriwen later
-            if hand_detectors[_i].no_hand_count(S.no_hand_frame_count):
-                hand_status[_i] = hand_not_found_means
+            gesture_detector.no_hand_count(_i, S.no_hand_frame_count)
 
             if pose_hands[_i] is None:
                 continue
@@ -536,14 +488,6 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
                 if pose_found:
                     # --------------------------------------------------
                     # hand ROI size from body length
-
-                    # if len(hands) == 2 :#test 
-                    #     # roi for both hands
-                    #     dx = abs(hands[0][1] - hands[1][1])
-                    #     dy = abs(hands[0][2] - hands[1][2])
-                    #     _roi_size = int(dx + upper_body_pixel_len), int(dy + upper_body_pixel_len)
-                    #     roi_center = (hands[0][1] + hands[1][1])//2 , (hands[0][2] + hands[1][2])//2
-                    # for one hand
                     _roi_size = (int(upper_body_pixel_len * 1), int(upper_body_pixel_len * 1))
                     roi_center = hand_center
                                     
@@ -599,8 +543,9 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
                                                             max_distance=upper_body_pixel_len/4,
                                                             frame=frame_overlay, draw=show_processing and draw_max_distance, hand_side_index=hand_side_index)
                     if valide_hand:
-                        hand_landmarks[_i] = hand_detector.create_pixel_landmark_list()
-                        hand_found[_i] = len(hand_landmarks[_i]) > 0
+                        hand_landmarks = hand_detector.create_pixel_landmark_list()
+                        gesture_detector.hands_lm[_i] = hand_landmarks
+                        hand_found[_i] = len(hand_landmarks) > 0
                     if hand_found[_i] and show_processing and draw_skeleton:
                         hand_detector.draw_skeleton(frame=frame_overlay)
             # --------------------------------------------------
@@ -610,15 +555,6 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
                 hand_center = np.int16(hand_detector.get_hand_centers(frame_overlay)[0])
                 hand_centers[_i] = hand_center
                 
-            
-            # --------------------------------------------------
-            # 3D room points for hand center and shoulder
-            # --------------------------------------------------
-            # if not paused and process and pose_found:
-            #     if use_rs_depth:
-            #         hand_center_3d = rs_pixel_to_3d(depth_frame, cam_intrinsics,*hand_center, True)
-            #         shoulder_3d = rs_pixel_to_3d(depth_frame, cam_intrinsics,*shoulder, True)
-
             # --------------------------------------------------
             # hand is moving
             # --------------------------------------------------
@@ -660,21 +596,19 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
 
                             # ---------------------------------------
                             # choose a hand opening detection methode
-                            # hand_methode = 'aperture_len_width__1.2' #  aperture_len_width__1.2   len_width_thr__1.2   distance_dif__0.5
-                
                             if capture_status:
-                                hand_status[_i] = hand_detector.open_or_close_aperture_thr(thr_open=70, thr_closed = 50, frame=frame_overlay, draw_aperture=show_processing and draw_aperture, buffer_size=S.hand_status_buffer_size)
-                                hand_status_dict['aperture_7050'] = hand_status[_i]
-                                hand_status[_i] = hand_detector.open_or_close_aperture_thr(thr_open=70, thr_closed = 65, frame=frame_overlay, draw_aperture=show_processing and draw_aperture, buffer_size=S.hand_status_buffer_size)
-                                hand_status_dict['aperture_7065'] = hand_status[_i]
-                                hand_status[_i] = hand_detector.open_or_close_aperture_thr(thr_open=70, thr_closed = 60, frame=frame_overlay, draw_aperture=show_processing and draw_aperture, buffer_size=S.hand_status_buffer_size)
-                                hand_status_dict['aperture_7060'] = hand_status[_i]
-                                hand_status[_i] = hand_detector.open_or_close_distance_dif(frame_overlay, show_processing and draw_aperture, min_distance_difference=0.8)
-                                hand_status_dict['dif_0.6'] = hand_status[_i]
-                                hand_status[_i] = hand_detector.open_or_close_distance_dif(frame_overlay, show_processing and draw_aperture, min_distance_difference=1)
-                                hand_status_dict['dif_1.0'] = hand_status[_i]
-                                hand_status[_i] = hand_detector.open_or_close_distance_dif(frame_overlay, show_processing and draw_aperture, min_distance_difference=1.2)
-                                hand_status_dict['dif_1.4'] = hand_status[_i]
+                                hand_status[_i] = gesture_detector.hand_open_close_static(_i, thr_open=70, thr_closed = 50, frame=frame_overlay, draw_aperture=show_processing and draw_aperture, buffer_size=S.hand_status_buffer_size)
+                                hand_status_dict['static_7050'] = hand_status[_i]
+                                hand_status[_i] = gesture_detector.hand_open_close_static(_i, thr_open=70, thr_closed = 65, frame=frame_overlay, draw_aperture=show_processing and draw_aperture, buffer_size=S.hand_status_buffer_size)
+                                hand_status_dict['static_7065'] = hand_status[_i]
+                                hand_status[_i] = gesture_detector.hand_open_close_static(_i, thr_open=70, thr_closed = 60, frame=frame_overlay, draw_aperture=show_processing and draw_aperture, buffer_size=S.hand_status_buffer_size)
+                                hand_status_dict['static_7060'] = hand_status[_i]
+                                hand_status[_i] = gesture_detector.hand_open_close_dynamic(_i, frame_overlay, show_processing and draw_aperture, min_distance_difference=0.8)
+                                hand_status_dict['dynamic_0.6'] = hand_status[_i]
+                                hand_status[_i] = gesture_detector.hand_open_close_dynamic(_i, frame_overlay, show_processing and draw_aperture, min_distance_difference=1)
+                                hand_status_dict['dynamic_1.0'] = hand_status[_i]
+                                hand_status[_i] = gesture_detector.hand_open_close_dynamic(_i, frame_overlay, show_processing and draw_aperture, min_distance_difference=1.2)
+                                hand_status_dict['dynamic_1.4'] = hand_status[_i]
 
                             else:
                                 try:
@@ -682,36 +616,24 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
                                 except:
                                     factor = None
                                     
-                                if 'aperture' in grab_detection_methode:
-                                    hand_status[_i] = hand_detector.open_or_close_aperture_thr(
+                                if 'static' in grab_detection_methode:
+                                    hand_status[_i] = gesture_detector.hand_open_close_static(_i, 
                                             frame=frame_overlay,
                                             draw_aperture=show_processing and draw_aperture,
                                             buffer_size=S.hand_status_buffer_size,
                                         )
-                                elif 'dif' in grab_detection_methode:
+                                elif 'dynamic' in grab_detection_methode:
                                     if not factor: factor = 1
-                                    hand_status[_i] = hand_detector.open_or_close_distance_dif(frame_overlay, show_processing and draw_aperture)
+                                    hand_status[_i] = gesture_detector.hand_open_close_dynamic(_i, frame_overlay, show_processing and draw_aperture)
 
                         else:   
                             pass
                     else:
                         # if hand is moving curently, do not change the hand status
                         hand_status[_i] = hand_status[_i]
-                        # hand_detector.buffer_clear() # fore distance difference methode #test ?
 
                 else:
                     hand_status[_i] = None # no hand in frame (checked hand marke from pose)
-
-            
-    
-
-            # if not paused and process and capture_status:
-            #         for methode in hand_status_list_dict.keys():
-            #             if hand_status == None:
-            #                 add_status = None
-            #             else:
-            #                 add_status = hand_status_dict[methode]
-            #             hand_status_list_dict[methode].append(add_status)
 
         # end of for-handside loop
         # ==================================================
@@ -719,30 +641,12 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
         # --------------------------------------------------
         # gesture detection
         if not paused and process and pose_found:   
-            gesture_detector.hand_status = hand_status
             gesture_detector.find_grab()
-
-        # --------------------------------------------------
-        # save grap and release angle
-        # if not paused and process and pose_found:   
-        #     if gesture_detector.grab:
-        #         grasped_angle = pointing_angle
-        #         released_angle = None
-        #     elif gesture_detector.releas:
-        #         released_angle = pointing_angle
-        #         if released_angle is not None and grasped_angle is not None:
-        #             moved_angle = released_angle-grasped_angle
-        #         else:
-        #             moved_angle = None
-
-        
-
 
         # --------------------------------------------------
         # control gestures - Info, terminate app, clear gui, change display mode
         # -------------------------------------------------- 
         if not paused and process and pose_found:
-            gesture_detector.set_pixel_landmarks(*hand_landmarks, pose_landmarks)
             gesture_detector.pose_visibilety = list(pose_detector.lm_visibility)
             gesture_detector.pose_movement = list(pose_detector.lm_movment_list)
             gesture_detector.upper_body_len = upper_body_len_buffer.get()
@@ -755,8 +659,6 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
                 clear_gui = True
             if gesture_detector.find_visibilety_mode_trigger():
                 change_display_mode = True
-
-
 
         # --------------------------------------------------
         # capture status manually
@@ -1029,14 +931,6 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
                 communicator.send(show_processing, **gui_info) # some error after add elevation
 
         # --------------------------------------------------
-        # print out events 
-        # --------------------------------------------------
-        # if not paused and process:
-        #     if gesture_detector.releas:
-        #         print(f'Frame {frame_now}: arm moved {moved_angle}° wich grap at {grasped_angle}° and releas at {released_angle}°')
-        #         moves_dict[grab_detection_methode].append([frame_now, moved_angle])
-
-        # --------------------------------------------------
         # foto at frame or bei pressing P
         # --------------------------------------------------
         if display_flash:
@@ -1139,15 +1033,11 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
     # --------------------------------------------------
     # post-processing
 
-    # anti_delay_shift = -int(0.2*fps)
-    # lust = open_close_status_capturer.shift_all_by(anti_delay_shift,)
     name = str(source)+f"_frame_and_open_close_manual_status"
     end = '.txt'
     if capture_status_manually:
         open_close_status_capturer.save_to_file(name+end)
 
-
-    
     hand_rate = round(frame_counter_hand / frame_counter_processed *100, 1)
     pose_rate = round(frame_counter_pose / frame_counter_processed *100, 1)
     fps_mean = round(fps_sum / frame_counter_processed, 1)
@@ -1161,8 +1051,6 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
     # --------------------------------------------------
     # save analyse stats
 
-    # save_list_to_file(f'{source}_hand_pixel_moves.txt',hand_moves)
-
     if capture_status:
         for key in hand_status_list_dict.keys():
             data = hand_status_list_dict[key]
@@ -1175,7 +1063,6 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
         frame_counter_processed=frame_counter_processed,
         frame_counter_pose=frame_counter_pose, pose_rate=pose_rate,
         frame_counter_hand=frame_counter_hand, hand_rate=hand_rate,
-        hand_not_found_means=hand_not_found_means,
         fps_mean=fps_mean,
         time = time_stemp
     )
@@ -1197,51 +1084,25 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
 
 if __name__ == "__main__":
 
-    # Webcam input
-    # main(source=0)
     videos = find_files(S.video_folder, ending=('.mp4', '.avi', '.mov'),names_only=True)
     bags = find_files(S.video_folder, ending=S.rs_save_type ,names_only=True)
-    # v1-11
-    v1 = videos[0]
-    v2 = videos[1]
-    v3 = videos[2]
-    v4 = videos[3]
-    v5 = videos[4]
-    v6 = videos[5]
-    v7 = videos[6]
-    v8 = videos[7]
-    v9 = videos[8]
-    v10 = videos[9]
-    v11 = videos[10]
-    #d1-d6
-    d1 = bags[0]
-    # d2 = bags[1]
-    # d3 = bags[2]
-    # d4 = bags[3]
-    # d5 = bags[4]
-    # d6 = bags[5]
-    # Video file input
-    videos = [v6,v2,v3,v4,v5]
-    # videos.reverse()
+
     r = True
-    start_instruments =  ["trumpet", "trumpet", "Tröte", "piano", "violin","trommel","xylo","r2d2"]  
-    while r: #for v in videos:
-        # s = S.video_folder+v
+    while r: 
         r = main(
             fps_cap=S.fps,
             show_fps=True,
-            source=1, # kan be 0, 1, 2 ... or 'depth' or 'filename.mp4'
+            source=S.video_source, # kan be 0, 1, 2 ... or 'depth' or 'filename.mp4'
             pause_frames=None,
             capture_status_manually=False,
             capture_status = False,
             start_frame=1,
             end_frame = None,
             foto_frames=None,
-            hand_not_found_means=None,
             show_globe=False,
             # grab_detection_methode=grab_detection_methode,
             show_depth_frame = False,
-            udp_reception_dict={S.add_inst_key:start_instruments},
+            udp_reception_dict={S.add_inst_key:S.start_instruments},
         )
         if r == False:break
     

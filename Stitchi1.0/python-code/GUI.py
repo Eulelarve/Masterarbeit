@@ -158,7 +158,7 @@ class GUITile:
             self._create_image()
 
     def _find_image(self):
-        folder = "../icons/"
+        folder = S.icon_folder
         name = self.name.replace("-", "").replace(" ", "")
         name = name.lower()
         path_list = find_files(folder=folder,contains=name, names_only=False)
@@ -495,7 +495,7 @@ class GuiOverlay:
         self.overlay_bot_zone = None
         self.in_room_zone = None
         self.bar_rect:tuple = None
-        self.info_menu_image = cv2.imread(S.gui_info_image_path, cv2.IMREAD_UNCHANGED)
+        self.info_menu_image = cv2.imread(S.gui_info_window_image_path, cv2.IMREAD_UNCHANGED)
         self.show_info_menu = False
         self.volume_bar = VolumeBar(self)
         # self.x = CloseButton(self)
