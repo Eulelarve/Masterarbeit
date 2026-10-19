@@ -213,11 +213,7 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
 
         # extrace camara angle from discription
         video_name = source[source.rfind("/")+1:source.rfind(".mp4")]
-        cam_angle = float(video_name[4:video_name.find('deg')])
-        cam_hight = S.cam_angle_hight[cam_angle]
-        video_nr = int(video_name[1:video_name.find('_')])
-    else: # live stream
-        cam_angle = S.cam_angle
+
 
     frame_x=frame_test.shape[1] 
     frame_y=frame_test.shape[0]
@@ -238,8 +234,8 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
         roi_hand = None
         trigger_info_menu = False
         display_flash = None
-        pointing_azimuth = [None,None]
-        pointing_elevation = [None,None]
+        room_azimuth = [None,None]
+        room_elevation = [None,None]
         hand_centers:list[list|None] = [None, None]
         pose_hands = []
         
@@ -435,7 +431,7 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
                 pose_detector.create_visibility_list()
                 frame_counter_pose += 1
 
-                pose_world_landmarks = pose_detector.create_world_landmark_list(draw=False)
+                pose_world_landmarks = pose_detector.estimate_room_coordinates()
                 
                 if show_processing and draw_skeleton:
                     pose_detector.draw_skeleton(frame=frame_overlay)
@@ -571,17 +567,17 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
                 if use_rs_depth:
                     angle_detector.find_room_angle_with_depth_frame(depth_frame,hand_center, shoulder, frame_overlay, draw)
                 else:
-                    hand_world_lm = pose_world_landmarks[i_hand][1:4]
-                    shoulder_world_lm = pose_world_landmarks[i_shoulder][1:4]
+                    hand_3d = pose_world_landmarks[i_hand][1:4]
+                    shoulder_3d = pose_world_landmarks[i_shoulder][1:4]
                     if cam_intrinsics:
-                        hand_world_depth = hand_world_lm[2] + S.dist_cam_to_room_center
-                        shoulder_world_depth = shoulder_world_lm[2] + S.dist_cam_to_room_center
+                        hand_world_depth = hand_3d[2] 
+                        shoulder_world_depth = shoulder_3d[2]
                         angle_detector.find_room_angle_with_intrinsics(cam_intrinsics, hand_center , shoulder, hand_world_depth, shoulder_world_depth, frame_overlay, draw)
                     else:
-                        angle_detector.find_room_angles_45_deg_aprox(hand_side, hand_world_lm, shoulder_world_lm, hand_center, shoulder, frame_overlay,draw)
+                        angle_detector.find_room_angles_45_deg_aprox(hand_side, hand_3d, shoulder_3d, hand_center, shoulder, frame_overlay,draw)
 
-                pointing_azimuth[_i] = angle_detector.azimuth
-                pointing_elevation[_i] = angle_detector.elevation
+                room_azimuth[_i] = angle_detector.azimuth
+                room_elevation[_i] = angle_detector.elevation
 
 
             # --------------------------------------------------
@@ -834,7 +830,7 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
         # draw arm angle
         x = 10
         if not paused and process and show_processing:
-            side_and_angle = list(zip(pose_detector.hand_side,pointing_azimuth, pointing_elevation))
+            side_and_angle = list(zip(pose_detector.hand_side,room_azimuth, room_elevation))
             for hs,a,e in side_and_angle[::-1]:
                 if hs == 'right':
                     text = 'L'
@@ -919,7 +915,7 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
 
             gui.select(selector1['pos'], selector2['pos'], selector3['pos'])
             gui.grab(selector1['grab'], selector2['grab'], selector3['grab'])
-            gui.move(azimuth=pointing_azimuth,elevation=pointing_elevation)
+            gui.move(azimuth=room_azimuth,elevation=room_elevation)
             gui.release(selector1['release'], selector2['release'], selector3['release'])
         gui.draw(frame_overlay, show_processing)
         gui_info = gui.get_info()

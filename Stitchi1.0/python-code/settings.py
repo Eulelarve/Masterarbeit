@@ -22,37 +22,53 @@ screenshots_folder = '../Stitchi1.0/screenshots'
 gui_info_window_image_path = "../Stitchi1.0/info_window.png"
 video_folder = r'..\test_videos (gitignore)/' # for testing and analysis
 
-video_source = 1 # can be 0, 1, 2 ... or 'depth' or 'filename.mp4', defould is 'depth' to use the real sense depthcam, 0 means une the forst found videostream
 
+# UDP communication
+port = 5005
+IPv4_audiosystem = "127.0.0.1"
+
+# Prosessing settings
+video_source = 1 # can be 0, 1, 2 ... or 'depth' or 'filename.mp4', defould is 'depth' to use the real sense depthcam, 0 means une the forst found videostream
 active_hand = 'both' # Available modules are: right, left, moving, top, both | 'moving' means take the fastest hand, 'top' means take the most top hand, 'right' means always right hand ...
 no_mouse_control = False
 default_buffer_mode = 'median'
-no_hand_frame_count = 30 # by 30 FPS are 30 frames = one secund not hand, to get the no_hand status
+cam_inclination_angle = 0
+
+
+# hand detection
+no_hand_frame_count = 50 # by 30 FPS are 30 frames = one secund not hand, to get the no_hand status
 moving_min_speed = 150 # in pixel per sec. min speed needed to be detected as moving 
 moving_check_time = 0.3 # in secunds. the pixel moves are checked over x secunds
 hand_change_min_speed = 200 # in pixel per sec. min speed needed to detected a hand in choose 'moving' hand mode 
+
+
 angle_buffer_size = 5 # frames, pointing angle averaged over
-gui_hight = 1/4 # of the frame hight
-cam_angle_hight = {0:1.70, 32.5:2.60} # if the cam has the angle x° it is mounted in the hight y m
-cam_angle = 0
 volume_decimal_place = 2 # 2 means 0.12 ,1 means 0.1
-port = 5005
-IPv4_audiosystem = "127.0.0.1"
+
+# Roomdirektion / Pointingangle
+real_depth_angle_resulutuin = 15
+zero_degree_distance = 0.10 # in meters
+ray_tracing_step_size = 0.1 # ray_tracing_step_size_to_find_room_angle, in meters
+room_size = (3.4, 2.7, 3.4)   # xyz <- width, hight, depth in meters (outer boarders 4m,3m,4m und 30 cm thick frame beams)
+room_center = (1.7, 1.5, 1.7) # xyz <- width, hight, depth in meters, (0,0,0) is bottom, left, front corner
+cam_pos_in_room = (1.7, 1.7, -0.1) # xyz <- width, hight, depth in meters, relative to the origin (0,0,0) is bottom, left, front corner
+estimated_hip_hight = 0.95 # in meters only for compensating MediaPipe Wold lantmarks if used
+# dist_cam_to_room_center = 1.8 # in meters
+# dist_cam_to_floor = 1.7 # in meters
+
+# GUI
+gui_tile_max_size = 100
+gui_hight = 1/4 # of the frame hight
+
+
 type_instrument = 'instrument'
 instrument_start_volume = 0.5 # sound volume is between 0 and 1
 rs_save_type = '.bag'
-zero_degree_distance = 0.10 # in meters
-real_depth_angle_resulutuin = 15
-room_size = (3.4, 2.7, 3.4)   # xyz <- width, hight, depth in meters (outer boarders 4m,3m,4m und 30 cm thick frame beams)
-room_center = (1.7, 1.5, 1.7) # xyz <- width, hight, depth in meters, (0,0,0) is bottom, left, front corner
-ray_tracing_step_size = 0.1 # ray_tracing_step_size_to_find_room_angle, in meters
 align_depth = True
-dist_cam_to_room_center = 1.8 # in meter
 visibility_threshold = 0.92
 cam_intrinsics = 'xxx'
 left_hand_landmark_ids = [ 15,17,19, 21 ] # left hand landmarks from mediapipe pose
 right_hand_landmark_ids = [ 16,18,20, 22 ] # right hand landmarks from mediapipe pose
-gui_tile_max_size = 100
 display_feedback_mode = {1:'show gui', 0:'show gui and processing'}# 2:'show buttons',3:'show buttons and processing' }
 grab_detection_methode = 'dynamic' # can be 'static' or 'dynamic'
 # dynamic grab mode

@@ -89,27 +89,19 @@ def find_azimuth_angle(p1:tuple,p2_angle_point:tuple)->float:
     return azimuth
 
 
-
-
-
-def find_room_angles(room_size:tuple,origin:tuple, start_point:tuple, azimuth_angle:float, elevation_angle:float, resulution:float) ->list[float,float]:
-    p1 = rey_tracing_to_room_border(room_size,origin, start_point, azimuth_angle, elevation_angle, resulution)
-    # x = origin[0] + start_point[0]
-    # y = origin[1] + start_point[1]
-    # z = origin[2] + start_point[2]
-    # print(origin,p1,x,y,z)#test
-    room_azimuth = find_azimuth_angle(p1 ,origin)
-    room_elevation = find_elevation_angle(p1, origin)
+def find_room_angles(start_point:tuple, azimuth_angle:float, elevation_angle:float, room_center=S.room_center) ->list[float,float]:
+    p1 = rey_tracing_to_room_border(start_point, azimuth_angle, elevation_angle)
+    room_azimuth = find_azimuth_angle(p1 ,room_center)
+    room_elevation = find_elevation_angle(p1, room_center)
     return [room_azimuth, room_elevation]
 
-def rey_tracing_to_room_border(room_size:tuple,origin:tuple, start_point:tuple, azimuth_angle:float, elevation_angle:float, resulution:float)->list:
+def rey_tracing_to_room_border(start_point:tuple, azimuth_angle:float, elevation_angle:float,room_size=S.room_size, resulution=S.ray_tracing_step_size)->list:
     """
     follow (ray tracing) a slope (angles) in a room on till it hits one wall
     returns the hitting point
     Args:
         room_size (tuple): size of the room in x,y,z direction
-        origin (tuple): coordinate origin of the room in x,y,z direction, (0,0,0) is the room bottom left front corner
-        start_point (tuple): starting point of the ray tracing, real in x,y,z direction, (0,0,0) is the origin point
+        start_point (tuple): starting point of the ray tracing, real in x,y,z direction
         azimuth_angle (float): azimuth angle in degrees
         elevation_angle (float): elevation angle in degrees
         resulution (int): step size of the ray tracing, 
@@ -128,9 +120,9 @@ def rey_tracing_to_room_border(room_size:tuple,origin:tuple, start_point:tuple, 
     floor = 0
     back_wall = room_size[2]
     front_wall = 0
-    x = origin[0] + start_point[0]
-    y = origin[1] + start_point[1]
-    z = origin[2] + start_point[2]
+    x = start_point[0]
+    y = start_point[1]
+    z = start_point[2]
     step = resulution
     # calculate Directional components 
     sin_azi = math.sin(math.radians(azimuth_angle))
@@ -173,14 +165,6 @@ class RoomAngleDetector:
         self.room_azemuth_aprox_corection_max = 15 # in degree
         self.mirrowed_frame = True
         self.intersection_distance_pixel = 20
-        # take global settings
-        self.angle_resulution = S.real_depth_angle_resulutuin
-        self.ray_tracing_resulution = S.ray_tracing_step_size
-        self.intersection_distance = S.zero_degree_distance
-        self.room_size = S.room_size
-        self.room_center = S.room_center  
-        self.dist_cam_to_room_center = S.dist_cam_to_room_center
-        self.cam_angle = S.cam_angle
         # variables
         self.angle_smoother = ListBuffer(S.angle_buffer_size)
         self.arm_angles = [None, None] # arm [azimuth, elewation] angle
@@ -231,8 +215,7 @@ class RoomAngleDetector:
             self.find_arm_angles()
             # room angle (pointing angle)
             start_point = self.shoulder_3d.copy()
-            start_point[2] -= self.dist_cam_to_room_center
-            self.room_angles = find_room_angles(self.room_size, self.room_size, start_point, *self.arm_angles, self.ray_tracing_resulution, True)
+            self.room_angles = find_room_angles(start_point, *self.arm_angles)
 
         if draw:
             self.draw_arm_angles()
@@ -256,8 +239,7 @@ class RoomAngleDetector:
             self.find_arm_angles()
             # room angle (pointing angle)
             start_point = self.shoulder_3d.copy()
-            start_point[2] -= self.dist_cam_to_room_center
-            self.room_angles = find_room_angles(self.room_size, self.room_center, start_point, *self.arm_angles, self.ray_tracing_resulution)
+            self.room_angles = find_room_angles(start_point, *self.arm_angles)
             self.round_room_angle_to_resulution()
 
         if draw:
@@ -277,7 +259,6 @@ class RoomAngleDetector:
     def find_3d_hand_shoulder_with_depth_frame(self, depth_frame:object)->tuple[list|None]:
         args = (depth_frame, 
                 self.mirrowed_frame, 
-                self.cam_angle, 
                 self.cam_intrinsics)
         self.hand_3d =      rs_pixel_to_3d(self.hand_pixel_xy, *args)
         self.shoulder_3d =  rs_pixel_to_3d(self.shoulder_pixel_xy, *args)
@@ -285,7 +266,6 @@ class RoomAngleDetector:
 
     def find_3d_hand_shoulder_with_depth(self, hand_depth:float, shoulder_depth:float)->tuple[list|None]:
         args = (self.mirrowed_frame, 
-                self.cam_angle, 
                 self.cam_intrinsics)
         self.hand_3d =      rs_pixel_to_3d(self.hand_pixel_xy, hand_depth, *args)
         self.shoulder_3d =  rs_pixel_to_3d(self.shoulder_pixel_xy, shoulder_depth, *args)
@@ -319,7 +299,7 @@ class RoomAngleDetector:
                                                 )
 
     def round_room_angle_to_resulution(self):
-        res = self.angle_resulution
+        res = S.real_depth_angle_resulutuin
         for i, angle in enumerate(self.room_angles):
             if angle is None:
                 continue
@@ -330,7 +310,7 @@ class RoomAngleDetector:
         if use_pixel_coordinats:
             return close_to(self.intersection_distance_pixel, self.hand_pixel_xy, self.shoulder_pixel_xy)
         else:
-            return close_to(self.intersection_distance, self.hand_3d, self.shoulder_3d)
+            return close_to(S.zero_degree_distance, self.hand_3d, self.shoulder_3d)
 
     def draw_arm_angles(self):
         if self.draw_frame is None:

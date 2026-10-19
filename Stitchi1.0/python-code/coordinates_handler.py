@@ -69,15 +69,30 @@ def get_center_of_landmarks(pose_landmarks, landmark_indices, round_to_int=True)
     except:
         return [center_x, center_y]
 
-def add_estimated_cam_distance(landmarks_3d:tuple)->list:
+def add_estimated_cam_to_human_dist(point_3d:tuple)->list:
+    x = point_3d[0]
+    y = point_3d[1]
+    z = point_3d[2] + math.dist(S.room_center, S.cam_pos_in_room) # so z = 0 is ruffly at the camera position if person stants in the room center
+    return [x,y,z]
+
+def add_estimated_hip_hight(point_3d:tuple)->list:
+    x = point_3d[0]
+    y = point_3d[1] + S.estimated_hip_hight # the hip pos is the origin (0,0,0) position in mediapipe world coordinats
+    z = point_3d[2] 
+    return [x,y,z]
+
+def mediapipe_world_to_room(world_landmarks):
     pts = []
-    for (i,x,y,z) in landmarks_3d:
-        z0 = z + S.dist_cam_to_room_center # so z = 0 is ruffly at the camera position if person stants in the room center
-        ixyz = [i,x,y,z0]
+    for (i,x,y,z) in world_landmarks:
+        xyz = x,y,z
+        xyz = compensate_cam_inclination_angle(xyz)
+        xyz = add_estimated_cam_to_human_dist(xyz)
+        xyz = add_estimated_hip_hight(xyz)
+        ixyz = [i,*xyz]
         pts.append(ixyz)
     return pts
 
-def mediapipe_pose_to_3d(pose_landmarks:tuple[int], pose_wold_landmarks, intrinsics, cam_angle:float)->list:
+def mediapipe_pose_to_3d(pose_landmarks:tuple[int], pose_wold_landmarks, intrinsics)->list:
     pts = []
     for (i,x,y) in pose_landmarks:
         depth = pose_wold_landmarks[i][3]
@@ -86,10 +101,11 @@ def mediapipe_pose_to_3d(pose_landmarks:tuple[int], pose_wold_landmarks, intrins
             [x, y],
             depth
         )
+        xyz = compensate_cam_inclination_angle(xyz)
+        xyz = add_estimated_cam_to_human_dist(xyz)
         ixyz = (i,*xyz)
         pts.append(ixyz)
-    pts = compensate_cam_angle(pts, cam_angle)
-    pts = add_estimated_cam_distance(pts)
+
     return pts
 
 def rs_get_depth(depth_frame, pixel_xy:tuple, mirrowed_x_pixel:bool)->float|None:
@@ -132,9 +148,15 @@ def rs_pixel_to_3d(pixel_xy:tuple, depth_frame_or_depth:object|float|int, mirrow
     if mirrowed_x_pixel:
         x = - x
 
-    if cam_angle:
-        x,y,z = compensate_cam_angle((x,y,z), cam_angle)
+    x,y,z = compensate_cam_pos((x,y,z))
+    x,y,z = compensate_cam_inclination_angle((x,y,z))
         
+    return [x,y,z]
+
+def compensate_cam_pos(point_3d):
+    x = point_3d[0] + S.cam_pos_in_room[0]
+    y = point_3d[1] + S.cam_pos_in_room[1]
+    z = point_3d[2] + S.cam_pos_in_room[2]
     return [x,y,z]
 
 
@@ -163,8 +185,8 @@ def rs_pixel_list_to_3d(depth_frame, pixel_coords_list:tuple, cam_angle:float, m
 
     return pts_3d
 
-def compensate_cam_angle(point_3d:tuple, cam_elevation:float)->list:
-    theta = np.deg2rad(cam_elevation)
+def compensate_cam_inclination_angle(point_3d:tuple)->list:
+    theta = np.deg2rad(S.cam_inclination_angle)
     x,y,z = point_3d
     y = z*np.sin(theta) + y*np.cos(theta)
     z = z*np.cos(theta) + -y*np.sin(theta)

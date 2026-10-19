@@ -97,16 +97,13 @@ class SaveUdpToDict:
         self.on = False
         self.printout = False
         self.msg_list:list[dict] = []
-        self.loop_time:float = 1
+        self.loop_time:float = 0
         self.bind_ip = "127.0.0.1"
 
     def receive_loop(self):
         while self.on:
             msg, addr = receive_info(5005, timeout=self.loop_time, printout=self.printout, bind_ip=self.bind_ip)
             self.add_meassage(msg)
-
-    # def add_meassage_to_dict(self, msg:dict):
-    #     add_dict_to_dict(self.info_dict, msg)
 
     def add_meassage(self,msg:dict):
         if msg:
@@ -120,11 +117,6 @@ class SaveUdpToDict:
         self.on = False
         self.rx_thread.join(timeout=2)
 
-    # def set_dict_conection(self, dict:dict):
-    #     self.info_dict = dict
-
-    # def get_dict_conection(self, dict:dict):
-    #     dict = self.info_dict
 
     def get_msg(self, keep_in_list=False)->dict:
         if self.msg_list:
@@ -175,6 +167,7 @@ def receive_info(port, timeout=0.0, buffer_size=4096, printout=False, bind_ip="0
 
 
 if __name__ == "__main__":
+    # for testing
     import time
 
     def rx_worker():
@@ -196,84 +189,3 @@ if __name__ == "__main__":
 
     tx_thread.join()
     rx_thread.join(timeout=2)
-
-# # MATLAB code
-# function send_info_to(ip, port, printout, infos)
-#     payload = jsonencode(infos);
-
-#     if printout
-#         disp("Sending to " + ip + ":" + port)
-#         disp(payload)
-#     end
-
-#     u = udpport("datagram","IPV4");
-#     write(u, uint8(payload), "uint8", ip, port);
-# end
-
-
-# function [msg, addr] = receive_info(port, printout)
-#     u = udpport("datagram","IPV4","LocalPort",port);
-
-#     data = read(u, 1, "uint8");
-#     msg = jsondecode(char(data'));
-
-#     addr = [];
-#     if printout
-#         disp("Received message:")
-#         disp(msg)
-#     end
-# end
-
-# # mit time out
-# function [msg, addr] = receive_info(port, timeout, printout)
-#     arguments
-#         port (1,1) double
-#         timeout (1,1) double = 0
-#         printout (1,1) logical = false
-#     end
-
-#     u = udpport("datagram","IPV4","LocalPort",port);
-
-#     msg = [];
-#     addr = [];
-
-#     if timeout > 0
-#         u.Timeout = timeout;
-#     end
-
-#     try
-#         if timeout > 0
-#             tStart = tic;
-#             while u.NumDatagramsAvailable == 0
-#                 if toc(tStart) >= timeout
-#                     if printout
-#                         disp("Receive timeout on port " + port)
-#                     end
-#                     return
-#                 end
-#                 pause(0.01);
-#             end
-#         else
-#             while u.NumDatagramsAvailable == 0
-#                 pause(0.01);
-#             end
-#         end
-
-#         data = read(u, 1, "uint8");
-#         msg = jsondecode(char(data'));
-
-#         if printout
-#             disp("Received message:")
-#             disp(msg)
-#         end
-
-#     catch ME
-#         if printout
-#             disp("Receive error:")
-#             disp(ME.message)
-#         end
-#     end
-# end
-
-# infos = struct("mode", 3, "name", "robot1", "status", "ready");
-# send_info_to("127.0.0.1", 5005, true, infos);

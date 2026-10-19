@@ -13,7 +13,7 @@ import math
 import settings as S
 
 from own_functions import fit_roi_landmarks_to_frame, ValueBuffer, close_to, ListBuffer, ValueBufferTime, MoveDetector
-from coordinates_handler import get_center_of_landmarks
+from coordinates_handler import get_center_of_landmarks, mediapipe_world_to_room
 from angle_handler import angle_between_points, draw_angle_between_points
 from collections import defaultdict
 
@@ -223,7 +223,7 @@ class PoseDetector():
             self.calibranion_start_time = time.perf_counter()
 
 
-    def create_world_landmark_list(self, draw=False):
+    def create_world_landmark_list(self):
         '''
         Given and image, returns the 3D pose keypoints position in the format of a list of lists
         [[id_point0, x_point0, y_point0, zpoint0], ...]
@@ -246,6 +246,11 @@ class PoseDetector():
             for id, lm in enumerate(pose.landmark):
                 self.lm_3dlist.append([id, lm.x, lm.y, lm.z])
         return self.lm_3dlist
+
+    def estimate_room_coordinates(self):
+        self.create_world_landmark_list()
+        self.room_lm_list = mediapipe_world_to_room(self.lm_3dlist)
+        return self.room_lm_list
 
     def findAngle(self, frame, i1: int, i2: int, i3: int, angle3d=False, draw=True,text_pos=(-50,+50)):
         '''Find the angle between 3 points i1, i2, i3 in succession, where i2 is the point where the angle is measured.
