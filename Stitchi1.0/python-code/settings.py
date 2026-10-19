@@ -40,6 +40,10 @@ no_hand_frame_count = 50 # by 30 FPS are 30 frames = one secund not hand, to get
 moving_min_speed = 150 # in pixel per sec. min speed needed to be detected as moving 
 moving_check_time = 0.3 # in secunds. the pixel moves are checked over x secunds
 hand_change_min_speed = 200 # in pixel per sec. min speed needed to detected a hand in choose 'moving' hand mode 
+roi_min_size = 50 # in pixel
+hand_center_hands = (5, 17) # landmark numbers to calcumate the hand center in madiapipe hands
+left_hand_center_pose = (17,19) # landmark numbers to calcumate the hand center in madiapipe pose
+right_hand_center_pose = (18,20) # landmark numbers to calcumate the hand center in madiapipe pose
 
 
 angle_buffer_size = 5 # frames, pointing angle averaged over
@@ -60,6 +64,8 @@ estimated_hip_hight = 0.95 # in meters only for compensating MediaPipe Wold lant
 gui_tile_max_size = 100
 gui_hight = 1/4 # of the frame hight
 
+# live infos
+draw_aperture = True
 
 type_instrument = 'instrument'
 instrument_start_volume = 0.5 # sound volume is between 0 and 1

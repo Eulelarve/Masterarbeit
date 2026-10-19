@@ -190,38 +190,17 @@ class PoseDetector():
         self.hand_center = [None, None] 
 
         if self._left in self.hand_side: # left hand
-            center = get_center_of_landmarks(landmarks,self.left_hand_points[1:3]) # just take 17, 19 to get the left hand center
+            center = get_center_of_landmarks(landmarks,S.left_hand_center_pose) # just take 17, 19 to get the left hand center
             center.insert(0, self.left_hand_points[2]) # [hand_point_index , x, y]  while idex = 19
             self.hand_center[0] = center
             self.shoulder[0] = landmarks[11] # left shoulder
             self.hip[0] = landmarks[23]
         if self._right in self.hand_side: # right hand
-            center = get_center_of_landmarks(landmarks,self.right_hand_points[1:3]) # just take 18, 20 to get the right hand center
+            center = get_center_of_landmarks(landmarks,S.right_hand_center_pose) # just take 18, 20 to get the right hand center
             center.insert(0, self.right_hand_points[2]) # [hand_point_index , x, y]  while index = 20
             self.hand_center[1] = center
             self.shoulder[1] = landmarks[12] # right shoulder
             self.hip[1] = landmarks[24]
-
-    
-    def calibrate_arm_length(self,time_to_calibrate=2.0, max_rel_hight_diff=1/4):
-        left_hand_center = get_center_of_landmarks(self.lm_list,[17,19])
-        right_hand_center = get_center_of_landmarks(self.lm_list,[18,20])
-        left_shoulder = self.lm_list[11][1:]
-        right_shoulder = self.lm_list[12][1:]
-        left_hip = self.lm_list[23][1:]
-        
-        max_y_pixel_diff = (left_hip[1] - left_shoulder[1]) * max_rel_hight_diff
-        if close_to(max_y_pixel_diff, right_shoulder,
-                    left_hand_center,right_hand_center,left_shoulder):
-            
-            if self.calibranion_start_time > time_to_calibrate:
-                left_arm = math.dist(left_hand_center,left_shoulder)
-                right_arm = math.dist(right_hand_center,right_shoulder)
-                self.arm_len = (left_arm + right_arm)/2
-
-        else:
-            self.calibranion_start_time = time.perf_counter()
-
 
     def create_world_landmark_list(self):
         '''
@@ -329,14 +308,7 @@ class PoseDetector():
         
         if conection_list:
             for p0, p1 in conection_list:
-
-                cv2.line(
-                    frame,
-                    p0,
-                    p1,
-                    color_connections,
-                    thickness_connections
-                )
+                cv2.line(frame, p0,p1, color_connections, thickness_connections)
 
     def get_upper_points(self,points_list:list[list]):
         pose_landmarks = self.lm_list
@@ -518,44 +490,25 @@ class HandDetector():
         self.no_hand_counter = 0
 
     ### added methods
-    def get_hand_centers(self, frame=None):
-        used_marks = [5,17]
-        if self.results.multi_hand_landmarks:
-            hands_center = []
-            for hand_landmarks in self.results.multi_hand_landmarks:
-                x_coords = [hand_landmarks.landmark[i].x for i in used_marks]
-                y_coords = [hand_landmarks.landmark[i].y for i in used_marks]
-                center_x = sum(x_coords) / len(x_coords)
-                center_y = sum(y_coords) / len(y_coords)
-                if frame is not None:
-                    center_x *= frame.shape[1]
-                    center_y *= frame.shape[0]
-                    
-                hands_center.append((center_x, center_y))
-
-            return hands_center
+    def find_hand_center(self):
+        self.hand_center = None
+        if self.lm_list:
+            used_marks = S.hand_center_hands
+            x_coords = [self.lm_list[i][1] for i in used_marks]
+            y_coords = [self.lm_list[i][2] for i in used_marks]
+            center_x = sum(x_coords) / len(x_coords)
+            center_y = sum(y_coords) / len(y_coords)
+            self.hand_center = (int(center_x), int(center_y))
         
-    def hand_close_to(self, should_pos:list, max_distance, frame, hand_side_index:int=0, draw=False):
-        hs_i = hand_side_index
+    def hand_close_to(self, ref_pos:list[int], max_distance:int, draw=False):
         # first chesk
-        hand_centers = self.get_hand_centers()
-        if not hand_centers:
+        self.find_hand_center()
+        if not self.hand_center:
             return False
         # check parameters
-        should_pos = list(should_pos) # make sure it is a list, not a tuple and make a copy of it, so the original list is not changed
-        if max_distance >= 1: # max distance is bigger than 1, so it is in pixel values, change to relative values
-            max_distance = max_distance / frame.shape[0] # use height of the frame for relative distance
-        if should_pos[0] >= 1: # x coordinate is bigger than 1, so it is in pixel values, change to relative values
-            should_pos[0] = should_pos[0] / frame.shape[1]
-        if should_pos[1] >= 1: # y coordinate is bigger than 1, so it is in pixel values, change to relative values
-            should_pos[1] = should_pos[1] / frame.shape[0]
-        # claculate distance x y
-        x_diff = abs(hand_centers[hs_i][0] - should_pos[0])
-        y_diff = abs(hand_centers[hs_i][1] - should_pos[1])
-        # elliptical rectification
-        x_diff = x_diff / frame.shape[1] * frame.shape[0] # x dist = x dist / x frame * y frame
+   
         # check distance
-        if x_diff**2 + y_diff**2 <= max_distance**2:
+        if math.dist(self.hand_center, ref_pos) <= max_distance:
             color = S.green
             output = True
         else:
@@ -563,84 +516,10 @@ class HandDetector():
             output = False
         # draw
         if draw:
-            radius = int(max_distance * frame.shape[0]) # change to pixel values
-            cv2.circle(frame, (int(should_pos[0]*frame.shape[1]), int(should_pos[1]*frame.shape[0])), radius, color, 1) # circle
-            cv2.circle(frame, (int(hand_centers[hs_i][0]*frame.shape[1]), int(hand_centers[hs_i][1]*frame.shape[0])), 3, S.red, -1) # dot
+            radius = max_distance
+            cv2.circle(self.draw_frame, ref_pos, radius, color, 1) # circle
+            cv2.circle(self.draw_frame, self.hand_center, 3, S.red, -1) # dot
         return output
-      
-       
-
-    def choose_hand(self, left_right_top='top'):
-        """ Chooses the hand landmarks and index to return based on the specified mode.
-        Args:
-            left_right_top (str, optional): Mode for selecting hand landmarks. 
-                "top" - selects the hand whose center is highest in the image.
-                "left" - selects the homans left hand.
-                "right" - selects the homans right hand.
-                "first" - selects the first detected hand.
-                Default is "top".
-        Returns:
-            hand_landmarks: The selected hand landmarks or None if no hand is detected.
-            index: The index of the selected hand in the multi_hand_landmarks list, or None if no hand is detected.
-        """
-        self.hand_landmarks = None
-        index:int = None
-
-        if self.results.multi_hand_landmarks and self.results.multi_handedness:
-            
-            # only the first leter is capital letter, so if fits to the Mediapipe label format
-            left_right_top = left_right_top.capitalize() 
-
-
-            #--------------------------------------------------
-            # Only one hand detected, return it regardless of the mode
-            #--------------------------------------------------
-
-            if len(self.results.multi_hand_landmarks) == 1 or left_right_top == "First":
-                index = 0
-            
-            # --------------------------------------------------
-            # Oberste Hand
-            # --------------------------------------------------
-
-            elif left_right_top == "Top":
-
-                top_hand, index = self._get_topmost_hand(
-                    self.results.multi_hand_landmarks
-                )
-
-            # --------------------------------------------------
-            # Linke oder rechte Hand
-            # --------------------------------------------------
-
-            elif left_right_top in ("Left", "Right"):
-
-                desired_label = left_right_top.capitalize()
-
-                for i, (hand_landmarks, handedness) in enumerate(zip(
-                    self.results.multi_hand_landmarks,
-                    self.results.multi_handedness)):
-
-                    label = handedness.classification[0].label
-
-                    if label == desired_label:
-                        index = i
-
-            elif left_right_top == 'both':
-                pass
-            else:
-            # --------------------------------------------------
-            # Invalid mode
-            # --------------------------------------------------
-
-                print(f"Invalid hand selection mode: {left_right_top}. Please choose 'top', 'left' or 'right'.")
-
-        if index is not None:
-            self.hand_landmarks = self.results.multi_hand_landmarks[index].landmark
-            self.hand_world_landmarks = self.results.multi_hand_world_landmarks[index].landmark
-
-        return index 
-
 
     def _get_topmost_hand(self, multi_hand_landmarks):
         """
@@ -664,61 +543,100 @@ class HandDetector():
                 index = i
 
         return top_hand_landmarks, index
+    
+    def find_valide_hand(self,frame ,roi_center:tuple, roi_size:int, draw_frame=None,draw=False)->None|list:
+        draw_skeleton = draw and True
+        draw_roi = draw and True
+        draw_max_distance = draw and True
 
-    def findHands(self,frame, roi=None, frame_to_draw=None, draw_roi=True):
-        """ Detects the hands in the input image.
-
-        Args:
-            frame (OpenCV BGR image): Input image.
-            roi (tuple, optional): Region of interest in the format (x, y, w, h). If specified, only this region will be processed for hand detection. Defaults to None.
-            draw (bool, optional): If set to true, draw the hand(s) keypoints and connections. Defaults to True.
-            return_handedness (bool, optional): Returns the list of score and label for right handedness.ATTENTION: if the input image is not flipped, returns the label Right for the left hand and vice-versa!!!. Defaults to False.
-
-        Returns:
-            frame:  opencv image in BGR with keypoints drawn if draw is set to true
-            right_handedness (optional): list of scores and labels for hand handedness.
-        """
-        '''
-        Detects the hands and draws keypoints of the hands given and input image.
-        :param: img (opencv image in BGR)
-        :param: draw (boolean, draw the keypoint if set to true, default is true)
-        :returns: img (opencv image in BGR with keypoints drawn if draw is set to true)
-        '''
-        green = (0, 255, 0)
-        white = (255,255,255)
+        self.frame = frame
         self.frame_w = frame.shape[1]
         self.frame_h = frame.shape[0]
+        self.draw_frame = draw_frame
+
+        self.find_roi(roi_center, roi_size)
+        if draw_roi:
+            self.draw_roi()
+        self.find_hands()
+        self.create_pixel_landmark_list()
+        self.validate_hand(roi_center, draw_max_distance)
+        if self.lm_list and draw_skeleton:
+            self.draw_skeleton()
+        return self.lm_list
+
+
+    def validate_hand(self, ref_hand_center, draw):
+        if self.roi:
+            max_distance = int(self.roi[-1]/4)
+            if not self.hand_close_to(ref_hand_center, max_distance, draw):
+                self.lm_list = None
+
+    def draw_roi(self):
+        if self.roi:
+            x, y, w, h = self.roi
+            # draw the region of interest (ROI) if specified
+            cv2.rectangle(self.draw_frame, (x, y), (x + w, y + h),S.green,  2)
+
+    def find_roi(self,roi_center:tuple, roi_size:int):
+        self.roi = None
+        roi_size = max(roi_size, S.roi_min_size)
+
+        # dont try if less then min window size
+        roi_width = roi_size
+        roi_height = roi_size
+        min_width = S.roi_min_size
+        min_height = S.roi_min_size
+
+        start_x = roi_center[0] - roi_width // 2
+        start_y = roi_center[1] - roi_height // 2
+        end_x = start_x + roi_width
+        end_y = start_y + roi_height
+        # ensure the ROI is within the frame boundaries
+        start_x = max(0, start_x)
+        start_y = max(0, start_y)
+        end_x = min(self.frame_w, end_x)
+        end_y = min(self.frame_h, end_y)
+        # update width and height based on the adjusted ROI
+        roi_width = end_x - start_x
+        roi_height = end_y - start_y
+        # only use the ROI if it is large enough
+        if roi_width >= min_width and roi_height >= min_height:
+            self.roi = (start_x, start_y, roi_width, roi_height)
+
+    def find_hands(self):
+        """ Mediapipe Detects the hand/hands in the input image/roi.
+        """
 
         # if ROI is specified, only process the region of interest, otherwise process the whole image
-        if roi:
-            x, y, w, h = roi
-            search_region = frame[y:y+h, x:x+w]
+        if self.roi:
+            x, y, w, h = self.roi
+            search_region = self.frame[y:y+h, x:x+w]
             
-            # draw the region of interest (ROI) if specified
-            if draw_roi:
-                cv2.rectangle(frame_to_draw, (x, y), (x + w, y + h),green,  2)
         else:
-            search_region = frame
+            search_region = self.frame
 
         imgRGB = cv2.cvtColor(search_region, cv2.COLOR_BGR2RGB)
         self.results = self.hands.process(imgRGB)
 
         # if hands are detected
         if self.results.multi_hand_landmarks:
-
             # for each hand
             for handLMs in self.results.multi_hand_landmarks:
                 # applies the offset to fit roi landmarks in the original frame
-                if roi:
-                    width_hight = frame.shape[1], frame.shape[0]
+                if self.roi:
+                    width_hight = self.frame_w, self.frame_h
 
                     fit_roi_landmarks_to_frame(
                         landmarks=handLMs.landmark, 
                         pixel_frame_size=width_hight, 
-                        pixel_region_x_y_w_h=roi
+                        pixel_region_x_y_w_h=self.roi
                         )
-
-            return self.results.multi_handedness
+                    
+            self.hand_landmarks = self.results.multi_hand_landmarks[0].landmark  # 0 means first found hand
+            self.hand_world_landmarks = self.results.multi_hand_world_landmarks[0].landmark # 0 means first found hand
+        else:
+            self.hand_landmarks = None
+            self.hand_world_landmarks = None
 
     def create_pixel_landmark_list(self)->list:
         self.lm_list = []
@@ -729,18 +647,18 @@ class HandDetector():
                 self.lm_list.append([id, int(x), int(y)])
         return self.lm_list
 
-    def draw_skeleton(self, frame):
+    def draw_skeleton(self):
         connections = HAND_CONNECTIONS
         for start, end in connections:
             cv2.line(
-                frame,
+                self.draw_frame,
                 self.lm_list[start][1:3],
                 self.lm_list[end][1:3],
                 S.white,
                 2
             )
         for id, *xy in self.lm_list:
-            cv2.circle(frame, xy, 4, S.white, -1)
+            cv2.circle(self.draw_frame, xy, 4, S.white, -1)
 
 if __name__ == '__main__':
     pass

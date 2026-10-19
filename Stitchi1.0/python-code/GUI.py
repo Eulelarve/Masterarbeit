@@ -532,7 +532,6 @@ class GuiOverlay:
             self.define_selecton_bar()
             if self.any_pos_in_bar_zoon():
                 instrument.show = True
-            print('Added')#test
 
     def _add_to_room(self, instrument:Instrument):
         instrument.resize(self.room_tile_size)

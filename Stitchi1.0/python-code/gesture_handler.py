@@ -58,7 +58,7 @@ class GestureDetector():
     
     def index_pointing_up(self)->bool:
         for hand_lm in self.hands_lm:
-            if len(hand_lm) == 0:
+            if not hand_lm:
                 # this hand not found
                 continue
             thumb_tip = hand_lm[4][1:3]
@@ -96,7 +96,7 @@ class GestureDetector():
 
     def thumb_down(self)->bool:
         for hand_lm in self.hands_lm:
-            if len(hand_lm) == 0:
+            if not hand_lm:
                 # hand not found
                 continue
             wrist  = hand_lm[0][1:3]
@@ -150,7 +150,7 @@ class GestureDetector():
     
     def give_the_finger(self)->bool:
         for hand_lm in self.hands_lm:
-            if len(hand_lm) == 0:
+            if not hand_lm:
                 # hand not found
                 continue
             index_tip = hand_lm[8][1:3]
@@ -309,14 +309,11 @@ class GestureDetector():
         distance = x_hand_l - x_hand_r
         self.hand_to_hand_dist_course.add(distance)
         if self.hand_to_hand_dist_course.difference > self.upper_body_len * 2:
-            print('dist')#test
             # swipe distanze is large enough
             min_dist = self.hand_to_hand_dist_course.min
             max_dist = self.hand_to_hand_dist_course.max
             if min_dist < -self.upper_body_len * 0.7 and  max_dist > self.upper_body_len * 0.7:
                 # arms are crossing during swiping
-                print('dist_x')#test
-                print(min_dist,max_dist)#test
                 return True
         # hand moves not fare or fast enough
         return False
@@ -375,7 +372,7 @@ class GestureDetector():
         color = red
         if self.hand_status[hand_id]:
             color = blue
-        if draw and frame is not None:
+        if draw and frame is not None and S.draw_aperture:
             cv2.line(frame, wrist, middle_finger_tip, color, 3)
             cv2.line(frame, thumb_tip, pinky_tip, color, 3)
         return self.hand_status[hand_id]
@@ -389,7 +386,7 @@ class GestureDetector():
             return True
         return False 
 
-    def hand_open_close_static(self,hand_id, frame, thr_open=75, thr_closed = 65, buffer_size=S.hand_status_buffer_size, draw_aperture=False):
+    def hand_open_close_static(self,hand_id, frame, thr_open=75, thr_closed = 65, buffer_size=S.hand_status_buffer_size, draw=False):
         key = str(thr_open)+str(thr_closed)
         self.no_hand_counter[hand_id] = 0
 
@@ -406,7 +403,7 @@ class GestureDetector():
             elif aperture <= thr_closed:
                 status = 0 # closed hand
 
-        if draw_aperture:
+        if S.draw_aperture and draw:
             cv2.line(frame,*aperture_line, S.blue if status else S.red, 3)
 
         self.status_smoother[key].add(status)
