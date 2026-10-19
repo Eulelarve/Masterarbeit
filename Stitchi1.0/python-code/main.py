@@ -17,6 +17,7 @@ from angle_handler import RoomAngleDetector
 from MediaPipe_handler import PoseDetector, HandDetector 
 from analyse import SaveFrameStatus, save_list_to_file, find_files
 from gesture_handler import GestureDetector
+from frame_handler import FrameSoarce
 
 import settings as S
 
@@ -30,7 +31,6 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
          show_globe = False,
          grab_detection_methode = S.grab_detection_methode,
          show_depth_frame = False,
-         full_screen=False,
          udp_reception_dict={}
          ):
     """
@@ -65,8 +65,9 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
     white = S.white
     should_run = True
 
-    window_name = S.name+' - '+S.version
+    cv2.setUseOptimized(True)
     gui = GuiOverlay()
+    frame_source = FrameSoarce()
 
 
     frame_counter_processed = 0
@@ -98,7 +99,6 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
     fps_limit = fps_cap
     frame_interval = 1.0 / fps_limit
     fps_sum = 0
-    align_depth = S.align_depth
     cam_intrinsics = None
 
     hand_detectors = (HandDetector(), HandDetector())
@@ -111,112 +111,10 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
 
     time.sleep(0.5)
 
-    cv2.setUseOptimized(True)
-    if full_screen:
-        cv2.namedWindow(window_name, cv2.WINDOW_NORMAL)
-        cv2.setWindowProperty("Bild", cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
-    else:
-        cv2.namedWindow(window_name)
-
-    cv2.setMouseCallback(window_name, cv2_mouse_callback)
-
-    print('--SOURCE--')
-    is_playback = False
-    use_realsense = False
-    use_rs_depth = False
-    if type(source) is int:
-        print('livestream cam nr.:', source)
-    elif source.lower() in ["rs", "depth", "rs_depth"]:
-        use_realsense = True
-        use_rs_depth = True
-        print(source,'means using realsens depth cam', )
-    else:
-        is_playback = True
-        if source[-4:] == S.rs_save_type:
-            use_realsense = True
-            use_rs_depth = True
-            print('playback realsens file:', source)
-        else:
-            print('playback:', source)
-
-    if use_realsense:
-
-        pipeline = rs.pipeline()
-        config = rs.config()
-
-        if is_playback:
-            config.enable_device_from_file(source, repeat_playback=False)
-        else:
-            config.enable_stream(
-                rs.stream.color,
-                *S.live_stream_resulutuin,
-                rs.format.bgr8,
-                S.fps
-            )
-
-            if use_rs_depth:
-                config.enable_stream(
-                    rs.stream.depth,
-                    *S.live_stream_resulutuin,
-                    rs.format.z16,
-                    S.fps
-                )
-        profile = pipeline.start(config)
-
-        if use_rs_depth and align_depth:
-            aligner = rs.align(rs.stream.color)
-        if is_playback:
-            device = profile.get_device()
-            playback = device.as_playback()
-            playback.set_real_time(False)
-
-        try:
-            pipeline.stop()
-            print('pyrealsense2 was not firmly clossed')
-        except:
-            pass
-        profile = pipeline.start(config)
-        frames = pipeline.wait_for_frames()
-        if use_rs_depth and align_depth:
-            frames = aligner.process(frames) # das alinment geht noch nicht
-
-        color_frame = frames.get_color_frame()
-        depth_frame = frames.get_depth_frame()
-        cam_intrinsics = color_frame.profile.as_video_stream_profile().intrinsics
-
-        frame_test = np.asanyarray(color_frame.get_data())
-
-        success = True
-
-    else: # other webcams or video input
-
-        video_capture = cv2.VideoCapture(source)
-        if not is_playback:
-            video_capture.set(cv2.CAP_PROP_FRAME_WIDTH, S.live_stream_resulutuin[0])
-            video_capture.set(cv2.CAP_PROP_FRAME_HEIGHT, S.live_stream_resulutuin[1])
-
-        
-        success, frame_test = video_capture.read()
-
-        if not video_capture.isOpened():
-            print(f"Cannot open source: {source}")
-            return
 
 
-    # set to start frame / reset to frame 0
-    if is_playback:
-        if not use_realsense:
-            if start_frame > 1:
-                video_capture.set(cv2.CAP_PROP_POS_FRAMES, start_frame -1)
-            else:
-                video_capture.set(cv2.CAP_PROP_POS_FRAMES, 0)
-
-        # extrace camara angle from discription
-        video_name = source[source.rfind("/")+1:source.rfind(".mp4")]
-
-
-    frame_x=frame_test.shape[1] 
-    frame_y=frame_test.shape[0]
+    frame_x=frame_source.w 
+    frame_y=frame_source.h
 
     # -------------------------------------------------------
     # Main processing loop
@@ -225,13 +123,11 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
         # --------------------------------------------------
         # set and reset 
         # --------------------------------------------------
-        valide_hand = False
         pose_found = False
         hand_found = [False, False]
         hand_stands_still = [None, None]
         change_display_mode = False
         clear_gui = False
-        roi_hand = None
         trigger_info_menu = False
         display_flash = None
         room_azimuth = [None,None]
@@ -270,10 +166,6 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
         # Keyboard controls
         # --------------------------------------------------
         key = cv2.waitKey(1) & 0xFF
-        
-        # # empty the key buffer to prevent overflow if key stays pressed down, but miss sume keys
-        # while cv2.waitKey(1) != -1:
-        #     pass
 
         if key == 27: # esc
             should_run = False
@@ -304,7 +196,7 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
         # Video frame navigation
         # --------------------------------------------------
 
-        if is_playback and not use_realsense:
+        if frame_source.playback and not frame_source.use_rs:
             if chr(key) in 'wasd':
                 if paused:
                     process_ones = True
@@ -327,10 +219,7 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
                 
                 frame_now -= 1 # -1 because each loop adds one frame, by it self
                 # set frame in video
-                video_capture.set(
-                        cv2.CAP_PROP_POS_FRAMES,
-                        frame_now 
-                    )
+                frame_source.set_video_frame(frame_now)
                 
         # --------------------------------------------------
         # process one frame - unpausing for one frame when paused
@@ -349,81 +238,24 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
         # --------------------------------------------------
 
         if not paused:
-            
-            if use_realsense:
-
-                try:
-                    frames = pipeline.wait_for_frames(timeout_ms=1000)
-                except RuntimeError:
-                    print(f"{S.rs_save_type.upper()}-Datei beendet")
-                    break
-
-                if use_rs_depth and align_depth:
-                    frames = aligner.process(frames) # das alighnment geht noch nicht
-
-                color_frame = frames.get_color_frame()
-
-                if not color_frame:
-                    continue
-
-                frame_raw = np.asanyarray(color_frame.get_data())
-
-                if use_rs_depth:
-
-                    depth_frame = frames.get_depth_frame()
-
-                    if depth_frame and show_depth_frame:
-                        depth_image = np.asanyarray(
-                            depth_frame.get_data()
-                        )
-
-                        depth_colormap = cv2.applyColorMap(
-                            cv2.convertScaleAbs(
-                                depth_image,
-                                alpha=0.03
-                            ),
-                            cv2.COLORMAP_JET
-                        )
-
-            else:
-
-                success, frame_raw = video_capture.read()
-
-                if not success:
-                    print("End of video stream reached.")
-                    break
-
-            if frame_raw is None:
+            frame_now = frame_source.get_next_frame()            
+            if frame_source.finish:
+                should_run = False
                 continue
-
-            frame_raw = cv2.flip(frame_raw, 1)
-            if use_rs_depth and show_depth_frame:
-                depth_colormap = cv2.flip(depth_colormap, 1)
-
-            frame_overlay = frame_raw.copy()
-
-        # --------------------------------------------------
-        # currend frame
-        # --------------------------------------------------
-        if is_playback:
-            frame_now = frames.get_frame_number() if use_realsense else int(video_capture.get(cv2.CAP_PROP_POS_FRAMES))
-        elif not paused: # live stream not paused
-            frame_now += 1
-        
+            RGB_frame = frame_source.RGB_frame
+            frame_overlay = frame_source.BRG_frame
 
         # --------------------------------------------------
         # Pose detection
         # --------------------------------------------------
         if not paused and process:
 
-            draw_skeleton = True 
 
-            pose_detector.findPose(frame=frame_raw)
+            pose_detector.findPose(RGB_frame)
    
             pose_landmarks = pose_detector.create_pixel_landmark_list()
             gesture_detector.pose_lm = pose_landmarks
             
-
             pose_found = True if len(pose_landmarks) > 0 else False
             
             if pose_found:
@@ -433,8 +265,8 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
 
                 pose_world_landmarks = pose_detector.estimate_room_coordinates()
                 
-                if show_processing and draw_skeleton:
-                    pose_detector.draw_skeleton(frame=frame_overlay)
+                if show_processing and S.draw_body_skeleton:
+                    pose_detector.draw_skeleton(frame_overlay)
 
         # --------------------------------------------------
         # get hand center and coresponding shoulder and max arm length, relative arm length
@@ -472,7 +304,7 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
             if not paused and process and pose_found:
 
                 hand_landmarks = hand_detector.find_valide_hand(
-                    frame_raw, hand_center, upper_body_pixel_len,
+                    RGB_frame, hand_center, upper_body_pixel_len,
                     frame_overlay, show_processing
                 )
 
@@ -482,7 +314,8 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
                 # overwrite the Hand center of pose by hand detection and set lansmarks fpr gesture detection
                 # --------------------------------------------------
                 if hand_found[_i]:
-                    hand_centers[_i] = hand_detector.hand_center
+                    hand_center = hand_detector.hand_center
+                    hand_centers[_i] = hand_center 
                     gesture_detector.hands_lm[_i] = hand_landmarks
                 else:
                     gesture_detector.hands_lm[_i] = None
@@ -500,8 +333,8 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
                 draw_angles = True
 
                 draw = draw_angles and show_processing
-                if use_rs_depth:
-                    angle_detector.find_room_angle_with_depth_frame(depth_frame,hand_center, shoulder, frame_overlay, draw)
+                if frame_source.use_depth_cam:
+                    angle_detector.find_room_angle_with_depth_frame(frame_source.depth_frame, hand_center, shoulder, frame_overlay, draw)
                 else:
                     hand_3d = pose_world_landmarks[i_hand][1:4]
                     shoulder_3d = pose_world_landmarks[i_shoulder][1:4]
@@ -595,15 +428,11 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
         if capture_status_manually:
             wrong_frame = open_close_status_capturer.add(frame_now, key)
             if type(wrong_frame) == int:
-                if is_playback:
+                if frame_source.video:
                     if paused:
                         process_ones = True
-            
                     # set frame in video
-                    video_capture.set(
-                            cv2.CAP_PROP_POS_FRAMES,
-                            wrong_frame-1 
-                        )
+                    frame_source.set_video_frame(wrong_frame-1)
 
         # --------------------------------------------------
         # frame is fully processed 
@@ -614,7 +443,6 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
         # --------------------------------------------------
         # alppy controlles  
         # --------------------------------------------------
-
         if change_display_mode:
             first_mode = visibilety_mode_loop_list.pop(0)
             visibilety_mode_loop_list.append(first_mode) 
@@ -682,7 +510,7 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
         #  video / Live status overlay
         y += margin
         if show_processing:
-            status = "LIVE" if not is_playback else "VIDEO"
+            status = "VIDEO" if frame_source.playback else "LIVE"
 
             cv2_putText_outlined(
                 frame_overlay,
@@ -710,14 +538,9 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
         y += margin
         if show_processing:
             text = f"Frame: {frame_now}"
-            if is_playback:
+            if frame_source.playback:
                 text += '/'
-                if use_realsense:
-                    play_time = playback.get_duration().total_seconds()
-                    fps_db3 = profile.get_stream(rs.stream.color).as_video_stream_profile().fps()
-                    text += str(int(fps_db3*play_time))
-                else:
-                    text += str(int(video_capture.get(cv2.CAP_PROP_FRAME_COUNT)))
+                text += str(frame_source.end_frame)
 
             cv2_putText_outlined(
                 frame_overlay,
@@ -802,7 +625,7 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
         # video file controls
         x = 10
         y = frame_overlay.shape[0] - 25
-        if is_playback:
+        if frame_source.video:
             text = "W/S=+/-1 frame | A/D=+/-200 frames"
             cv2_putText_outlined(
                 frame_overlay,
@@ -830,34 +653,35 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
         # --------------------------------------------------
         # add instruments received from udp communication or start input
         # --------------------------------------------------
-        if S.add_inst_key in udp_reception_dict:
-            insts = tolist(udp_reception_dict[S.add_inst_key])
-            for inst in insts:
-                gui.add_instrument(inst)
-        udp_reception_dict = info_receiver.get_msg()
-        # --------------------------------------------------
+        if S.show_gui:
+            if S.add_inst_key in udp_reception_dict:
+                insts = tolist(udp_reception_dict[S.add_inst_key])
+                for inst in insts:
+                    gui.add_instrument(inst)
+            udp_reception_dict = info_receiver.get_msg()
+            # --------------------------------------------------
 
-        # show and evaluate hands and Mauseposition 
-        if not paused and process and pose_found:
-            mouse_pos = np.int16(np.array(MOUSE.pos) * [frame_x, frame_y] / S.window_size)
-            selector1 = {'pos':hand_centers[0], 'grab':gesture_detector.grab[0], 'release':gesture_detector.releas[0]}
-            selector2 = {'pos':hand_centers[1], 'grab':gesture_detector.grab[1], 'release':gesture_detector.releas[1]}
-            selector3 = {'pos':mouse_pos,       'grab':MOUSE.is_pressed(),       'release':MOUSE.is_release()}
-            if S.no_mouse_control:
-                selector3 = {'pos':None, 'grab':None, 'release':None}
+            # show and evaluate hands and Mauseposition 
+            if not paused and process and pose_found:
+                mouse_pos = np.int16(np.array(MOUSE.pos) * [frame_x, frame_y] / S.window_size)
+                selector1 = {'pos':hand_centers[0], 'grab':gesture_detector.grab[0], 'release':gesture_detector.releas[0]}
+                selector2 = {'pos':hand_centers[1], 'grab':gesture_detector.grab[1], 'release':gesture_detector.releas[1]}
+                selector3 = {'pos':mouse_pos,       'grab':MOUSE.is_pressed(),       'release':MOUSE.is_release()}
+                if S.no_mouse_control:
+                    selector3 = {'pos':None, 'grab':None, 'release':None}
 
-            gui.select(selector1['pos'], selector2['pos'], selector3['pos'])
-            gui.grab(selector1['grab'], selector2['grab'], selector3['grab'])
-            gui.move(azimuth=room_azimuth,elevation=room_elevation)
-            gui.release(selector1['release'], selector2['release'], selector3['release'])
-        gui.draw(frame_overlay, show_processing)
-        gui_info = gui.get_info()
-        # --------------------------------------------------
-        # comunikation Audiosystem
-        # --------------------------------------------------
-        if gui_info:
-            if gui_info['type'] == S.type_instrument:
-                communicator.send(show_processing, **gui_info) # some error after add elevation
+                gui.select(selector1['pos'], selector2['pos'], selector3['pos'])
+                gui.grab(selector1['grab'], selector2['grab'], selector3['grab'])
+                gui.move(azimuth=room_azimuth,elevation=room_elevation)
+                gui.release(selector1['release'], selector2['release'], selector3['release'])
+            gui.draw(frame_overlay, show_processing)
+            gui_info = gui.get_info()
+            # --------------------------------------------------
+            # comunikation Audiosystem
+            # --------------------------------------------------
+            if gui_info:
+                if gui_info['type'] == S.type_instrument:
+                    communicator.send(show_processing, **gui_info) # some error after add elevation
 
         # --------------------------------------------------
         # foto at frame or bei pressing P
@@ -865,6 +689,8 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
         if display_flash:
             if not screenshot(frame=frame_overlay, name='shreenshot', ask_name=False):
                 display_flash = None
+            frame_source.show_flash = display_flash
+            
 
         if foto_frames:
             foto_frame = min(foto_frames)
@@ -902,62 +728,15 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
                     paused = True
                     pause_frames.remove(pause_frame)
 
-        if not paused:
-            if gui_info and gui_info['function'] == 'close application':
-                print('stop loop by GUI CloseButon X')
-                should_run = False
-        # --------------------------------------------------
-        # stop if end frame is reached
-        # --------------------------------------------------
-        if not paused:
-            if end_frame is not None:
-                if frame_now >= end_frame:
-                    print(f'currend frame {frame_now} reached end frame {end_frame} -> end this loop')
-                    break
-
-        # --------------------------------------------------
-        # stop if the window is closed
-        # --------------------------------------------------
-        open_windows = cv2.getWindowProperty(window_name, cv2.WND_PROP_VISIBLE)
-        if frame_now > start_frame + 1: # wate for forst frame, to open up the window
-            if open_windows < 1: # if no wiendow is open
-                print('window closed by user')
-                should_run = False
-
-
         # --------------------------------------------------
         # Display the processed frame - opens a window 
         # --------------------------------------------------
-
-
-        if not is_playback and S.window_size != S.live_stream_resulutuin:
-            frame_out = cv2.resize(frame_overlay, S.window_size)
-        else:
-            frame_out = frame_overlay.copy()
-
-        if display_flash is not None:
-            frame_out[:] = display_flash
-            
-        cv2.imshow(window_name, frame_out)
-
-        if use_rs_depth and show_depth_frame:
-            cv2.imshow(
-                "Depth",
-                depth_colormap
-            )
+        frame_source.show_frame()
         
     # ==================================================
     # finaly and closing - loop ended
     # ==================================================
-    # closing cv2 or realsens 
-    if use_realsense:
-        pipeline.stop()
-        print('pyrealsense2 colsed')
-    else:
-        video_capture.release()
-        print('cv2 colsed')
-
-    cv2.destroyAllWindows()
+    frame_source.end()
 
     # --------------------------------------------------
     # post-processing

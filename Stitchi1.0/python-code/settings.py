@@ -1,17 +1,12 @@
 name = "Gesture control"
 version = "Stitchi 1.0"
-# colors
-red = (0, 0, 255)
-blue = (255, 0, 0)
-green =(0, 255, 0)
-white = (250,250,250)
-black = (0,0,0)
-yellow = (0, 255, 255)
 
 # other
 fps = 30
+start_frame = 1 # can be uset to start somewere in are video file not for realsens file.bag
+end_frame = 0 # can be uset to end the programm at a specific frames: 0 mean it is inactive
 live_stream_resulutuin = (1280,720) # (1280,720) or (640,480)
-window_size = (1920, 1080)#
+window_size = (1920, 1080) # (1920, 1080)
 hand_width_factor = 1.2
 hand_opening_factor = 1.3
 skip_frames = 100
@@ -28,7 +23,7 @@ port = 5005
 IPv4_audiosystem = "127.0.0.1"
 
 # Prosessing settings
-video_source = 1 # can be 0, 1, 2 ... or 'depth' or 'filename.mp4', defould is 'depth' to use the real sense depthcam, 0 means une the forst found videostream
+video_source =  '../test_videos (gitignore)/d01_0deg_1280x720p_15deg_steps_right.bag'# 1 # can be 0, 1, 2 ... or 'depth_cam' or 'filename.mp4_or_so' or 'filename.bag',  defould is 'depth' to use the real sense depthcam, 0 means une the forst found videostream
 active_hand = 'both' # Available modules are: right, left, moving, top, both | 'moving' means take the fastest hand, 'top' means take the most top hand, 'right' means always right hand ...
 no_mouse_control = False
 default_buffer_mode = 'median'
@@ -61,11 +56,18 @@ estimated_hip_hight = 0.95 # in meters only for compensating MediaPipe Wold lant
 # dist_cam_to_floor = 1.7 # in meters
 
 # GUI
+show_gui = True
 gui_tile_max_size = 100
 gui_hight = 1/4 # of the frame hight
 
 # live infos
+mirrow_view = True
 draw_aperture = True
+draw_hand_skeleton = True
+draw_body_skeleton = True
+draw_roi = True
+draw_hand_vlidation_dist = True
+show_depth_frame = False
 
 type_instrument = 'instrument'
 instrument_start_volume = 0.5 # sound volume is between 0 and 1
@@ -86,6 +88,16 @@ hand_status_buffer_atleast = 2
 controll_trigger_text_time = 1.0 # in secunds, how long the text feedbeck will be showen in the screen after triggering an controll grsture or key, 0.0 means no text feedback
 add_inst_key = 'add_instruments'
 start_instruments =  ["trumpet", "trumpet", "Tröte", "piano", "violin","trommel","xylo","r2d2"]  # optional, later the audiosystem should give this infos per UDP
+
+
+# colors
+red = (0, 0, 255)
+blue = (255, 0, 0)
+green =(0, 255, 0)
+white = (250,250,250)
+black = (0,0,0)
+yellow = (0, 255, 255)
+
 
 # d455 intrinsiks color frame:              [ 1280x720  p[638.568 367.388]  f[640.329 638.932]  Inverse Brown Conrady [-0.055931 0.0683116 -0.000836038 0.000658576 -0.0223113] ]
 # d455 intrinsiks depth frame (unaligned):  [ 1280x720  p[643.714 366.77]  f[653.798 653.798]  Brown Conrady [0 0 0 0 0] ]

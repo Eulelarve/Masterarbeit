@@ -107,28 +107,14 @@ class PoseDetector():
 
         return self.lm_movment_list
 
-    def findPose(self, frame, ):
+    def findPose(self, rgb_frame):
         """
-        Detects the pose of the person in the given image.
-
-        Args:
-            frame (OpenCV BGR frame): img (opencv image in BGR)
-            draw (bool, optional): draw the keypoint if set to true. Defaults to True.
-
-        Returns:
-            opencv image in BGR with keypoints drawn if draw is set to true
+        mediapipe Detects the pose of the person in the given image.
         """
-        
-        imgRGB = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        self.results = self.pose.process(imgRGB)
-        self.frame_w = frame.shape[1]
-        self.frame_h = frame.shape[0]
+        self.results = self.pose.process(rgb_frame)
+        self.frame_w = rgb_frame.shape[1]
+        self.frame_h = rgb_frame.shape[0]
 
-        # if self.results.pose_landmarks:
-        #     if draw:
-        #         self.mpDraw.draw_landmarks(
-        #             frame_to_draw, self.results.pose_landmarks, self.mpPose.POSE_CONNECTIONS)
-        # return frame
 
     def create_pixel_landmark_list(self)->list:
        
@@ -544,14 +530,14 @@ class HandDetector():
 
         return top_hand_landmarks, index
     
-    def find_valide_hand(self,frame ,roi_center:tuple, roi_size:int, draw_frame=None,draw=False)->None|list:
-        draw_skeleton = draw and True
-        draw_roi = draw and True
-        draw_max_distance = draw and True
+    def find_valide_hand(self,rgb_frame ,roi_center:tuple, roi_size:int, draw_frame=None,draw=False)->None|list:
+        draw_skeleton = draw and S.draw_hand_skeleton
+        draw_roi = draw and S.draw_roi
+        draw_max_distance = draw and S.draw_hand_vlidation_dist
 
-        self.frame = frame
-        self.frame_w = frame.shape[1]
-        self.frame_h = frame.shape[0]
+        self.frame = rgb_frame
+        self.frame_w = rgb_frame.shape[1]
+        self.frame_h = rgb_frame.shape[0]
         self.draw_frame = draw_frame
 
         self.find_roi(roi_center, roi_size)
@@ -615,8 +601,7 @@ class HandDetector():
         else:
             search_region = self.frame
 
-        imgRGB = cv2.cvtColor(search_region, cv2.COLOR_BGR2RGB)
-        self.results = self.hands.process(imgRGB)
+        self.results = self.hands.process(search_region)
 
         # if hands are detected
         if self.results.multi_hand_landmarks:
