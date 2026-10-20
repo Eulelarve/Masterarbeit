@@ -127,7 +127,7 @@ def rs_pixel_to_meter(intrinsics:object, pixel_xy:tuple, depth:float)->list:
         raise "no cam intrinsics are given"
     return rs.rs2_deproject_pixel_to_point(intrinsics, pixel_xy, depth)
 
-def rs_pixel_to_3d(pixel_xy:tuple, depth_frame_or_depth:object|float|int, mirrowed_x_pixel:bool, cam_angle:float|None, cam_intrinsics:object|None=None)->list|None:
+def rs_pixel_to_3d(pixel_xy:tuple, depth_frame_or_depth:object|float|int, mirrowed_x_pixel:bool, cam_intrinsics:object|None=None)->list|None:
     """
     cam intrinsics are not needed if a depth frame is given
     pixel_xy: Pixelkoordinaten im Colorbild

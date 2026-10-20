@@ -23,18 +23,19 @@ port = 5005
 IPv4_audiosystem = "127.0.0.1"
 
 # Prosessing settings
-video_source =  '../test_videos (gitignore)/d01_0deg_1280x720p_15deg_steps_right.bag'# 1 # can be 0, 1, 2 ... or 'depth_cam' or 'filename.mp4_or_so' or 'filename.bag',  defould is 'depth' to use the real sense depthcam, 0 means une the forst found videostream
-active_hand = 'both' # Available modules are: right, left, moving, top, both | 'moving' means take the fastest hand, 'top' means take the most top hand, 'right' means always right hand ...
+video_source =  'depth'#'../test_videos (gitignore)/d01_0deg_1280x720p_15deg_steps_right.bag'# 1 # can be 0, 1, 2 ... or 'depth_cam' or 'filename.mp4_or_so' or 'filename.bag',  defould is 'depth' to use the real sense depthcam, 0 means une the forst found videostream
 no_mouse_control = False
 default_buffer_mode = 'median'
 cam_inclination_angle = 0
 
 
 # hand detection
+active_hand = 'both' # Available modules are: right, left, moving, top, both | 'moving' means take the fastest hand, 'top' means take the most top hand, 'right' means always right hand ...
 no_hand_frame_count = 50 # by 30 FPS are 30 frames = one secund not hand, to get the no_hand status
 moving_min_speed = 150 # in pixel per sec. min speed needed to be detected as moving 
 moving_check_time = 0.3 # in secunds. the pixel moves are checked over x secunds
 hand_change_min_speed = 200 # in pixel per sec. min speed needed to detected a hand in choose 'moving' hand mode 
+use_roi = True # if true: use only a part around the hand of the cmera image to look for a hand skelett
 roi_min_size = 50 # in pixel
 hand_center_hands = (5, 17) # landmark numbers to calcumate the hand center in madiapipe hands
 left_hand_center_pose = (17,19) # landmark numbers to calcumate the hand center in madiapipe pose
@@ -77,7 +78,7 @@ visibility_threshold = 0.92
 cam_intrinsics = 'xxx'
 left_hand_landmark_ids = [ 15,17,19, 21 ] # left hand landmarks from mediapipe pose
 right_hand_landmark_ids = [ 16,18,20, 22 ] # right hand landmarks from mediapipe pose
-display_feedback_mode = {1:'show gui', 0:'show gui and processing'}# 2:'show buttons',3:'show buttons and processing' }
+display_feedback_mode = ['show gui and processing','show gui']# 'show buttons','show buttons and processing' ] # you can ad modes hier
 grab_detection_methode = 'dynamic' # can be 'static' or 'dynamic'
 # dynamic grab mode
 dynamic_grab_distance_difference = 1

@@ -107,7 +107,7 @@ class MoveDetector:
 
     def get_speed(self, new_pos:tuple=None)->float:
         """ retruns the speed in pixel per second"""
-        self.pos_buffer.add(new_pos)
+        self.pos_buffer.add(new_pos, True)
         dist = self.pos_buffer.distance()
         pix_per_sec = dist / self.pos_buffer.buffering_time
         return pix_per_sec

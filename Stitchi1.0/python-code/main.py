@@ -76,8 +76,8 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
     frame_now = start_frame - 1
     hand_status:list[int|None,int|None] = [None, None]
     video_name = ''
-    visibilety_mode_loop_list = list(S.display_feedback_mode.values())
-    show_processing = 'process' in S.display_feedback_mode[0]
+    visibilety_mode_loop_list = S.display_feedback_mode.copy()
+    show_processing = 'process' in visibilety_mode_loop_list[0]
     trigger_text = {'text':'', 'color':green, 'time':0.0}
 
 
@@ -134,6 +134,8 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
         room_elevation = [None,None]
         hand_centers:list[list|None] = [None, None]
         pose_hands = []
+        # object reset
+        gesture_detector.clear_lm()
         
         # released_angle = None
         time_stemp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -307,7 +309,6 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
                     RGB_frame, hand_center, upper_body_pixel_len,
                     frame_overlay, show_processing
                 )
-
                 hand_found[_i] = hand_landmarks is not None
 
                 # --------------------------------------------------
@@ -356,7 +357,6 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
                 if hand_stands_still[_i]:
                     if hand_found[_i]:
                         # hand detected in frame
-                        frame_counter_hand += 1
 
                         # ---------------------------------------
                         # choose a hand opening detection methode
@@ -399,6 +399,12 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
 
         # end of for-handside loop
         # ==================================================
+        
+        # --------------------------------------------------
+        # count frames with detected hand skelet
+        if not paused and process and pose_found:
+            if True in hand_found:
+                frame_counter_hand += 1
 
         # --------------------------------------------------
         # gesture detection
@@ -686,12 +692,8 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
         # --------------------------------------------------
         # foto at frame or bei pressing P
         # --------------------------------------------------
-        if display_flash:
-            if not screenshot(frame=frame_overlay, name='shreenshot', ask_name=False):
-                display_flash = None
-            frame_source.show_flash = display_flash
-            
-
+        foto_info = None
+        foto_name ='shreenshot'
         if foto_frames:
             foto_frame = min(foto_frames)
             if frame_now == foto_frame:
@@ -701,22 +703,21 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
                 hand_rate = round(frame_counter_hand / frame_counter_processed *100, 1)
                 pose_rate = round(frame_counter_pose / frame_counter_processed *100, 1)
                 fps_mean = round(fps_sum / frame_counter_processed, 1)
+                foto_info=[
+                        frame_x, frame_y,
+                        frame_counter_processed,
+                        frame_counter_pose, pose_rate,
+                        frame_counter_hand, hand_rate,
+                        fps_mean,
+                    ]
+                foto_name=source
+                display_flash = white
 
-                if screenshot(frame=frame, name=source, ask_name=False,
-                           info=[
-                                    frame_x, frame_y,
-                                    _roi_size, 
-                                    frame_counter_processed,
-                                    frame_counter_pose, pose_rate,
-                                    frame_counter_hand, hand_rate,
-                                    fps_mean,
-                                ]
-                           ):
-                    display_flash = white
-                else:
-                    display_flash = None
-                    
-
+        if display_flash:
+            if not screenshot(frame=frame_overlay, name=foto_name, ask_name=False, info=foto_info):
+                display_flash = None
+            frame_source.show_flash = display_flash
+            
         # --------------------------------------------------
         # pause at frame or later if skiped
         # --------------------------------------------------
@@ -801,7 +802,7 @@ if __name__ == "__main__":
             fps_cap=S.fps,
             show_fps=True,
             source=S.video_source, # kan be 0, 1, 2 ... or 'depth' or 'filename.mp4'
-            pause_frames=None,
+            pause_frames=(300,500,700),
             capture_status_manually=False,
             capture_status = False,
             start_frame=1,

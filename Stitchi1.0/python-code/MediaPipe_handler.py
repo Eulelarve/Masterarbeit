@@ -167,6 +167,7 @@ class PoseDetector():
                 if None not in vh: 
                     # in both hand mode, it still cann add a hand if it get visible
                     self.hand_side = vh
+            
         else:
             # choose the hand side 
             self.hand_side = self.get_hand_side(mode, mirrowed)
@@ -174,6 +175,7 @@ class PoseDetector():
         self.shoulder = [None, None]    
         self.hip = [None, None]  
         self.hand_center = [None, None] 
+
 
         if self._left in self.hand_side: # left hand
             center = get_center_of_landmarks(landmarks,S.left_hand_center_pose) # just take 17, 19 to get the left hand center
@@ -371,8 +373,11 @@ class PoseDetector():
                         return left
                     elif fhp in self.right_hand_points:
                         return right
+            # no fast hand: no change in hand side
+            return self.hand_side
         else:
             print(f"Invalid hand selection mode: {choose}. Please choose 'top', 'left', 'right' or 'moving'.")
+            raise 
 
 
     def get_fastest_point(self, point_ids:list=None):
@@ -459,6 +464,7 @@ class HandDetector():
             trackCon (float, optional): Minimum confidence value ([0.0, 1.0]) from the landmark-tracking model for the hand landmarks to be considered tracked successfully, or otherwise hand detection will be invoked automatically on the next input image. Setting it to a higher value can increase robustness of the solution, at the expense of a higher latency. Ignored if static_image_mode is true, where hand detection simply runs on every image. Default to 0.5.
         """
         self.lm_range = range(21)
+        self.use_roi = S.use_roi
         self.mode = mode  # static image mode,
         self.maxHands = maxHands  # max number of hands to track
         self.modCompl = modCompl  # complexity of the model (can be 0 or 1)
@@ -474,38 +480,6 @@ class HandDetector():
 
         self.is_hand_open:int = None
         self.no_hand_counter = 0
-
-    ### added methods
-    def find_hand_center(self):
-        self.hand_center = None
-        if self.lm_list:
-            used_marks = S.hand_center_hands
-            x_coords = [self.lm_list[i][1] for i in used_marks]
-            y_coords = [self.lm_list[i][2] for i in used_marks]
-            center_x = sum(x_coords) / len(x_coords)
-            center_y = sum(y_coords) / len(y_coords)
-            self.hand_center = (int(center_x), int(center_y))
-        
-    def hand_close_to(self, ref_pos:list[int], max_distance:int, draw=False):
-        # first chesk
-        self.find_hand_center()
-        if not self.hand_center:
-            return False
-        # check parameters
-   
-        # check distance
-        if math.dist(self.hand_center, ref_pos) <= max_distance:
-            color = S.green
-            output = True
-        else:
-            color = S.red
-            output = False
-        # draw
-        if draw:
-            radius = max_distance
-            cv2.circle(self.draw_frame, ref_pos, radius, color, 1) # circle
-            cv2.circle(self.draw_frame, self.hand_center, 3, S.red, -1) # dot
-        return output
 
     def _get_topmost_hand(self, multi_hand_landmarks):
         """
@@ -529,8 +503,39 @@ class HandDetector():
                 index = i
 
         return top_hand_landmarks, index
+
+    def find_hand_center(self):
+            self.hand_center = None
+            if self.lm_list:
+                used_marks = S.hand_center_hands
+                x_coords = [self.lm_list[i][1] for i in used_marks]
+                y_coords = [self.lm_list[i][2] for i in used_marks]
+                center_x = sum(x_coords) / len(x_coords)
+                center_y = sum(y_coords) / len(y_coords)
+                self.hand_center = (int(center_x), int(center_y))
+            
+    def hand_close_to(self, ref_pos:list[int], max_distance:int, draw=False):
+        # first chesk
+        self.find_hand_center()
+        if not self.hand_center:
+            return False
+        # check parameters
     
-    def find_valide_hand(self,rgb_frame ,roi_center:tuple, roi_size:int, draw_frame=None,draw=False)->None|list:
+        # check distance
+        if math.dist(self.hand_center, ref_pos) <= max_distance:
+            color = S.green
+            output = True
+        else:
+            color = S.red
+            output = False
+        # draw
+        if draw:
+            radius = max_distance
+            cv2.circle(self.draw_frame, ref_pos, radius, color, 1) # circle
+            cv2.circle(self.draw_frame, self.hand_center, 3, S.red, -1) # dot
+        return output
+    
+    def find_valide_hand(self,rgb_frame ,pose_hand_center:tuple, bady_len:int, draw_frame=None,draw=False)->None|list:
         draw_skeleton = draw and S.draw_hand_skeleton
         draw_roi = draw and S.draw_roi
         draw_max_distance = draw and S.draw_hand_vlidation_dist
@@ -539,23 +544,21 @@ class HandDetector():
         self.frame_w = rgb_frame.shape[1]
         self.frame_h = rgb_frame.shape[0]
         self.draw_frame = draw_frame
+        self.roi_size = bady_len
+        self.valide_dist = bady_len//4
+        self.pose_hc = pose_hand_center
 
-        self.find_roi(roi_center, roi_size)
-        if draw_roi:
-            self.draw_roi()
+        self.find_roi()
+        if draw_roi: self.draw_roi()
         self.find_hands()
         self.create_pixel_landmark_list()
-        self.validate_hand(roi_center, draw_max_distance)
-        if self.lm_list and draw_skeleton:
-            self.draw_skeleton()
+        self.validate_hand(draw_max_distance)
+        if draw_skeleton: self.draw_skeleton()
         return self.lm_list
 
-
-    def validate_hand(self, ref_hand_center, draw):
-        if self.roi:
-            max_distance = int(self.roi[-1]/4)
-            if not self.hand_close_to(ref_hand_center, max_distance, draw):
-                self.lm_list = None
+    def validate_hand(self, draw):
+        if not self.hand_close_to(self.pose_hc, self.valide_dist, draw):
+            self.lm_list = None
 
     def draw_roi(self):
         if self.roi:
@@ -563,31 +566,33 @@ class HandDetector():
             # draw the region of interest (ROI) if specified
             cv2.rectangle(self.draw_frame, (x, y), (x + w, y + h),S.green,  2)
 
-    def find_roi(self,roi_center:tuple, roi_size:int):
+    def find_roi(self):
         self.roi = None
-        roi_size = max(roi_size, S.roi_min_size)
+        if self.use_roi:
+            roi_center = self.pose_hc
+            roi_size = max(self.roi_size, S.roi_min_size)
 
-        # dont try if less then min window size
-        roi_width = roi_size
-        roi_height = roi_size
-        min_width = S.roi_min_size
-        min_height = S.roi_min_size
+            # dont try if less then min window size
+            roi_width = roi_size
+            roi_height = roi_size
+            min_width = S.roi_min_size
+            min_height = S.roi_min_size
 
-        start_x = roi_center[0] - roi_width // 2
-        start_y = roi_center[1] - roi_height // 2
-        end_x = start_x + roi_width
-        end_y = start_y + roi_height
-        # ensure the ROI is within the frame boundaries
-        start_x = max(0, start_x)
-        start_y = max(0, start_y)
-        end_x = min(self.frame_w, end_x)
-        end_y = min(self.frame_h, end_y)
-        # update width and height based on the adjusted ROI
-        roi_width = end_x - start_x
-        roi_height = end_y - start_y
-        # only use the ROI if it is large enough
-        if roi_width >= min_width and roi_height >= min_height:
-            self.roi = (start_x, start_y, roi_width, roi_height)
+            start_x = roi_center[0] - roi_width // 2
+            start_y = roi_center[1] - roi_height // 2
+            end_x = start_x + roi_width
+            end_y = start_y + roi_height
+            # ensure the ROI is within the frame boundaries
+            start_x = max(0, start_x)
+            start_y = max(0, start_y)
+            end_x = min(self.frame_w, end_x)
+            end_y = min(self.frame_h, end_y)
+            # update width and height based on the adjusted ROI
+            roi_width = end_x - start_x
+            roi_height = end_y - start_y
+            # only use the ROI if it is large enough
+            if roi_width >= min_width and roi_height >= min_height:
+                self.roi = (start_x, start_y, roi_width, roi_height)
 
     def find_hands(self):
         """ Mediapipe Detects the hand/hands in the input image/roi.
@@ -630,20 +635,23 @@ class HandDetector():
             for id, lm in enumerate(self.hand_landmarks):
                 x, y = (lm.x * self.frame_w), (lm.y * self.frame_h)
                 self.lm_list.append([id, int(x), int(y)])
+        else:
+            self.lm_list = None
         return self.lm_list
 
     def draw_skeleton(self):
-        connections = HAND_CONNECTIONS
-        for start, end in connections:
-            cv2.line(
-                self.draw_frame,
-                self.lm_list[start][1:3],
-                self.lm_list[end][1:3],
-                S.white,
-                2
-            )
-        for id, *xy in self.lm_list:
-            cv2.circle(self.draw_frame, xy, 4, S.white, -1)
+        if self.lm_list:
+            connections = HAND_CONNECTIONS
+            for start, end in connections:
+                cv2.line(
+                    self.draw_frame,
+                    self.lm_list[start][1:3],
+                    self.lm_list[end][1:3],
+                    S.white,
+                    2
+                )
+            for id, *xy in self.lm_list:
+                cv2.circle(self.draw_frame, xy, 4, S.white, -1)
 
 if __name__ == '__main__':
     pass

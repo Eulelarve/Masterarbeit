@@ -41,7 +41,10 @@ class GestureDetector():
         self.hand_shoulder_x_diff_max_time:int|None = None
         self.swiping_hand_id:int|None = None
 
-
+    def clear_lm(self):
+        self.hands_lm = [[],[]]
+        self.pose_lm = []
+    
     def find_info_trigger(self):
             self.info_trigger = False # reset trigger
             last_check = self.info_gesture # save results of the last check
