@@ -802,7 +802,7 @@ if __name__ == "__main__":
             fps_cap=S.fps,
             show_fps=True,
             source=S.video_source, # kan be 0, 1, 2 ... or 'depth' or 'filename.mp4'
-            pause_frames=(300,500,700),
+            pause_frames=None, #(300,500,700),
             capture_status_manually=False,
             capture_status = False,
             start_frame=1,
