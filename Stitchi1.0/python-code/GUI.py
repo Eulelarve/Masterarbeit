@@ -514,9 +514,14 @@ class GuiOverlay:
 
         self.define_tile_sizes()
 
-    def add_instrument(self, name, image_path='', position=-1):
+    def add_instrument(self, name:str, image_path='', position=-1)->bool:
+        for inst in [*self.room, *self.bar]:
+            if inst.name.lower() == name.lower():
+                print(f'GUI: the instrument "{name}" is already part of the orchestra')
+                return False
         instrument = Instrument(self, name, image_path)
         self._add_to_bar(instrument, position)
+        return True
     
     def _add_to_bar(self, instrument:Instrument, position:int=None):
         if instrument.rect_bar:

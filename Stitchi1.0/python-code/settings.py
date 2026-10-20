@@ -20,16 +20,24 @@ video_folder = r'..\test_videos (gitignore)/' # for testing and analysis
 
 # UDP communication
 port = 5005
-IPv4_audiosystem = "127.0.0.1"
+IPv4_audiosystem = "192.168.0.10"
+IPv4_videosystem = "192.168.0.11" # this pc
+bind_ip = "0.0.0.0"
+printout_udp = True # print alls sended and received messages out im show pressessing mode 
+add_inst_key = 'add_instruments'
+start_instruments =  []#["trumpet", "trumpet", "Tröte", "piano", "violin","trommel","xylo","r2d2"]  # optional, later the audiosystem should give this infos per UDP
+
 
 # Prosessing settings
 video_source =  'depth'#'../test_videos (gitignore)/d01_0deg_1280x720p_15deg_steps_right.bag'# 1 # can be 0, 1, 2 ... or 'depth_cam' or 'filename.mp4_or_so' or 'filename.bag',  defould is 'depth' to use the real sense depthcam, 0 means une the forst found videostream
-no_mouse_control = False
 default_buffer_mode = 'median'
 cam_inclination_angle = 0
+visibility_threshold = 0.92
+align_depth = True
 
 
-# hand detection
+
+## hand detection
 active_hand = 'both' # Available modules are: right, left, moving, top, both | 'moving' means take the fastest hand, 'top' means take the most top hand, 'right' means always right hand ...
 no_hand_frame_count = 50 # by 30 FPS are 30 frames = one secund not hand, to get the no_hand status
 moving_min_speed = 150 # in pixel per sec. min speed needed to be detected as moving 
@@ -37,9 +45,19 @@ moving_check_time = 0.3 # in secunds. the pixel moves are checked over x secunds
 hand_change_min_speed = 200 # in pixel per sec. min speed needed to detected a hand in choose 'moving' hand mode 
 use_roi = True # if true: use only a part around the hand of the cmera image to look for a hand skelett
 roi_min_size = 50 # in pixel
+point_to_cam_dist = 0.10 # in meters , if shoulder uand hand are very close in the image, it pionts to the cam and intersect
 hand_center_hands = (5, 17) # landmark numbers to calcumate the hand center in madiapipe hands
+# hand from pose detection
 left_hand_center_pose = (17,19) # landmark numbers to calcumate the hand center in madiapipe pose
 right_hand_center_pose = (18,20) # landmark numbers to calcumate the hand center in madiapipe pose
+# hand detection mode
+grab_detection_methode = 'dynamic' # can be 'static' or 'dynamic'
+# for dynamic grab mode
+dynamic_grab_distance_difference = 1
+dynamic_grab_time_difference = 1
+# for static grab mode
+hand_status_buffer_size = 3
+hand_status_buffer_atleast = 2
 
 
 angle_buffer_size = 5 # frames, pointing angle averaged over
@@ -47,7 +65,6 @@ volume_decimal_place = 2 # 2 means 0.12 ,1 means 0.1
 
 # Roomdirektion / Pointingangle
 real_depth_angle_resulutuin = 15
-zero_degree_distance = 0.10 # in meters
 ray_tracing_step_size = 0.1 # ray_tracing_step_size_to_find_room_angle, in meters
 room_size = (3.4, 2.7, 3.4)   # xyz <- width, hight, depth in meters (outer boarders 4m,3m,4m und 30 cm thick frame beams)
 room_center = (1.7, 1.5, 1.7) # xyz <- width, hight, depth in meters, (0,0,0) is bottom, left, front corner
@@ -60,8 +77,13 @@ estimated_hip_hight = 0.95 # in meters only for compensating MediaPipe Wold lant
 show_gui = True
 gui_tile_max_size = 100
 gui_hight = 1/4 # of the frame hight
+controll_trigger_text_time = 1.0 # in secunds, how long the text feedbeck will be showen in the screen after triggering an controll grsture or key, 0.0 means no text feedback
+instrument_start_volume = 0.5 # sound volume is between 0 and 1
+no_mouse_control = False
 
-# live infos
+
+# live infos 
+# im show pressessing mode
 mirrow_view = True
 draw_aperture = True
 draw_hand_skeleton = True
@@ -71,25 +93,9 @@ draw_hand_vlidation_dist = True
 show_depth_frame = False
 
 type_instrument = 'instrument'
-instrument_start_volume = 0.5 # sound volume is between 0 and 1
 rs_save_type = '.bag'
-align_depth = True
-visibility_threshold = 0.92
-cam_intrinsics = 'xxx'
-left_hand_landmark_ids = [ 15,17,19, 21 ] # left hand landmarks from mediapipe pose
-right_hand_landmark_ids = [ 16,18,20, 22 ] # right hand landmarks from mediapipe pose
-display_feedback_mode = ['show gui and processing','show gui']# 'show buttons','show buttons and processing' ] # you can ad modes hier
-grab_detection_methode = 'dynamic' # can be 'static' or 'dynamic'
-# dynamic grab mode
-dynamic_grab_distance_difference = 1
-dynamic_grab_time_difference = 1
-# static grab mode
-hand_status_buffer_size = 3
-hand_status_buffer_atleast = 2
-controll_trigger_text_time = 1.0 # in secunds, how long the text feedbeck will be showen in the screen after triggering an controll grsture or key, 0.0 means no text feedback
-add_inst_key = 'add_instruments'
-start_instruments =  ["trumpet", "trumpet", "Tröte", "piano", "violin","trommel","xylo","r2d2"]  # optional, later the audiosystem should give this infos per UDP
 
+display_feedback_mode = ['show gui and processing','show gui']# 'show buttons','show buttons and processing' ] # you can ad modes hier
 
 # colors
 red = (0, 0, 255)
@@ -98,33 +104,3 @@ green =(0, 255, 0)
 white = (250,250,250)
 black = (0,0,0)
 yellow = (0, 255, 255)
-
-
-# d455 intrinsiks color frame:              [ 1280x720  p[638.568 367.388]  f[640.329 638.932]  Inverse Brown Conrady [-0.055931 0.0683116 -0.000836038 0.000658576 -0.0223113] ]
-# d455 intrinsiks depth frame (unaligned):  [ 1280x720  p[643.714 366.77]  f[653.798 653.798]  Brown Conrady [0 0 0 0 0] ]
-
-r""" 
-
-Traceback (most recent call last):
-  File "c:\Users\Videosystem\Desktop\Videosystem_Masterarbeit_Wegener\Masterarbeit\python-code\Vision_Robotic_Arm_Gesture_Recognition\main_changed.py", line 1163, in <module>
-    r = main(
-        ^^^^^
-  File "c:\Users\Videosystem\Desktop\Videosystem_Masterarbeit_Wegener\Masterarbeit\python-code\Vision_Robotic_Arm_Gesture_Recognition\main_changed.py", line 615, in main
-    angle_detector.find_room_angle_with_depth_frame(depth_frame,hand_center, shulder, frame_overlay, draw)
-  File "c:\Users\Videosystem\Desktop\Videosystem_Masterarbeit_Wegener\Masterarbeit\python-code\Vision_Robotic_Arm_Gesture_Recognition\angle_handler.py", line 243, in find_room_angle_with_depth_frame
-    self.find_3d_hand_shoulder_with_depth_frame(depth_frame)
-  File "c:\Users\Videosystem\Desktop\Videosystem_Masterarbeit_Wegener\Masterarbeit\python-code\Vision_Robotic_Arm_Gesture_Recognition\angle_handler.py", line 279, in find_3d_hand_shoulder_with_depth_frame
-    self.shoulder_3d =  rs_pixel_to_3d(self.shoulder_pixel_xy, *args)
-                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "c:\Users\Videosystem\Desktop\Videosystem_Masterarbeit_Wegener\Masterarbeit\python-code\Vision_Robotic_Arm_Gesture_Recognition\coordinates_handler.py", line 127, in rs_pixel_to_3d
-    x,y,z = rs_pixel_to_meter(cam_intrinsics, pixel_xy, depth)
-            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "c:\Users\Videosystem\Desktop\Videosystem_Masterarbeit_Wegener\Masterarbeit\python-code\Vision_Robotic_Arm_Gesture_Recognition\coordinates_handler.py", line 112, in rs_pixel_to_meter
-    return rs.rs2_deproject_pixel_to_point(intrinsics, pixel_xy, depth)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-TypeError: rs2_deproject_pixel_to_point(): incompatible function arguments. The following argument types are supported:
-    1. (intrin: pyrealsense2.pyrealsense2.intrinsics, pixel: List[float[2]], depth: float) -> List[float[3]]
-
-Invoked with: [ 1280x720  p[638.568 367.388]  f[640.156 638.759]  Inverse Brown Conrady [-0.055931 0.0683116 -0.000836038 0.000658576 -0.0223113] ], [1426, 444], None
-(venv) PS C:\Users\Videosystem\Desktop\Videosystem_Masterarbeit_Wegener\Masterarbeit\python-code> 
-"""

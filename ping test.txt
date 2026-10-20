@@ -1,3 +1,114 @@
+Pinging 192.168.0.11 with 32 bytes of data:
+Request timed out.
+Request timed out.
+Request timed out.
+Request timed out.
+
+Ping statistics for 192.168.0.11:
+    Packets: Sent = 4, Received = 0, Lost = 4 (100% loss),
+PS C:\Users\Dtdsv-DE155\Desktop> ipconfig -all
+
+Windows IP Configuration
+
+   Host Name . . . . . . . . . . . . : DESKTOP-A8FHC0I
+   Primary Dns Suffix  . . . . . . . :
+   Node Type . . . . . . . . . . . . : Hybrid
+   IP Routing Enabled. . . . . . . . : No
+   WINS Proxy Enabled. . . . . . . . : No
+
+Ethernet adapter Ethernet 3:
+
+   Media State . . . . . . . . . . . : Media disconnected
+   Connection-specific DNS Suffix  . :
+   Description . . . . . . . . . . . : Intel(R) Ethernet Network Adapter I226-T1
+   Physical Address. . . . . . . . . : F0-B2-B9-11-D0-1C
+   DHCP Enabled. . . . . . . . . . . : Yes
+   Autoconfiguration Enabled . . . . : Yes
+
+Ethernet adapter Ethernet:
+
+   Connection-specific DNS Suffix  . : elhf.bht-berlin.de
+   Description . . . . . . . . . . . : Intel(R) Ethernet Controller (3) I225-V
+   Physical Address. . . . . . . . . : 4C-D7-17-A0-41-89
+   DHCP Enabled. . . . . . . . . . . : Yes
+   Autoconfiguration Enabled . . . . : Yes
+   Link-local IPv6 Address . . . . . : fe80::86dd:4e68:a655:9c71%19(Preferred)
+   IPv4 Address. . . . . . . . . . . : 141.64.149.5(Preferred)
+   Subnet Mask . . . . . . . . . . . : 255.255.255.0
+   Lease Obtained. . . . . . . . . . : Tuesday, 20 October 2026 15:44:04
+   Lease Expires . . . . . . . . . . : Tuesday, 20 October 2026 16:14:04
+   Default Gateway . . . . . . . . . : 141.64.149.1
+   DHCP Server . . . . . . . . . . . : 141.64.0.200
+   DHCPv6 IAID . . . . . . . . . . . : 139253527
+   DHCPv6 Client DUID. . . . . . . . : 00-01-00-01-2D-E9-45-37-4C-D7-17-A0-41-89
+   DNS Servers . . . . . . . . . . . : 141.64.3.55
+                                       141.64.3.40
+   NetBIOS over Tcpip. . . . . . . . : Enabled
+   Connection-specific DNS Suffix Search List :
+                                       bht-berlin.de
+                                       beuth-hochschule.de
+
+Ethernet adapter DTDSV-Net:
+
+   Connection-specific DNS Suffix  . :
+   Description . . . . . . . . . . . : Intel(R) Ethernet Connection (17) I219-LM
+   Physical Address. . . . . . . . . : 4C-D7-17-8D-6F-D6
+   DHCP Enabled. . . . . . . . . . . : No
+   Autoconfiguration Enabled . . . . : Yes
+   Link-local IPv6 Address . . . . . : fe80::f603:373e:9c77:62ce%14(Preferred)
+   IPv4 Address. . . . . . . . . . . : 192.168.0.10(Preferred)
+   Subnet Mask . . . . . . . . . . . : 255.255.255.0
+   Default Gateway . . . . . . . . . :
+   DHCPv6 IAID . . . . . . . . . . . : 172807959
+   DHCPv6 Client DUID. . . . . . . . : 00-01-00-01-2D-E9-45-37-4C-D7-17-A0-41-89
+   NetBIOS over Tcpip. . . . . . . . : Enabled
+
+Wireless LAN adapter Wi-Fi:
+
+   Media State . . . . . . . . . . . : Media disconnected
+   Connection-specific DNS Suffix  . :
+   Description . . . . . . . . . . . : 150Mbps Wireless 802.11bgn Nano USB Adapter
+   Physical Address. . . . . . . . . : 80-1F-02-F6-FF-02
+   DHCP Enabled. . . . . . . . . . . : Yes
+   Autoconfiguration Enabled . . . . : Yes
+
+Wireless LAN adapter Local Area Connection* 9:
+
+   Media State . . . . . . . . . . . : Media disconnected
+   Connection-specific DNS Suffix  . :
+   Description . . . . . . . . . . . : Microsoft Wi-Fi Direct Virtual Adapter
+   Physical Address. . . . . . . . . : 80-1F-02-F6-FF-02
+   DHCP Enabled. . . . . . . . . . . : Yes
+   Autoconfiguration Enabled . . . . : Yes
+
+Wireless LAN adapter Local Area Connection* 10:
+
+   Media State . . . . . . . . . . . : Media disconnected
+   Connection-specific DNS Suffix  . :
+   Description . . . . . . . . . . . : Microsoft Wi-Fi Direct Virtual Adapter #2
+   Physical Address. . . . . . . . . : 80-1F-02-F6-FF-02
+   DHCP Enabled. . . . . . . . . . . : Yes
+   Autoconfiguration Enabled . . . . : Yes
+PS C:\Users\Dtdsv-DE155\Desktop> Get-NetAdapter | Format-Table Name, Status, LinkSpeed, InterfaceDescription
+
+Name       Status       LinkSpeed InterfaceDescription
+----       ------       --------- --------------------
+Ethernet   Up           1 Gbps    Intel(R) Ethernet Controller (3) I225-V
+DTDSV-Net  Up           1 Gbps    Intel(R) Ethernet Connection (17) I219-LM
+Wi-Fi      Disconnected 0 bps     150Mbps Wireless 802.11bgn Nano USB Adapter
+Ethernet 3 Disconnected 0 bps     Intel(R) Ethernet Network Adapter I226-T1
+
+
+PS C:\Users\Dtdsv-DE155\Desktop>
+
+
+
+
+
+
+
+
+
 PS C:\Users\Videosystem> ping 192.168.0.10
 
 Ping wird ausgeführt für 192.168.0.10 mit 32 Bytes Daten:

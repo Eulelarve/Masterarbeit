@@ -3,6 +3,7 @@ import socket
 import numpy as np
 import threading
 from own_functions import add_to_dict, add_dict_to_dict
+import settings as S
 
 class SendOnChange:
     """
@@ -12,6 +13,7 @@ class SendOnChange:
     def __init__(self, device:tuple[str:int]):
         self.device = device
         self._last_infos = {}
+        self.enable_printout = S.printout_udp
 
     def send(self, printout, **infos):
         """
@@ -28,6 +30,7 @@ class SendOnChange:
         int | None
             Number of sent bytes if data was sent, otherwise None.
         """
+        printout = printout and self.enable_printout  
         if infos == self._last_infos:
             return None
 
@@ -95,14 +98,14 @@ class SaveUdpToDict:
     def __init__(self):
         self.rx_thread = threading.Thread(target=self.receive_loop, daemon=True)
         self.on = False
-        self.printout = False
+        self.printout = S.printout_udp
         self.msg_list:list[dict] = []
         self.loop_time:float = 0
-        self.bind_ip = "127.0.0.1"
+        self.bind_ip = S.bind_ip
 
     def receive_loop(self):
         while self.on:
-            msg, addr = receive_info(5005, timeout=self.loop_time, printout=self.printout, bind_ip=self.bind_ip)
+            msg, addr = receive_info(S.port, timeout=self.loop_time, printout=self.printout, bind_ip=self.bind_ip)
             self.add_meassage(msg)
 
     def add_meassage(self,msg:dict):
@@ -172,13 +175,13 @@ if __name__ == "__main__":
 
     def rx_worker():
         print("RX thread started")
-        msg, addr = receive_info(5005, timeout=0, printout=True, bind_ip="127.0.0.1")
+        msg, addr = receive_info(S.port, timeout=0, printout=True, bind_ip=S.bind_ip)
         print("RX result:", msg, addr)
 
     def tx_worker():
         time.sleep(0.5)
         print("TX thread started")
-        r = send_info_to(("127.0.0.1", 5005), printout=True, name="violin", angle=90)
+        r = send_info_to((S.IPv4_videosystem, S.port), printout=True, name="violin", angle=90)
         print("TX bytes:", r)
 
     rx_thread = threading.Thread(target=rx_worker, daemon=True)

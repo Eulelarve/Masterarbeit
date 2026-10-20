@@ -310,7 +310,7 @@ class RoomAngleDetector:
         if use_pixel_coordinats:
             return close_to(self.intersection_distance_pixel, self.hand_pixel_xy, self.shoulder_pixel_xy)
         else:
-            return close_to(S.zero_degree_distance, self.hand_3d, self.shoulder_3d)
+            return close_to(S.point_to_cam_dist, self.hand_3d, self.shoulder_3d)
 
     def draw_arm_angles(self):
         if self.draw_frame is None:
