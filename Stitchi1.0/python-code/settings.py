@@ -45,7 +45,8 @@ moving_check_time = 0.3 # in secunds. the pixel moves are checked over x secunds
 hand_change_min_speed = 200 # in pixel per sec. min speed needed to detected a hand in choose 'moving' hand mode 
 use_roi = True # if true: use only a part around the hand of the cmera image to look for a hand skelett
 roi_min_size = 50 # in pixel
-point_to_cam_dist = 0.10 # in meters , if shoulder uand hand are very close in the image, it pionts to the cam and intersect
+hand_shoulder_intersect_dist = 0.10 # if using depth cam: in meters , if shoulder uand hand are very close in the image, it pionts to the cam and intersect
+hand_shoulder_intersect_pixel = 20 # if using no depth cam: in meters , if shoulder uand hand are very close in the image, it pionts to the cam and intersect
 hand_center_hands = (5, 17) # landmark numbers to calcumate the hand center in madiapipe hands
 # hand from pose detection
 left_hand_center_pose = (17,19) # landmark numbers to calcumate the hand center in madiapipe pose

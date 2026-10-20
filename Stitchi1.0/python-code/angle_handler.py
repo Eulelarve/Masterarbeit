@@ -88,11 +88,9 @@ def find_azimuth_angle(p1:tuple,p2_angle_point:tuple)->float:
     azimuth = angle_between_points((x1,z1), (x2,z2), (x3,z3)) # take just x and y dimension, not z (hight)
     return azimuth
 
-
-def find_room_angles(start_point:tuple, azimuth_angle:float, elevation_angle:float, room_center=S.room_center) ->list[float,float]:
-    p1 = rey_tracing_to_room_border(start_point, azimuth_angle, elevation_angle)
-    room_azimuth = find_azimuth_angle(p1 ,room_center)
-    room_elevation = find_elevation_angle(p1, room_center)
+def find_az_and_el_angle(p1_3d:tuple, p2_3d:tuple)->list[float,float]:
+    room_azimuth = find_azimuth_angle(p1_3d ,p2_3d)
+    room_elevation = find_elevation_angle(p1_3d, p2_3d)
     return [room_azimuth, room_elevation]
 
 def rey_tracing_to_room_border(start_point:tuple, azimuth_angle:float, elevation_angle:float,room_size=S.room_size, resulution=S.ray_tracing_step_size)->list:
@@ -164,7 +162,7 @@ class RoomAngleDetector:
         # settings
         self.room_azemuth_aprox_corection_max = 15 # in degree
         self.mirrowed_frame = True
-        self.intersection_distance_pixel = 20
+        self.intersection_distance_pixel =  S.hand_shoulder_intersect_pixel 
         # variables
         self.angle_smoother = ListBuffer(S.angle_buffer_size)
         self.arm_angles = [None, None] # arm [azimuth, elewation] angle
@@ -204,18 +202,23 @@ class RoomAngleDetector:
         self.hand_pixel_xy = hand_pixel_xy
         self.shoulder_pixel_xy = shoulder_pixel_xy
         self.draw_frame = draw_frame
-
         self.cam_intrinsics = cam_intrinsics
         self.find_3d_hand_shoulder_with_depth(hand_depth, shoulder_depth)
-        if self.pointion_into_camera_check():
+        if self.hand_3d is None or self.shoulder_3d is  None:
             self.arm_angles = [None, None]
-            self.room_angles = [0, 0]
+            self.room_angles = [None, None]
         else:
-            # arm angle
-            self.find_arm_angles()
-            # room angle (pointing angle)
-            start_point = self.shoulder_3d.copy()
-            self.room_angles = find_room_angles(start_point, *self.arm_angles)
+            if self.pointion_into_camera_check():
+                self.arm_angles = [None, None]
+                p1 = S.cam_pos_in_room
+            else:
+                # arm angle
+                self.find_arm_angles()
+                # room angle (pointing angle)
+                start_point = self.shoulder_3d.copy()
+                p1 = rey_tracing_to_room_border(start_point, *self.arm_angles)
+            self.room_angles = find_az_and_el_angle(p1, S.room_center)
+            self.round_room_angle_to_resulution()
 
         if draw:
             self.draw_arm_angles()
@@ -231,15 +234,17 @@ class RoomAngleDetector:
         if self.hand_3d is None or self.shoulder_3d is  None:
             self.arm_angles = [None, None]
             self.room_angles = [None, None]
-        elif self.pointion_into_camera_check():
-            self.arm_angles = [None, None]
-            self.room_angles = [0, 0]
         else:
-            # arm angle
-            self.find_arm_angles()
-            # room angle (pointing angle)
-            start_point = self.shoulder_3d.copy()
-            self.room_angles = find_room_angles(start_point, *self.arm_angles)
+            if self.pointion_into_camera_check():
+                self.arm_angles = [None, None]
+                p1 = S.cam_pos_in_room
+            else:
+                # arm angle
+                self.find_arm_angles()
+                # room angle (pointing angle)
+                start_point = self.shoulder_3d.copy()
+                p1 = rey_tracing_to_room_border(start_point, *self.arm_angles)
+            self.room_angles = find_az_and_el_angle(p1, S.room_center)
             self.round_room_angle_to_resulution()
 
         if draw:
@@ -310,7 +315,7 @@ class RoomAngleDetector:
         if use_pixel_coordinats:
             return close_to(self.intersection_distance_pixel, self.hand_pixel_xy, self.shoulder_pixel_xy)
         else:
-            return close_to(S.point_to_cam_dist, self.hand_3d, self.shoulder_3d)
+            return close_to(S.hand_shoulder_intersect_dist, self.hand_3d, self.shoulder_3d)
 
     def draw_arm_angles(self):
         if self.draw_frame is None:

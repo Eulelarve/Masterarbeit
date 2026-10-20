@@ -91,8 +91,8 @@ class PoseDetector():
                                      min_tracking_confidence=self.trackCon)
         self.mpDraw = mp.solutions.drawing_utils
         self.move_detectors = [MoveDetector(S.moving_min_speed, S.moving_check_time) for _ in self.lm_range]
-        self.left_hand_points = S.left_hand_landmark_ids
-        self.right_hand_points = S.right_hand_landmark_ids
+        self.left_hand_points = S.left_hand_center_pose
+        self.right_hand_points = S.right_hand_center_pose
         self._left = 'left'
         self._right = 'right'
 
@@ -178,14 +178,14 @@ class PoseDetector():
 
 
         if self._left in self.hand_side: # left hand
-            center = get_center_of_landmarks(landmarks,S.left_hand_center_pose) # just take 17, 19 to get the left hand center
-            center.insert(0, self.left_hand_points[2]) # [hand_point_index , x, y]  while idex = 19
+            center = get_center_of_landmarks(landmarks,self.left_hand_points) # just take 17, 19 to get the left hand center
+            center.insert(0, self.left_hand_points[0]) # [hand_point_index , x, y]  while idex = 19
             self.hand_center[0] = center
             self.shoulder[0] = landmarks[11] # left shoulder
             self.hip[0] = landmarks[23]
         if self._right in self.hand_side: # right hand
-            center = get_center_of_landmarks(landmarks,S.right_hand_center_pose) # just take 18, 20 to get the right hand center
-            center.insert(0, self.right_hand_points[2]) # [hand_point_index , x, y]  while index = 20
+            center = get_center_of_landmarks(landmarks,self.right_hand_points) # just take 18, 20 to get the right hand center
+            center.insert(0, self.right_hand_points[0]) # [hand_point_index , x, y]  while index = 20
             self.hand_center[1] = center
             self.shoulder[1] = landmarks[12] # right shoulder
             self.hip[1] = landmarks[24]
