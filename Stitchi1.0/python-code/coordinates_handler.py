@@ -1,15 +1,19 @@
-from datetime import datetime
-import cv2
+"""
+Coordinate conversion and camera/room geometry helpers.
+
+Converts image pixels and RealSense depth into 3D points, retrieves depth at
+landmark pixels, estimates or converts MediaPipe world landmarks, and applies
+camera-position, mirroring, and inclination compensation. Used by
+MediaPipe_handler.py and angle_handler.py to obtain coordinates suitable for
+room-relative pointing calculations.
+"""
+
 import math
 import numpy as np
 import pyrealsense2 as rs
-try:
-    import settings as S
-except:
-    import Vision_Robotic_Arm_Gesture_Recognition.settings as S
+import settings as S
 
             
-
 def offset_landmarks(landmarks, dx=0, dy=0, dz=0):
     """
     Verschiebt MediaPipe-Landmarks.
@@ -24,14 +28,6 @@ def offset_landmarks(landmarks, dx=0, dy=0, dz=0):
 
 
     """
-    # landmarks_copy = deepcopy(pose_or_hand_landmarks)
-
-    # # Überprüfen, ob es das übergeordnete Landmark-Objekt ist oder bereits die Liste der Landmark-Objekte
-    # if hasattr(pose_or_hand_landmarks, 'landmark'):
-    #     landmarks = pose_or_hand_landmarks.landmark
-    # else:
-    #     landmarks = pose_or_hand_landmarks
-    
     for lm in landmarks:
 
         if dx:

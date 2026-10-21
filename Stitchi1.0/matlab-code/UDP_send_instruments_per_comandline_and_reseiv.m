@@ -1,3 +1,8 @@
+% Interactive MATLAB UDP test for adding instruments and receiving state.
+% Sends an initial instrument list, then prompts for an optional instrument
+% name on each loop. Any entered name is sent under the add_instruments key;
+% incoming UDP JSON messages are read and printed. Uses local port 5005 and
+% targets the video-system PC at 192.168.0.11:5005. Stop with Ctrl+C.
 
 function udp_sender_receiver()
 

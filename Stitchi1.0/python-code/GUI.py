@@ -1,3 +1,13 @@
+"""
+Interactive instrument-selection GUI drawn over the camera image.
+
+Defines GUI components such as instrument tiles, instrument selection,
+volume controls, close/reset/info controls, and GuiOverlay. The overlay
+accepts hand/mouse positions and grab/release events, moves selected
+instruments according to azimuth/elevation, draws the interface, and exposes
+instrument state for UDP transmission. main.py creates and updates GuiOverlay.
+"""
+
 import cv2
 from own_functions import insert, keep_rect_inside, fit_in_frame, make_image_fit_in_rect, cv2_draw_dict, cv2_putText_outlined, point_rect_collision, pos_in_frame
 from analyse import find_files
@@ -417,37 +427,6 @@ class ResetInstruments(GUITile):
         super().function()
         self.gui.reset_instruments()
 
-# class ChangeVisibility(GUITile):
-#     def __init__(self, gui_object:object):
-#         name = 'show'
-#         type = 'ChangeVisibility'
-#         self.width_factor = 0.15
-#         self.height_factor = 0.1
-#         super().__init__(gui_object, name, None, type)
-#         self._function = 'show gui'
-#         self.modes = {0:'show buttons',1:'show gui', 2:'show gui and processing', 3:'show buttons and processing'}
-#         self.mode_counter = 1
-
-#     def function(self):
-#         super().function()
-#         self.next_mode()
-#         self.gui.set_gui_visibility(self._function)
-#         self.gui.add_info(self.get_info())
-
-#     def next_mode(self):
-#         self.mode_counter += 1
-#         nr = self.mode_counter % len(self.modes)
-#         self._function = self.modes[nr]
-  
-#     def update_rect(self, frame):
-#         margin = 10
-#         fh, fw = frame.shape[:2]
-#         w = int(fw * self.width_factor)
-#         h = int(fh * self.height_factor)
-#         x = margin
-#         y = margin * 3
-
-#         self.rect = [x, y, w, h]
 
 class InfoButton(GUITile):
     def __init__(self, gui_object:object):
@@ -498,17 +477,11 @@ class GuiOverlay:
         self.info_menu_image = cv2.imread(S.gui_info_window_image_path, cv2.IMREAD_UNCHANGED)
         self.show_info_menu = False
         self.volume_bar = VolumeBar(self)
-        # self.x = CloseButton(self)
-        # self.reset_btn = ResetInstruments(self)
-        # self.show = ChangeVisibility(self)
         self.info_btn = InfoButton(self)
         self.selection_btn = InstrumentSelection(self)
 
         self.volume_bar.show = False
         self.menu.append(self.volume_bar)
-        # self.menu.append(self.x)
-        # self.menu.append(self.reset_btn)
-        # self.menu.append(self.show)
         self.menu.append(self.info_btn)
         self.menu.append(self.selection_btn)
 
@@ -555,7 +528,6 @@ class GuiOverlay:
             self.bar_rect = None
             self.selection_btn.show_empty_icon(False)
         self.show_bar_instrument(show)
-        # self.show_room_instrument(not show)
 
     def define_tile_sizes(self):
         selected_tile_size_factor = 0.85
@@ -604,7 +576,6 @@ class GuiOverlay:
     def _set_frame_and_dependencies(self, frame):
         self.frame = frame
         self.hight = int(self.frame.shape[0] * (1 - S.gui_hight))
-        # self.create_border_zone_indicator()
         self.init_menu_rects()
         self.define_selecton_bar()
 

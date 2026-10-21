@@ -1,3 +1,8 @@
+% Listen for incoming UDP datagrams on local port 5005.
+% Decodes received payloads as JSON and prints the message and sender address.
+% Use this as a receive-only diagnostic when the gesture-control application
+% is sending instrument state. Stop the loop with Ctrl+C.
+
 function udp_receiver()
 
     % Einstellungen

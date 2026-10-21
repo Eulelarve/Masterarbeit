@@ -1,3 +1,14 @@
+"""
+Gesture state and gesture-trigger recognition.
+
+GestureDetector interprets hand landmarks and pose information. It detects
+open/closed-hand transitions for grabbing and releasing GUI instruments, and
+recognizes additional control gestures such as showing information, clearing
+the GUI, changing the display mode, or terminating the application. It uses
+buffering and timing to reduce unstable or accidental triggers. main.py feeds
+it landmarks and applies the resulting events.
+"""
+
 import time 
 import math
 import cv2
@@ -389,7 +400,7 @@ class GestureDetector():
             return True
         return False 
 
-    def hand_open_close_static(self,hand_id, frame, thr_open=75, thr_closed = 65, buffer_size=S.hand_status_buffer_size, draw=False):
+    def hand_open_close_static(self,hand_id, frame, thr_open=S.hand_open_thrashold , thr_closed=S.hand_close_thrashold, buffer_size=S.hand_status_buffer_size, draw=False): 
         key = str(thr_open)+str(thr_closed)
         self.no_hand_counter[hand_id] = 0
 
@@ -397,7 +408,7 @@ class GestureDetector():
         if getattr(self, "status_smoother", None) is None:
             self.status_smoother = defaultdict(lambda: ValueBuffer(buffer_size))
 
-        aperture, aperture_line = self.findHandAperture(hand_id)
+        aperture, aperture_line = self.find_hand_aperture(hand_id)
         
         status = self.hand_status[hand_id] # stay like it is
         if aperture is not None:
@@ -416,7 +427,7 @@ class GestureDetector():
 
         return self.hand_status[hand_id]
         
-    def findHandAperture(self,hand_id, aperture_range_len = [0.7, 1.7], aperture_range_width = [1.0, 1.7])->tuple[float,tuple]:
+    def find_hand_aperture(self,hand_id, aperture_range_len = [0.7, 1.7], aperture_range_width = [1.0, 1.7])->tuple[float,tuple]:
         '''
         Finds the normalized hand aperture as distance between the mean point of the hand tips and the mean wrist and thumb base point divided by the palm lenght.
 

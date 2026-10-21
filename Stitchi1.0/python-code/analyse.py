@@ -1,13 +1,18 @@
-# from own_funktions import ValueBuffer
-from collections import Counter, defaultdict
+"""
+Offline analysis, test-data, and capture utilities.
+
+Provides file discovery/renaming, JSON and list persistence, keyboard-status
+capture, frame/status annotation helpers, and routines for comparing recorded
+test results. It supports evaluation and debugging; it is not the central
+real-time recognition pipeline. main.py imports selected helpers from it.
+"""
+
+from collections import defaultdict
 import ast
 import ctypes
 import json
 from pathlib import Path
-try:
-    from own_functions import tolist
-except:
-    from Vision_Robotic_Arm_Gesture_Recognition.own_functions import tolist
+from own_functions import tolist
 
 
 def rename_files(folder: str, old: str, new: str) -> int:

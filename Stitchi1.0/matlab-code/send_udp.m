@@ -1,3 +1,7 @@
+% Send one JSON instrument-list message to the gesture-control PC.
+% Creates a temporary IPv4 UDP endpoint, JSON-encodes the add_instruments
+% field, converts the payload to UTF-8 bytes, and sends it to targetIp:targetPort.
+% This script is a send-only connectivity test; it does not receive replies.
 
 function udp_sender()
 

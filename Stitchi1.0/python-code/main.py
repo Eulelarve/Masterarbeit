@@ -1,23 +1,35 @@
-#!/usr/bin/env python3
+"""
+Stitchi 1.0 — Main application entry point.
+
+Coordinates the complete gesture-control pipeline: initializes the video/depth
+source, MediaPipe pose and hand detectors, gesture detector, room-angle
+calculation, GUI overlay, and UDP communication. Each frame is acquired by
+FrameSource, processed for body/hand landmarks, converted into pointing angles,
+and passed to GuiOverlay. GUI state changes are sent as JSON/UDP messages to
+the configured audio-system endpoint. Also handles keyboard controls, display
+modes, screenshots, test statistics, and orderly source shutdown.
+
+Run this file to start the application. Most runtime configuration is in
+settings.py.
+"""
+
 
 import cv2
 import time
-import math
 
-import pyrealsense2 as rs
 import numpy as np
 from datetime import datetime
 from collections import defaultdict
 
-from comunication import SendOnChange, SaveUdpToDict
+from communication import SendOnChange, SaveUdpToDict
 from GUI import GuiOverlay
-from own_functions import ValueBuffer,ListBuffer, CSVWriter, tolist, screenshot, close_to, MoveDetector, get_globe_timeline_curvs , cv2_mouse_callback, MOUSE, map_threshold, cv2_center_text, cv2_putText_outlined
+from own_functions import ValueBuffer, CSVWriter, tolist, screenshot, MoveDetector, get_globe_timeline_curvs , MOUSE, cv2_center_text, cv2_putText_outlined
 from angle_handler import RoomAngleDetector
 
 from MediaPipe_handler import PoseDetector, HandDetector 
 from analyse import SaveFrameStatus, save_list_to_file, find_files
 from gesture_handler import GestureDetector
-from frame_handler import FrameSoarce
+from frame_handler import FrameSource
 
 import settings as S
 
@@ -67,7 +79,7 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
 
     cv2.setUseOptimized(True)
     gui = GuiOverlay()
-    frame_source = FrameSoarce()
+    frame_source = FrameSource()
 
 
     frame_counter_processed = 0
@@ -381,11 +393,7 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
                                 factor = None
                                 
                             if 'static' in grab_detection_methode:
-                                hand_status[_i] = gesture_detector.hand_open_close_static(_i, 
-                                        frame=frame_overlay,
-                                        draw=show_processing,
-                                        buffer_size=S.hand_status_buffer_size,
-                                    )
+                                hand_status[_i] = gesture_detector.hand_open_close_static(_i, frame=frame_overlay, draw=show_processing)
                             elif 'dynamic' in grab_detection_methode:
                                 if not factor: factor = 1
                                 hand_status[_i] = gesture_detector.hand_open_close_dynamic(_i, frame_overlay, show_processing)

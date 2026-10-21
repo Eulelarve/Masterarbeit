@@ -1,17 +1,21 @@
+"""
+Arm direction and room-pointing angle calculation.
+
+Provides vector/angle helpers, ray tracing to room boundaries, and
+RoomAngleDetector. The detector combines hand and shoulder positions with
+RealSense depth/intrinsics or fallback MediaPipe world landmarks to estimate
+azimuth and elevation in the room coordinate system. It also handles the
+special case in which the arm points towards the camera and smooths/quantizes
+the resulting angles. main.py supplies landmarks and uses the returned angles
+to move selected GUI instruments.
+"""
+
+
 import cv2
-import time
 import math
-import json
-import socket
-
-import pyrealsense2 as rs
 import numpy as np
-from datetime import datetime
 from coordinates_handler import rs_pixel_to_3d
-
-from own_functions import insert, keep_rect_inside, map_threshold, ValueBuffer, ListBuffer, close_to
-from analyse import SaveFrameStatus, save_list_to_file, find_files
-
+from own_functions import map_threshold, ListBuffer, close_to
 import settings as S
 
 def angle_between_points(p1:tuple, p2:tuple, p3:tuple)->float:

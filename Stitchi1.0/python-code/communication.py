@@ -1,8 +1,19 @@
+"""
+UDP/JSON communication between the video-based gesture controller and the
+audio-system application.
+
+SendOnChange transmits GUI/instrument state only when the data changes.
+SaveUdpToDict runs a background receive loop for messages such as the
+`add_instruments` list sent by MATLAB. Helpers encode/decode JSON and send or
+receive UDP datagrams. IP addresses, port, bind address, and diagnostic output
+are configured in settings.py. The spelling of this filename is retained for
+compatibility with imports in main.py.
+"""
+
 import json
 import socket
 import numpy as np
 import threading
-from own_functions import add_to_dict, add_dict_to_dict
 import settings as S
 
 class SendOnChange:

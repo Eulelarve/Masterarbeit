@@ -1,17 +1,24 @@
-from datetime import datetime
+"""
+Shared utilities used throughout Stitchi 1.0.
+
+Contains reusable image/layout helpers, landmark fitting, movement detection,
+numeric/list buffers, hand-aperture helpers, JSON/CSV persistence, screenshots,
+mouse handling, drawing/text functions, geometric checks, and dictionary/list
+utilities. Other modules import only the functions and classes they need.
+"""
+
 import cv2
 import math
+import csv
+import time
+import json
+import os
+from datetime import datetime
 from statistics import median
 import numpy as np
 from collections import deque
-import time
-
-
-try:
-    import settings as S
-except:
-    import Vision_Robotic_Arm_Gesture_Recognition.settings as S
-    
+from datetime import datetime
+import settings as S
             
 def get_globe_timeline_curv(r=200,deg=-90,cx=0,cy=0, steps=50):
 
@@ -124,16 +131,6 @@ class MoveDetector:
             self.speed = math.dist(new_pos, self.pos)
             self.smoothed_speed = self.speed_buffer.add_and_get_average(self.speed)
             self.pos = new_pos
-
-    # def is_jumping(self, new_pos):
-    #     if self.valide_move(new_pos):
-    #         _, speed_change = self.get_changes(new_pos)
-
-    #         if speed_change > self.max_speed_change:
-    #             return True
-    #         return False
-        
-    #     return None
 
 def fit_roi_landmarks_to_frame(landmarks, pixel_frame_size, pixel_region_x_y_w_h):
     """ change the landmark coordinates to fit the region in the frame, if the region is not the whole frame.
@@ -450,10 +447,6 @@ class HandOpenClosedBuffer(ValueBuffer):
     def add_and_get(self, hand_status):
         return self.add_and_get_most_frequently(hand_status)
 
-  
-
-
-
 
 class ProcessHandAperture():
     """_summary_
@@ -506,11 +499,6 @@ class ProcessHandAperture():
                 return major
 
 
-# chat gpt jasn class
-import json
-import os
-from datetime import datetime
-
 class SaveToJSON:
     def __init__(self, filename="save.json", timestemp=True):
         self.timestemp = timestemp
@@ -558,10 +546,6 @@ class SaveToJSON:
         except (FileNotFoundError, json.JSONDecodeError):
             self.data = {}
 
-# fon chag gpt CSVWriter
-
-import csv
-import os
 
 class CSVWriter:
 
@@ -894,7 +878,6 @@ def cv2_center_text(frame:np.ndarray, text:str, color=(255,255,255), top_middle_
         thickness,
         cv2.LINE_AA
     )
-
 
 
 def add_dict_to_dict(add_on:dict, addeble:dict):

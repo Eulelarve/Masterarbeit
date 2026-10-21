@@ -1,4 +1,14 @@
 """
+MediaPipe-based body-pose and hand landmark detection.
+
+PoseDetector runs MediaPipe Pose and exposes body landmarks, visibility,
+movement, hand/shoulder reference points, and estimated 3D coordinates.
+HandDetector runs hand-landmark detection, including the configured hand ROI
+workflow, and returns hand landmarks used by gesture recognition and GUI
+control. main.py creates the detectors and processes their outputs each frame.
+"""
+
+"""
     this code bassed on code from another project.
     Projectlink: https://github.com/e-candeloro/Vision-Robotic-Arm-Gesture-Recognition/tree/master 
 """
@@ -6,10 +16,7 @@
 import mediapipe as mp
 import numpy as np
 import cv2
-
-import time
 import math
-
 import settings as S
 
 from own_functions import fit_roi_landmarks_to_frame, ValueBuffer, close_to, ListBuffer, ValueBufferTime, MoveDetector

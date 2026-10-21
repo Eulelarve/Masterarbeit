@@ -1,10 +1,20 @@
+"""
+Video and depth-frame source management.
+
+FrameSoarce selects and initializes the configured source: a standard webcam,
+a video file, an Intel RealSense live camera, or a RealSense .bag recording.
+It reads frames, optionally aligns depth to the colour image, manages playback
+and frame navigation, displays the processed image, and shuts down the source.
+The class is instantiated by main.py.
+"""
+
 import cv2
 import pyrealsense2 as rs
 import settings as S
 from own_functions import cv2_mouse_callback
 import numpy as np
 
-class FrameSoarce:
+class FrameSource:
   def __init__(self) -> None:
     self.name = S.name+' - '+S.version
     self.source = S.video_source

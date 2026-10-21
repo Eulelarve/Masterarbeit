@@ -1,3 +1,7 @@
+% Send the initial instrument list, then continuously receive UDP messages.
+% Uses one MATLAB udpport bound to local port 5005 for both sending and
+% receiving, targeting the video-system PC at 192.168.0.11:5005. Incoming
+% JSON messages are decoded and printed. Stop with Ctrl+C.
 
 function udp_sender_receiver()
 
