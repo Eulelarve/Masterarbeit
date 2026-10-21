@@ -27,7 +27,7 @@ align_depth = True # should be on True to aline GRB and depth frame
 icon_folder = '../Stitchi1.0/icons'
 screenshots_folder = '../Stitchi1.0/screenshots'
 gui_info_window_image_path = "../Stitchi1.0/info_window.png"
-video_folder = r'..\test_videos (gitignore)/' # for testing and analysis
+video_folder = r'..\Testmaterial/test_videos (gitignore)/' # for testing and analysis
 
 
 # UDP communication
@@ -104,6 +104,7 @@ default_buffer_mode = 'median' # bupper standart calculation methode, is not so 
 skip_frames = 100 # skip frames with 'a' and  'd' key in video mode, if a video is the source of the stream
 type_instrument = 'instrument' # name key
 rs_save_type = '.bag'   
+save_stets_in_csv = False # saves some parameters in a line of a csv file after closing this programm
 
 # colors
 red = (0, 0, 255)

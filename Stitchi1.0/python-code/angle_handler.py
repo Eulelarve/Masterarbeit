@@ -117,13 +117,21 @@ def rey_tracing_to_room_border(start_point:tuple, azimuth_angle:float, elevation
         return None
     # declatagion of needed values
     right_wall = room_size[0]
-    left_wall = 0
+    left_wall = 0   
     ceiling = room_size[1]
     floor = 0
     back_wall = room_size[2]
     front_wall = 0
     x = start_point[0]
-    y = start_point[1]
+    """ test Correction: In ray tracing, the Y-coordinate direction is considered to be 
+    reversed relative to the coordinate direction used for the calculated 
+    world or camera coordinates. 
+    As a result, a person who is taller than the camera is 
+    perceived as being shorter than the camera, and vice versa.
+    This is a provisional fix; at some point, it should be properly 
+    standardized and corrected within the codebase."""
+    # y = start_point[1] # before Correction
+    y = S.cam_pos_in_room[1] - 2*(start_point[1] - S.cam_pos_in_room[1])  # after Correction
     z = start_point[2]
     step = resulution
     # calculate Directional components 

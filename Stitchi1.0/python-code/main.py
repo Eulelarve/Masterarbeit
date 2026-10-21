@@ -773,25 +773,26 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
             data = hand_status_list_dict[key]
             folder = r"C:\Users\Ampelman\Desktop\Masterarbeit\open close status data for videos\median3_pos_buffer_test/"
             save_list_to_file(folder+video_name+f'-hand_detected_{key}_len_{len(data)}.txt',data)
+    
+    if S.save_stets_in_csv:
+        CSVWriter.write('HAND_detektionmethod_TEST.csv',
+            name=source,
+            frame_x=frame_x, frame_y=frame_y,
+            frame_counter_processed=frame_counter_processed,
+            frame_counter_pose=frame_counter_pose, pose_rate=pose_rate,
+            frame_counter_hand=frame_counter_hand, hand_rate=hand_rate,
+            fps_mean=fps_mean,
+            time = time_stemp
+        )
 
-    CSVWriter.write('HAND_detektionmethod_TEST.csv',
-        name=source,
-        frame_x=frame_x, frame_y=frame_y,
-        frame_counter_processed=frame_counter_processed,
-        frame_counter_pose=frame_counter_pose, pose_rate=pose_rate,
-        frame_counter_hand=frame_counter_hand, hand_rate=hand_rate,
-        fps_mean=fps_mean,
-        time = time_stemp
-    )
-
-    frames_and_moves = moves_dict[grab_detection_methode]
-    CSVWriter.write('Move_grab_detection_methode_test.csv',
-        frames_and_moves= frames_and_moves,
-        buffer_size=S.hand_status_buffer_size,
-        methode= grab_detection_methode,
-        video=video_name,
-        time = time_stemp,
-    )
+        frames_and_moves = moves_dict[grab_detection_methode]
+        CSVWriter.write('Move_grab_detection_methode_test.csv',
+            frames_and_moves= frames_and_moves,
+            buffer_size=S.hand_status_buffer_size,
+            methode= grab_detection_methode,
+            video=video_name,
+            time = time_stemp,
+        )
     # --------------------------------------------------
     # end mesage
     print(f"Video Detection with source: {source}")
@@ -801,8 +802,8 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
 
 if __name__ == "__main__":
 
-    videos = find_files(S.video_folder, ending=('.mp4', '.avi', '.mov'),names_only=True)
-    bags = find_files(S.video_folder, ending=S.rs_save_type ,names_only=True)
+    # videos = find_files(S.video_folder, ending=('.mp4', '.avi', '.mov'),names_only=True)
+    # bags = find_files(S.video_folder, ending=S.rs_save_type ,names_only=True)
 
     r = True
     while r: 
