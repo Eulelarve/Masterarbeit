@@ -609,7 +609,7 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
                     text ='R'
                 else:
                     continue
-                text += f'[a/e]: {a}/{e}'
+                text += f'[az/el]: {a}/{e}'
                 y += margin
                 cv2_putText_outlined(
                     frame_overlay,

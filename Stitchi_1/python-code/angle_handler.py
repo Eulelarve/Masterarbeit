@@ -67,15 +67,16 @@ def draw_angle_between_points(frame, text:str, p1:list[int,int] ,p2:list[int,int
         cv2.putText(frame, text, (cx2 + text_pos[0], cy2 + text_pos[1]),
                     cv2.FONT_HERSHEY_PLAIN, 1, color, 2, cv2.LINE_AA)
 
-def find_elevation_angle(p1:tuple,p2_angle_point:tuple):
+def find_elevation_angle(p1:tuple,p2_angle_point:tuple, up_is_minus:bool)->float:
     if p1 is None or p2_angle_point is None:
         return None
 
     # p3 room refference point, should be p2 shifted by one meter down
     p3 = list(p2_angle_point)
-    p3[1] += 1
+    
+    p3[1] += 1 -2*up_is_minus # now down is minus direktion
     elevation = angle_between_points(p1, p2_angle_point, p3) # take just x and y dimension, not z (hight)
-    elevation -= 90 # so 0° is horizontal
+    elevation += -90 # so 0° is horizontal
     return elevation
 
 def find_azimuth_angle(p1:tuple,p2_angle_point:tuple)->float:
@@ -93,9 +94,9 @@ def find_azimuth_angle(p1:tuple,p2_angle_point:tuple)->float:
     azimuth = angle_between_points((x1,z1), (x2,z2), (x3,z3)) # take just x and y dimension, not z (hight)
     return azimuth
 
-def find_az_and_el_angle(p1_3d:tuple, p2_3d:tuple)->list[float,float]:
+def find_az_and_el_angle(p1_3d:tuple, p2_3d:tuple, up_is_minus:bool)->list[float,float]:
     room_azimuth = find_azimuth_angle(p1_3d ,p2_3d)
-    room_elevation = find_elevation_angle(p1_3d, p2_3d)
+    room_elevation = find_elevation_angle(p1_3d, p2_3d, up_is_minus)
     return [room_azimuth, room_elevation]
 
 def rey_tracing_to_room_border(start_point:tuple, azimuth_angle:float, elevation_angle:float,room_size=S.room_size, resulution=S.ray_tracing_step_size)->list:
@@ -117,22 +118,14 @@ def rey_tracing_to_room_border(start_point:tuple, azimuth_angle:float, elevation
     if azimuth_angle is None:
         return None
     # declatagion of needed values
-    right_wall = +room_size[0]/2
+    right_wall = room_size[0]
     left_wall = 0   
     ceiling = room_size[1]
     floor = 0
     back_wall = room_size[2]
     front_wall = 0
     x = start_point[0]
-    """ test Correction: In ray tracing, the Y-coordinate direction is considered to be 
-    reversed relative to the coordinate direction used for the calculated 
-    world or camera coordinates. 
-    As a result, a person who is taller than the camera is 
-    perceived as being shorter than the camera, and vice versa.
-    This is a provisional fix; at some point, it should be properly 
-    standardized and corrected within the codebase."""
-    # y = start_point[1] # before Correction
-    y = S.cam_pos_in_room[1] - 2*(start_point[1] - S.cam_pos_in_room[1])  # after Correction
+    y = start_point[1] 
     z = start_point[2]
     step = resulution
     # calculate Directional components 
@@ -230,7 +223,7 @@ class RoomAngleDetector:
                 # room angle (pointing angle)
                 start_point = self.shoulder_3d.copy()
                 p1 = rey_tracing_to_room_border(start_point, *self.arm_angles)
-            self.room_angles = find_az_and_el_angle(p1, S.room_center)
+            self.room_angles = find_az_and_el_angle(p1, S.room_center, False)
             self.round_room_angle_to_resulution()
 
         if draw:
@@ -257,7 +250,7 @@ class RoomAngleDetector:
                 # room angle (pointing angle)
                 start_point = self.shoulder_3d.copy()
                 p1 = rey_tracing_to_room_border(start_point, *self.arm_angles)
-            self.room_angles = find_az_and_el_angle(p1, S.room_center)
+            self.room_angles = find_az_and_el_angle(p1, S.room_center, False)
             self.round_room_angle_to_resulution()
 
         if draw:
@@ -269,7 +262,7 @@ class RoomAngleDetector:
             self.arm_angles = [None, None]
         else:
             arm_azimuth = find_azimuth_angle(self.hand_3d, self.shoulder_3d)
-            arm_elevation = find_elevation_angle(self.hand_3d, self.shoulder_3d)
+            arm_elevation = find_elevation_angle(self.hand_3d, self.shoulder_3d, True)
 
             self.arm_angles = self.angle_smoother.add_and_get([arm_azimuth, arm_elevation])
         return self.arm_angles

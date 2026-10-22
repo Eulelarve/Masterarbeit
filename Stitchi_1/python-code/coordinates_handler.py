@@ -74,19 +74,18 @@ def add_estimated_cam_to_human_dist(point_3d:tuple)->list:
 
 def add_estimated_hip_hight(point_3d:tuple)->list:
     x = point_3d[0]
-    y = point_3d[1] + S.estimated_hip_hight # the hip pos is the origin (0,0,0) position in mediapipe world coordinats
+    y = point_3d[1] - S.estimated_hip_hight # up is minus dirction, the hip pos is the origin (0,0,0) position in mediapipe world coordinats
     z = point_3d[2] 
     return [x,y,z]
 
 def mediapipe_world_to_room(world_landmarks):
     pts = []
     for (i,x,y,z) in world_landmarks:
-        xyz = x,y,z
-        xyz = compensate_cam_inclination_angle(xyz)
-        xyz = add_estimated_cam_to_human_dist(xyz)
-        xyz = add_estimated_hip_hight(xyz)
-        ixyz = [i,*xyz]
-        pts.append(ixyz)
+        (x,y,z) = compensate_cam_inclination_angle((x,y,z))
+        (x,y,z) = add_estimated_cam_to_human_dist((x,y,z))
+        (x,y,z) = add_estimated_hip_hight((x,y,z))
+        y = -y # up is pluss in room coordinates, but up is minus in camera coordinates
+        pts.append([i,x,y,z])
     return pts
 
 def mediapipe_pose_to_3d(pose_landmarks:tuple[int], pose_wold_landmarks, intrinsics)->list:
@@ -142,6 +141,7 @@ def rs_pixel_to_3d(pixel_xy:tuple, depth_frame_or_depth:object|float|int, mirrow
     
     x,y,z = rs_pixel_to_meter(cam_intrinsics, pixel_xy, depth)
 
+    y = -y # up is pluss in room coordinates, but up is minus in camera coordinates
     if mirrowed_x_pixel:
         x = - x
 
