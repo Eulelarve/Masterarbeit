@@ -117,7 +117,7 @@ def rey_tracing_to_room_border(start_point:tuple, azimuth_angle:float, elevation
     if azimuth_angle is None:
         return None
     # declatagion of needed values
-    right_wall = room_size[0]
+    right_wall = +room_size[0]/2
     left_wall = 0   
     ceiling = room_size[1]
     floor = 0

@@ -1,0 +1,1 @@
+C:\Users\Videosystem\Desktop\Videosystem_Masterarbeit_Wegener\Masterarbeit\Stitchi_1\venv\Scripts\python.exe "C:\Users\Videosystem\Desktop\Videosystem_Masterarbeit_Wegener\Masterarbeit\Stitchi_1\python-code\main.py"

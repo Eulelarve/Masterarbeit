@@ -109,28 +109,44 @@ def send_info_to(device, printout=False, **infos):
 class SaveUdpToDict:
     def __init__(self):
         self.rx_thread = threading.Thread(target=self.receive_loop, daemon=True)
-        self.on = False
+        self.should_run = False
         self.printout = S.printout_udp
         self.msg_list:list[dict] = []
-        self.loop_time:float = 0
+        self.loop_time:float = S.udp_loop_timeout
         self.bind_ip = S.bind_ip
+        self.port = S.port
+        self.buffer_size = 4096
 
     def receive_loop(self):
-        while self.on:
-            msg, addr = receive_info(S.port, timeout=self.loop_time, printout=self.printout, bind_ip=self.bind_ip)
-            self.add_meassage(msg)
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        sock.bind((self.bind_ip, self.port))
+        if self.loop_time and self.loop_time > 0:
+            sock.settimeout(self.loop_time)
+        else:
+            sock.settimeout(None)
+        while self.should_run:
+            try:
+                data, addr = sock.recvfrom(self.buffer_size)
+                msg = json.loads(data.decode("utf-8"))
+                self.add_meassage(msg)
+                if self.printout:
+                    print(f"Received from {addr}: {msg}")
+            except socket.timeout:
+                pass
+        sock.close()
+            
 
     def add_meassage(self,msg:dict):
         if msg:
             self.msg_list.append(msg)
 
     def start_receiving(self):
-        self.on = True
+        self.should_run = True
         self.rx_thread.start()
 
     def stop_receiving(self):
-        self.on = False
-        self.rx_thread.join(timeout=2)
+        self.should_run = False
+        self.rx_thread.join(timeout=self.loop_time+0.1)
 
 
     def get_msg(self, keep_in_list=False)->dict:

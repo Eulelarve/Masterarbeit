@@ -16,7 +16,7 @@ version = "Stitchi 1.0"
 window_size = (1920, 1080) # (1920, 1080)
 
 # input source
-video_source =  1#'depth'#'../test_videos (gitignore)/d01_0deg_1280x720p_15deg_steps_right.bag'# 1 # can be 0, 1, 2 ... or 'depth_cam' or 'filename.mp4_or_so' or 'filename.bag',  defould is 'depth' to use the real sense depthcam, 0 means une the forst found videostream
+video_source =  'depth'#'../test_videos (gitignore)/d01_0deg_1280x720p_15deg_steps_right.bag'# 1 # can be 0, 1, 2 ... or 'depth_cam' or 'filename.mp4_or_so' or 'filename.bag',  defould is 'depth' to use the real sense depthcam, 0 means une the forst found videostream
 live_stream_resulutuin = (1280,720) # (1280,720) or (640,480)
 fps = 30
 cam_inclination_angle = 0 # Camera tilt angle, measured downwards (+90°) from the horizontal (0°)
@@ -39,7 +39,7 @@ bind_ip = "0.0.0.0"
 printout_udp = True # print alls sended and received messages out im show pressessing mode 
 add_inst_key = 'add_instruments'
 start_instruments =  []#["trumpet", "trumpet", "Tröte", "piano", "violin","trommel","xylo","r2d2"]  # optional, later the audiosystem should give this infos per UDP
-
+udp_loop_timeout = 1 # in secunden, communication check if the programm is still running and starts a new lisening process
 
 
 
@@ -58,7 +58,7 @@ hand_center_hands = (5, 17) # landmark numbers to calcumate the hand center in m
 left_hand_center_pose = (17,19) # landmark numbers to calcumate the hand center in madiapipe pose
 right_hand_center_pose = (18,20) # landmark numbers to calcumate the hand center in madiapipe pose
 # hand detection mode
-grab_detection_methode = 'dynamic' # can be 'static' or 'dynamic'
+grab_detection_methode = 'static' # can be 'static' or 'dynamic'
 # for dynamic grab mode
 dynamic_grab_distance_difference = 1
 dynamic_grab_time_difference = 1

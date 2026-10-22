@@ -746,6 +746,7 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
     # ==================================================
     # finaly and closing - loop ended
     # ==================================================
+    info_receiver.stop_receiving()
     frame_source.end()
 
     # --------------------------------------------------
