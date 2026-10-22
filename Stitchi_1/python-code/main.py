@@ -39,11 +39,9 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
          capture_status_manually:bool=False, 
          capture_status:bool=False,
          start_frame:int = None,
-         end_frame:int=None,
          foto_frames:list=None,
          show_globe = False,
          grab_detection_methode = S.grab_detection_methode,
-         show_depth_frame = False,
          udp_reception_dict={}
          ):
     """
@@ -65,11 +63,8 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
     
     pause_frames = tolist(pause_frames)
     foto_frames = tolist(foto_frames)
-
     if start_frame is None:
         start_frame = 0
-    
-
     
     # create variables
     red = S.red
@@ -79,10 +74,6 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
     should_run = True
 
     cv2.setUseOptimized(True)
-    gui = GuiOverlay()
-    frame_source = FrameSource()
-
-
     frame_counter_processed = 0
     frame_counter_pose = 0
     frame_counter_hand = 0
@@ -92,10 +83,8 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
     visibilety_mode_loop_list = S.display_feedback_mode.copy()
     show_processing = 'process' in visibilety_mode_loop_list[0]
     trigger_text = {'text':'', 'color':green, 'time':0.0}
-
-
-    hand_status_list_dict = {'static_7050':[], 'static_7065':[],  'static_7060':[], 'dynamic_0.6':[], 'dynamic_1.0':[],'dynamic_1.4':[]}
-    hand_status_dict = {'static_7050':None, 'static_7065':None,  'static_7060':None, 'dynamic_0.6':None, 'dynamic_1.0':None,'dynamic_1.4':None}
+    hand_status_list_dict = {'static_7050':[], 'static_7065':[],  'static_7060':[], 'dynamic_0.6':[], 'dynamic_1.0':[],'dynamic_1.4':[]} # for testing only
+    hand_status_dict = {'static_7050':None, 'static_7065':None,  'static_7060':None, 'dynamic_0.6':None, 'dynamic_1.0':None,'dynamic_1.4':None} # for testing only
  
     moves_dict = defaultdict(list)
 
@@ -103,9 +92,7 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
     process = True
     frame = None
     process_ones = False
-    upper_body_len_buffer = ValueBuffer(40)
-    hand_moves = (MoveDetector(),MoveDetector())
-    open_close_status_capturer = SaveFrameStatus(keys=(ord('1'), ord('2'), ord('3')), status=('hand open', 'hand closed', None))
+
 
     last_frame_time = time.perf_counter()
 
@@ -114,17 +101,20 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
     fps_sum = 0
     cam_intrinsics = None
 
+    frame_source = FrameSource(source)
+    gui = GuiOverlay()
+    upper_body_len_buffer = ValueBuffer(40)
+    hand_moves = (MoveDetector(),MoveDetector())
+    open_close_status_capturer = SaveFrameStatus(keys=(ord('1'), ord('2'), ord('3')), status=('hand open', 'hand closed', None)) # for testing only
     hand_detectors = (HandDetector(), HandDetector())
     pose_detector = PoseDetector()
     angle_detector = RoomAngleDetector()
     gesture_detector = GestureDetector()
-    communicator = SendOnChange((S.IPv4_audiosystem,S.port))
+    communicator = SendOnChange((S.IPv4_audiosystem, S.port))
     info_receiver = SaveUdpToDict()
     info_receiver.start_receiving()
 
     time.sleep(0.5)
-
-
 
     frame_x=frame_source.w 
     frame_y=frame_source.h
@@ -174,9 +164,7 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
                 print('Error delta_time is',delta_time)
 
             last_frame_time = time.perf_counter()
-            
             fps_sum += fps
-
         # --------------------------------------------------
         # Keyboard controls
         # --------------------------------------------------
@@ -246,7 +234,6 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
             else:
                 paused = True
                 process_ones = False
-
 
         # --------------------------------------------------
         # Live / Video Live processing
@@ -373,7 +360,7 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
 
                         # ---------------------------------------
                         # choose a hand opening detection methode
-                        if capture_status:
+                        if capture_status: # for testing only
                             hand_status[_i] = gesture_detector.hand_open_close_static(_i, thr_open=70, thr_closed = 50, frame=frame_overlay, draw=show_processing, buffer_size=S.hand_status_buffer_size)
                             hand_status_dict['static_7050'] = hand_status[_i]
                             hand_status[_i] = gesture_detector.hand_open_close_static(_i, thr_open=70, thr_closed = 65, frame=frame_overlay, draw=show_processing, buffer_size=S.hand_status_buffer_size)
@@ -387,7 +374,7 @@ def main(fps_cap=S.fps, show_fps=True,source=0,
                             hand_status[_i] = gesture_detector.hand_open_close_dynamic(_i, frame_overlay, show_processing, min_distance_difference=1.2)
                             hand_status_dict['dynamic_1.4'] = hand_status[_i]
 
-                        else:
+                        else: #regulare function
                             try:
                                 factor = float(grab_detection_methode[grab_detection_methode.find('__')+2:])
                             except:
@@ -817,11 +804,9 @@ if __name__ == "__main__":
             capture_status_manually=False,
             capture_status = False,
             start_frame=1,
-            end_frame = None,
             foto_frames=None,
             show_globe=False,
             # grab_detection_methode=grab_detection_methode,
-            show_depth_frame = False,
             udp_reception_dict={S.add_inst_key:S.start_instruments},
         )
         if r == False:break

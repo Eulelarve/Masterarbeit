@@ -16,9 +16,9 @@ from own_functions import cv2_mouse_callback
 import numpy as np
 
 class FrameSource:
-  def __init__(self) -> None:
+  def __init__(self, source) -> None:
+    self.source = source
     self.name = S.name+' - '+S.version
-    self.source = S.video_source
     self.w, self.h = S.live_stream_resulutuin
     self.align_depth = S.align_depth
     self.show_depth_frame = S.show_depth_frame

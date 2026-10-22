@@ -16,7 +16,7 @@ version = "Stitchi 1.0"
 window_size = (1920, 1080) # (1920, 1080)
 
 # input source
-video_source =  'depth'#'../test_videos (gitignore)/d01_0deg_1280x720p_15deg_steps_right.bag'# 1 # can be 0, 1, 2 ... or 'depth_cam' or 'filename.mp4_or_so' or 'filename.bag',  defould is 'depth' to use the real sense depthcam, 0 means une the forst found videostream
+video_source = 'depth'#'../test_videos (gitignore)/d01_0deg_1280x720p_15deg_steps_right.bag'# 1 # can be 0, 1, 2 ... or 'depth_cam' or 'filename.mp4_or_so' or 'filename.bag',  defould is 'depth' to use the real sense depthcam, 0 means une the forst found videostream
 live_stream_resulutuin = (1280,720) # (1280,720) or (640,480)
 fps = 30
 cam_inclination_angle = 0 # Camera tilt angle, measured downwards (+90°) from the horizontal (0°)
