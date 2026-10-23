@@ -81,8 +81,8 @@ def add_estimated_hip_hight(point_3d:tuple)->list:
 def mediapipe_world_to_room(world_landmarks):
     pts = []
     for (i,x,y,z) in world_landmarks:
-        (x,y,z) = compensate_cam_inclination_angle((x,y,z))
         (x,y,z) = add_estimated_cam_to_human_dist((x,y,z))
+        (x,y,z) = compensate_cam_inclination_angle((x,y,z))
         (x,y,z) = add_estimated_hip_hight((x,y,z))
         y = -y # up is pluss in room coordinates, but up is minus in camera coordinates
         pts.append([i,x,y,z])
