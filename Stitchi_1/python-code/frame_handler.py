@@ -41,11 +41,11 @@ class FrameSource:
     self.use_rs = False
     self.use_depth_cam = False
     if type(self.source) is int:
-        print('use livestream cam nr.:', self.source)
+        print(f'settings.py/video_source = {self.source} use livestream cam nr.:', self.source)
     elif 'depth' in self.source.lower():
         self.use_rs = True
         self.use_depth_cam = True
-        print(self.source,': means using realsens depth cam', )
+        print(f'settings.py/video_source = {self.source}: means using realsens depth cam', )
     else:
         self.playback = True
         if self.source[-4:] == S.rs_save_type:
@@ -71,7 +71,11 @@ class FrameSource:
                                       *S.live_stream_resulutuin,
                                       rs.format.z16,
                                       S.fps)
-    self.profile = self.pipeline.start(self.config)
+    try:
+        self.profile = self.pipeline.start(self.config)
+    except Exception as e:
+        raise RuntimeError("Camera could not be started: No depth camera found. Try setting video_source = 0 in settings.py.") from e
+    
     if self.use_rs and self.align_depth:
         self.aligner = rs.align(rs.stream.color)
     if self.playback:

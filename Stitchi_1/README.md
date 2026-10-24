@@ -50,11 +50,12 @@ Stitchi1.0/
 
 ## Setup
 
-Open PowerShell or the Visual Studio Code terminal in the project folder, then move into `python-code`:
+Open PowerShell or the Visual Studio Code terminal in the project folder, then move into `Stitchi_1`:
 
 ```powershell
-cd python-code
+cd ...system...path...\Masterarbeit\Stitchi_1
 ```
+or open the PowerShell directly in this folder
 
 Create and activate a virtual environment:
 
@@ -72,21 +73,29 @@ python -m pip install -r requirements.txt
 
 If PowerShell prevents activation of the virtual environment, use the Python interpreter from `.venv` directly or follow your organisation's approved PowerShell policy. If installation fails, check that Python 3.11.4 is selected and review the package versions in `requirements.txt`.
 
-## Run the gesture-control application
+## Run the gesture-control application Stitchi 1.0
 
-From the `python-code` directory, run:
+If the virtual environment is active, run from the `Stitchi_1` directory:
 
 ```powershell
-python main.py
+python "python-code\main.py"
 ```
+
+if not run more spicific:
+
+```powershell
+venv\Scripts\python.exe "python-code\main.py"
+```
+
+you can also dobble klick the `start_Stitschi_venv.bat`, witch contains the last PowerShell line.
 
 The application uses the input source configured in `settings.py`. Check `video_source` before starting:
 
 - An integer such as `0` or `1` selects a camera index.
-- `'depth_cam'` selects the RealSense depth-camera path supported by the code.
+- `'depth_cam'` or `'depth'` selects the RealSense depth-camera path supported by the code.
 - A video filename/path selects a recorded video; RealSense `.bag` recordings are also supported by the code.
 
-The supplied `settings.py` currently sets `video_source = 1`. Change this value to match the camera or recording available on your computer. Other relevant settings include camera/room geometry, GUI options, and UDP addresses and port. Press **Esc** to exit the application.
+The supplied `settings.py` currently sets `video_source = 'depth'`. Change this value just im needed to match the camera or recording available on your computer. Other relevant settings include camera/room geometry, GUI options, and UDP addresses and port, . Press **Esc** to exit the application.
 
 ## MATLAB and UDP communication
 
